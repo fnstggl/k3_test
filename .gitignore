@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+third_party/*/
+!third_party/LOCK.md
+results/**/raw_large/

@@ -1,0 +1,1004 @@
+                                                                                                                                                                             LLM-on-the-Palm: Mobile LLM Inference with
+                                                                                                                                                                                PIM-Enhanced NAND Flash Memory
+2025 IEEE/ACM International Conference On Computer Aided Design (ICCAD) | 979-8-3315-1560-7/25/$31.00 ©2025 IEEE | DOI: 10.1109/ICCAD66269.2025.11240826
+
+
+
+
+                                                                                                                                                                                                          Hyunjin Kim∗ , Sanghyeok Han∗ , Jae-Joon Kim
+                                                                                                                                                                                                           Seoul National University, Seoul, Republic of Korea
+                                                                                                                                                                                                             {hyunjin.kim, hansh778, kimjaejoon}@snu.ac.kr
+
+
+
+                                                                                                                                                              Abstract—Large Language Model (LLM) inference on edge devices                    NAND Flash                        DRAM
+                                                                                                                                                           is crucial for democratizing AI and addressing privacy and security                  (~256 GB)                       (~8 GB)                    NPU
+                                                                                                                                                           concerns associated with cloud services. However, the large parameter
+                                                                                                                                                           sizes of LLMs pose significant challenges in deployment on resource-                                  Bottleneck
+                                                                                                                                                           constrained devices, affecting user experience. Mobile DRAM typically                                 for weight       KV $
+                                                                                                                                                           cannot accommodate these parameters, necessitating the use of NAND                     Weights        movement                               Compute
+                                                                                                                                                           flash memory, but it has considerably slower access speeds. To overcome                >13 GB                        Activation
+                                                                                                                                                           the limitations, we propose LLM-on-the-Palm, an LLM inference system
+                                                                                                                                                           for smartphones that leverages Processing-in-Memory (PIM)-enhanced
+                                                                                                                                                           NAND flash memory to enable fast inference of billion-parameter LLMs
+                                                                                                                                                                                                                                                               ~4 GB/s                     ~50 GB/s
+                                                                                                                                                           with minimal hardware modifications. Our approach requires only a                                (a) Conventional LLM inference on mobile
+                                                                                                                                                           single multiply-accumulate (MAC) unit per plane in a NAND flash                                                             DRAM               NPU
+                                                                                                                                                           memory - 256 MAC units for 256 GB SSD - without compromising                        Internal BW: ~120 GB/s
+                                                                                                                                                           cell density. Simulation results show that our design achieves ∼100 ms                             1 MAC per plane
+                                                                                                                                                           per token generation on a 6.7B model under specifications similar to an                                                       KV $
+                                                                                                                                                                                                                                                 Weights                ~256                             Attention
+                                                                                                                                                           iPhone-15.
+
+                                                                                                                                                                                      I. I NTRODUCTION                                                                                   Activation
+                                                                                                                                                                                                                                                            FC layers
+                                                                                                                                                              LLM inference on edge devices is garnering attention due to the
+                                                                                                                                                           concerns for privacy and security issues [1], [2]. However, LLM                               (b) Proposed mobile LLM inference system w/ Flash-PIM
+                                                                                                                                                           inference requires large system resources due to its large number              Fig. 1: Comparison of existing mobile LLM inference scenario and
+                                                                                                                                                           of parameters. Since DRAM capacity in mobile devices is not large              our proposed mobile LLM inference based on Flash-PIM.
+                                                                                                                                                           enough to store all parameters, they are typically brought from NAND
+                                                                                                                                                           flash memory. However, NAND flash memory is much slower than                   its limited plane utilization, which stems from significant buffer
+                                                                                                                                                           DRAM, resulting in unacceptable performance. Fig. 1(a) shows this              area overhead. This limitation degrades cell read throughput and
+                                                                                                                                                           challenge, in case of specifications close to that of an iPhone-15. For        prevents the system from meeting Service Level Objective (SLO)
+                                                                                                                                                           a 16-bit 6.7B model, at least 13 GB of memory space is needed.                 for smartphones. Furthermore, Cambricon-LLM requires a dedicated
+                                                                                                                                                           Recently, LLM-in-a-flash [3] introduced optimization techniques to             neural processing unit (NPU) to be integrated into the controller
+                                                                                                                                                           accelerate LLM in laptops using NAND flash memory, by pruning                  die, which incurs significant modification of the existing smartphone
+                                                                                                                                                           weight parameters and caching parameters in DRAM for reuse.                    system and high I/O energy consumption when transferring weights
+                                                                                                                                                           However, it has several limitations. First, the pruning technique often        to the controller die. In contrast, our design employs only a single
+                                                                                                                                                           involves accuracy drop problem, which hinders application of various           Multiply-Accumulate (MAC) unit per NAND flash plane, minimizing
+                                                                                                                                                           LLMs. Second, it involves memory management overhead to support                its overhead for lightweight, power-constrained devices.
+                                                                                                                                                           DRAM caching. Most importantly, it still occupies large portion of
+                                                                                                                                                                                                                                             To design LLM-on-the-Palm, we analyze the characteristics of
+                                                                                                                                                           DRAM, thus not scalable to larger models and hard to apply to more
+                                                                                                                                                                                                                                          LLM inference when executed on Flash-PIM architectures. LLM
+                                                                                                                                                           resource-restricted devices such as mobile phones.
+                                                                                                                                                                                                                                          inference involves various computation kernels, each with distinct
+                                                                                                                                                              We aim to run LLM inference on smartphones targeting the time
+                                                                                                                                                                                                                                          computational and memory access patterns that affect the perfor-
+                                                                                                                                                           per output token (TPOT) of ∼100 ms which is known to be faster
+                                                                                                                                                                                                                                          mance of Flash-PIM. We conducted both qualitative and quantitative
+                                                                                                                                                           than a person can typically read, without modifying pre-trained
+                                                                                                                                                                                                                                          analysis of the behavior of NAND flash memory during LLM
+                                                                                                                                                           weights [4]. To achieve this goal, we propose LLM-on-the-Palm, a
+                                                                                                                                                                                                                                          inference and designed the optimal inference scheme on mobile
+                                                                                                                                                           mobile system for rapid LLM inference with Processing-In-Memory
+                                                                                                                                                                                                                                          systems.
+                                                                                                                                                           (PIM)-enhanced NAND flash memory. Our system exploits Flash-
+                                                                                                                                                                                                                                             In mobile LLM system design, minimizing cost and overhead is
+                                                                                                                                                           PIM [5]–[7], which embeds computing units inside NAND flash
+                                                                                                                                                                                                                                          critical. To address the issue, we implement a performance- and
+                                                                                                                                                           memory to reduce off-chip transfer of weights. The elimination of
+                                                                                                                                                                                                                                          area-efficient Flash-PIM architecture for LLM inference. Through a
+                                                                                                                                                           loading a huge amount of weight parameters from storage to NPU
+                                                                                                                                                                                                                                          detailed analysis of NAND flash memory cell latency and compute
+                                                                                                                                                           significantly reduces the data transfer latency.
+                                                                                                                                                                                                                                          latency, we discovered that incorporating just a single MAC unit per
+                                                                                                                                                              One of our primary design goals is to minimize the hardware
+                                                                                                                                                                                                                                          plane is sufficient to fully exploit the inherent plane-level parallelism
+                                                                                                                                                           overhead to enable PIM capability within NAND flash memory.
+                                                                                                                                                                                                                                          in NAND flash memory, incurring negligible impact on area and
+                                                                                                                                                           Cambricon-LLM [6] recently exploited Flash-PIM for LLM inference
+                                                                                                                                                                                                                                          energy.
+                                                                                                                                                           at the edge computing environment. However, it is challenging to
+                                                                                                                                                           adopt Cambricon-LLM style design in smartphone systems due to                     Fig.1(b) illustrates an exemplary LLM inference system config-
+                                                                                                                                                                                                                                          uration based on our proposed scheme, assuming iPhone 15-level
+                                                                                                                                                             *These authors contributed equally to this work.                             specifications. We offload prefill to NPU since it requires substantial
+
+
+
+
+                                                                                                                                                                   Authorized licensed use limited to: Stanford University. Downloaded on August 30,2026 at 05:47:34 UTC from IEEE Xplore. Restrictions apply.
+           NAND flash memory                                                                                                                     with peripheral circuits such as a row decoder, a column decoder,
+                                                                                                                                                 and a page buffer. The row and column decoder select target cells
+                                      Package         Die                          Plane                                                         within the array, while the page buffer temporarily stores data either
+                          Package
+                            [0]         Die          Plane                                                                                       being read from or to be written to the cell array.
+
+
+
+
+                                                                  Row decoder
+                                        [0]           [0]
+                                                                                                                                                    During read and write, data movement between the cell array
+        Channel[0]
+
+
+
+
+                                                                                                                                    Channel[2]
+                                                                                                                       Channel[1]
+                          Package                                                Cell array
+                            [1]
+                                        Die          Plane                                                                                       and the page buffer incurs substantial latency overhead, necessitating
+                                        [1]           [1]
+                                                                                                                                                 parallel operation across multiple planes to achieve high through-
+                          Package
+                            [2]
+                                        Die          Plane                        Page Buffer                                                    put [8]–[10]. However, channel bandwidth limits the throughput of
+                                        [2]           [2]                       Column decoder
+                                                                                                                                                 such multi-plane operation, as multiple planes share a channel. To
+                                                                                                                                                 enhance throughput by better utilizing plane-level parallelism, recent
+                                Fig. 2: NAND flash memory architecture.                                                                          studies have proposed to integrate computing unit within NAND flash
+                                                                                                                                                 die, which will be detailed in Section II-C.
+compute resources, so the figure focuses on the decoding process.
+In this design, a MAC unit is placed near each NAND flash plane                                                                                  B. LLM inference on mobile platforms: DRAM capacity and Flash
+to perform multiplication between the weights from the plane and                                                                                 memory bandwidth issues
+input vectors supplied from DRAM. Flash-PIM provides much higher                                                                                    There is a growing demand in industry for running LLM inference
+bandwidth than off-chip bandwidth, even with only ∼256 MACs                                                                                      on mobile platforms due to the privacy and security issues in cloud
+for 256 GB storage because its plane-parallel operation enables                                                                                  services [1], [2]. However, performing LLM inference on mobile
+much higher internal bandwidth compared to the external bandwidth.                                                                               platforms remains highly challenging compared to other AI models
+To optimize performance, Flash-PIM and NPU in our system are                                                                                     such as convolutional neural networks (CNNs). While CNNs benefit
+assigned different layers in each transformer decoder block. Although                                                                            from high parallelism by simultaneously processing numerous pixels,
+attention mechanisms are memory-bound, we observed that they incur                                                                               LLMs are inherently more memory-bound due to their auto-regressive
+significant overhead when executed on NAND flash memory due to                                                                                   nature. More importantly, a critical limitation lies in the mobile
+the auto-regressive nature of LLM decoding. Therefore, as shown in                                                                               DRAM capacity, which is insufficient to load the vast number of
+Fig.1(b), we store all activations, including the key-value (KV) cache,                                                                          parameters required by LLMs. Fig. 3(a) shows the capacity of DRAM
+on DRAM and offload attention computations to NPU. Flash-PIM is                                                                                  in recently released smartphone models alongside various LLM
+dedicated to processing fully-connected (FC) layers, which involve                                                                               model parameter sizes. None of the devices can fully accomodate
+multiplication of large weight parameters and activations.                                                                                       model parameters ranging from 6.7B to 30B. Consequently, model
+   In our simulations on a mobile platform with iPhone 15–level                                                                                  parameters should be brought from the storage, typically NAND
+specifications (using the NAND flash specifications from Galaxy S24,                                                                             flash, at runtime. Fig. 3(b) shows that even the smallest NAND
+as iPhone 15 NAND specs are not publicly available), our system                                                                                  flash capacity (128 GB) commonly found in smartphones can store
+achieves 100∼120 ms of time-per-output-token (TPOT) for a 6.7B                                                                                   a 30B model. The challenge, however, still lies in bandwidth. While
+model, which is ∼30× faster than the conventional configuration                                                                                  LPDDR5 offers around 50 GB/s, typical smartphone SSDs (e.g., 256
+based on Flash memory. Furthermore, by integrating model pruning                                                                                 GB) provide only about 4 GB/s. The large bandwidth gap between
+techniques [3] in our scheme, we can support larger models (e.g. 13B                                                                             DRAM and NAND flash results in significant data transfer delays
+and 30B) with 155 and 356 ms TPOT, respectively.                                                                                                 from NAND flash, which dominates the end-to-end latency. It makes
+                                                                                                                                                 LLM inference unacceptably slow for a satisfactory user experience.
+                                                II. P RELIMINARIES
+A. NAND flash memory                                                                                                                             C. Related work on edge LLM inference using Flash memory
+   NAND flash memory is a non-volatile storage that offers high                                                                                    Recently, LLM-in-a-flash [3] demonstrated an approach to reduce
+density and low cost per bit, making it widely used in solid-state                                                                               LLM inference latency by storing model parameters in NAND flash
+drives (SSD). To enhance parallelism and storage efficiency, NAND                                                                                memory and reducing data transfer from NAND flash by predicting
+flash is organized in a hierarchical structure as shown in Fig. 2. It                                                                            zero activation values and selectively reading only the necessary
+comprises multiple channels, each connected to several NAND flash                                                                                weights. It also optimizes DRAM usage under limited capacity by
+packages. A package contains multiple dies, and each die is further                                                                              caching a subset of model parameters in DRAM and reusing them
+divided into multiple planes. A plane consists of a cell array along                                                                             across multiple token generations.
+
+                                    DRAM capacity            Model size                                               NAND flash capacity options              Model size                                        NAND flash     DRAM / NPU    Flash-PIM
+                     70                                                                                        1200                                                                                      3500
+                                                                                                                                                                            time per output token [ms]
+
+
+
+
+                                                       GPT-3 30B                                                                                                                                                       3121
+                                                                                         NAND Flash capacity
+
+
+
+
+                     60                                                                                                                                                                                  3000
+& Model size [GB]
+
+
+
+
+                                                                                                               1000
+                                                                                          & Model size [GB]
+ DRAM capacity
+
+
+
+
+                     50                                                                                                                                                                                  2500
+                                                                                                                800
+                     40                                                                                                                                                                                  2000
+                                                                                                                600                                                                                                                   ~30X Faster
+                     30                                GPT-3 13B                                                                                                                                         1500
+                                                                                                                400
+                     20                                                                                                                                                                                  1000
+                                                       GPT-3 6.7B
+                     10                                                                                         200                                                                                       500
+                                                                                                                                                    GPT-3 6.7B~30B                                                                           105
+                      0                                                                                           0                                                                                         0
+                           iPhone 15 iPhone 15      Galaxy     Galaxy                                                   iPhone 15 iPhone 15          Galaxy    Galaxy                                                NPU-only                Ours
+                            Pro Max                  S24      S24 Ultra                                                  Pro Max                      S24     S24 Ultra
+
+                           (a) DRAM capacity of smartphones                                                      (b) NAND flash capacity of smartphones                                                         (c) Data transfer overhead reduction
+
+Fig. 3: Analysis of (a) DRAM and (b) NAND flash capacity of smartphones with LLM model sizes and (c) data transfer overhead in NAND
+flash for GPT-3 6.7B inference (128 input tokens and 128 output tokens).
+
+
+
+
+                          Authorized licensed use limited to: Stanford University. Downloaded on August 30,2026 at 05:47:34 UTC from IEEE Xplore. Restrictions apply.
+Fig. 4: (a) Proposed Flash-PIM architecture, where the green box
+represents an additional processing unit integrated into conventional            Fig. 5: Optimized Flash-PIM operation with a single MAC unit.
+NAND flash, and (b) its area-efficient MAC unit.
+                                                                                     III. O PTIMIZING F LASH -PIM ARCHITECTURE FOR LLM
+                                                                               A. Overall architecture
+                                                                                  We design a Flash-PIM architecture optimized for vector-matrix
+                                                                               multiplication (GEMV) operations in LLM inference. Our architec-
+   However, this approach has several limitations. First, its reliance         ture enhances performance by pipelining MAC operations with input
+on pruning techniques can lead to noticeable accuracy degradation,             transfers from the host and subsequent weight fetches from the cell
+which restricts its applicability across diverse LLM architectures [11],       array. As shown in Fig. 4, the architecture integrates a processing
+[12]. Furthermore, it assumes activation sparsity by using ReLU [13]           unit (PU) adjacent to the column decoder in each NAND flash plane.
+activation function, making it less compatible with models that use            Each PU includes a single MAC unit consisting of a 16-bit floating-
+GeLU [14] functions [15]. Second, the method incurs memory man-                point multiplier and a 32-bit floating-point adder, a demultiplexer that
+agement overhead to support DRAM caching. It requires rearranging              routes input data either to the cell array for conventional memory
+memory space for each token generation to minimize DRAM cache                  writes or to the MAC unit for PIM computations, and a multiplexer
+size, which increases DRAM access latency. More importantly, it                to select the output from either the cell array for conventional
+still consumes a large portion of DRAM for DRAM caching. For a                 memory read or from the MAC unit. The MAC unit performs GEMV
+6.7B model, it uses 6.5 GB of 14 GB capacity of DRAM, assuming                 operations between the external input vectors and the weight values
+only half of the DRAM is available for LLM inference since the                 read from the cell array. Since GEMV involves computing the product
+other half is needed for other smartphone applications. Furthermore,           of a single input vector and a 2-dimensional weight matrix, the same
+heavy DRAM usage limits scalability in terms of both model size                input data is shared across multiple planes. To support this, the input
+and context length, the latter of which increases the KV cache                 vector is broadcast through channels to all planes.
+size in DRAM. In summary, the high DRAM overhead hinders
+the applicability of LLM-in-a-Flash to mobile devices and longer               B. MAC unit optimization
+contexts.                                                                         By integrating only one MAC unit per plane, our Flash-PIM ar-
+                                                                               chitecture significantly reduces power and area consumption. Due to
+   A promising approach to address the data bandwidth issue is                 the highly memory-bound nature of LLM inference, this lightweight
+using Flash-PIM [5]–[7], which reduces data transfer overhead by               computing unit does not compromise overall performance. Despite
+integrating computing units within NAND flash. Instead of trans-               having only 256 MAC units in total for a 256GB NAND flash [10],
+ferring large raw data from NAND flash to off-chip, Flash-PIM                  our design matches the performance of designs that use substantially
+transfers the smaller computation results by processing the data inside        more MAC units.
+NAND flash. As shown in Fig. 3(c), our Flash-PIM architecture                     Fig. 5 shows why a single MAC unit per plane in Flash-PIM is
+significantly reduces off-chip data transfer, achieving more than a 10x        sufficient for LLM inference. In this figure, we assume MAC units
+speedup and reaching close to reasonable service time. Similar to our          operating at 400 MHz integrated into a 256GB storage made up
+work, Cambricon-LLM [6] employs Flash-PIM for LLM inference.                   of a low-latency NAND flash, Z-NAND [10]. During each MAC
+However, it faces several limitations. First, the large input buffer           operation, the subsequent row of weights (i.e., a page) is read from
+required for its Flash-PIM computing units prevents them from being            the cell array and stored in the page buffer, which takes approximately
+implemented in every plane. As a result, a single computing unit must          3µs. We use the 3µs cell read latency as the computation window for
+be shared across multiple planes, leading to plane under-utilization           the MAC unit, ensuring no performance loss as long as entire MAC
+and lower throughput. Second, Cambricon-LLM requires additional                operations are completed within this time frame.
+NPU integrated into the NAND flash controller to co-process weights               Each MAC operation cycle includes input transfer, computation,
+stored in NAND flash alongside the Flash-PIM computing units to                and output transfer phases. In each cycle, the MAC unit processes
+compensate for the low plane utilization. In contrast, our proposed            2B of input data and 2B of weight data. Input data transfer requires
+architecture minimizes buffer overhead by pipelining MAC compu-                0.6ns per 2B transfer at a channel bandwidth of 3.2GB/s [16], which
+tation with input transfers. This reduction in buffer overhead allows          is significantly shorter than a MAC computation time of 2.5ns.
+the placement of a PIM unit in each plane, enabling multiple planes            Based on the observation, input transfers are pipelined with MAC
+within a die to execute PIM operations in parallel, significantly              computations to optimize performance. Using a conventional 1B-wide
+increasing throughput. Furthermore, our architecture does not need             channel, the next input data is preloaded into a 1B register (Fig. 4(b)).
+an extra NPU due to the abundance of PIM units.                                This pipelining strategy reduces the overall computation latency and
+
+
+
+
+        Authorized licensed use limited to: Stanford University. Downloaded on August 30,2026 at 05:47:34 UTC from IEEE Xplore. Restrictions apply.
+ϟ‫ؿ ˒ה‬ːʋ
+      ؅ֵࡿ ५ࢄࢷ
+        ϟ‫˒ה‬     ‫ۺ‬Й
+            ‫ ؿ‬؅ֵࡿ  ‫ ׽‬୧ࡪ‫ۺ ۺ‬Й ‫ ׽‬୧ࡪ‫ۺ‬
+                  ५ࢄࢷ
+ ؅ֵࡵ ̛࣑ ֻ‫ࢊ؂‬ ‫ݛݤ‬੬ࢂ
+         ‫ ؿ‬؅ֵࡵ ̛࣑‫ض‬୘ձ
+                 ֻ‫ࢊ؂‬ফ‫ܕ‬ଞࡳԻ ࡁ˱ଡফ‫ܕ‬ଞࡳԻ ࡁ˱ଡ
+                     ‫ݛݤ‬੬ࢂ ‫ض‬୘ձ
+ ࡧ‫ ۉ‬ϟ‫ࡵה‬       ࡧ‫ ۉ‬ϟ‫ࡵה‬                 ߾       ‫؀‬                   ߾ҟࢂ ˱ୃࡶ
+                                                                     ‫؀‬   ঴ɼԻ ଗࡁԻ ଜࠆ ঴ɼԻ ଗࡁԻ ଜࠆ
+                                                                              ҟࢂ ˱ୃࡶ
+     ձ ؈ۢ‫੅ݤ‬               ձ ؈ۢ‫੅ݤ‬
+ ‫ ؿ‬؅ֵࡵ ɽ βҖ ଐԎ‫ݤ‬    кβҖ
+             ‫ ؿ‬؅ֵࡵ ɽ ফ‫ܕ‬ଞࢂ
+                       ଐԎ‫ݤ‬ փࡶ ঴ɼଜˈ ̘࣎ ‫ݘ‬վચ૥ࡿ
+                           к ফ‫ܕ‬ଞࢂ     փࡶ ঴ɼଜˈ ծ
+                                              ̘࣎ ‫ݘ‬վચ૥ࡿ                                                                              ծ
+୘ࡅଡࡳԻ‫ݛݤ ̛࣑ ނ‬੬ࢂ ‫ض‬୘ձ ফ‫ܕ‬ଞࡳԻ ࡁ˱ଡ
+          ୘ࡅଡࡳԻ‫ݛݤ ̛࣑ ނ‬੬ࢂ ‫ض‬୘ձ ফ‫ܕ‬ଞࡳԻ ࡁ˱ଡ
+                                             ‫ ؿ‬؅ֵࡿ ،‫ݢ‬
+                                                                               ‫ ؿ‬؅ֵࡿ ،‫ݢ‬
+                                                                              Exploit existing                                require large input buffers, forcing multiple planes to share a single
+               Ctrl die
+               overhead              Plane                                    mobile NPU
+                                                                                                                              unit, our design integrates a compact processing unit into every
+                                                 Plane                                                                Plane
+                                      #0                                                                    PU
+                                                                                                                       #0
+
+
+
+
+                                                                                 Controller die
+                                                 Low util.
+                                                                                                                              plane. Additionally, by avoiding weight transfers to the NPU and
+
+
+
+
+                                                                 Mobile NPU
+                          Weight                                                                            Weight
+               NPU                                                                                Input
+
+
+
+
+                                                     PU + Buf.
+                                     Plane
+                                      #1                                                                    PU
+                                                                                                                      Plane   broadcasting input data to all dies and planes via shared channels,
+             Controller                                                                                                #1
+                                                                                                          On-die
+                die       High I/O   Plane                                                                broadcast
+                                                                                                                              LLM-on-the-Palm reduces channel I/O traffic. This enables pipelined
+                          energy                                                                                      Plane
+                                      #2                                                                    PU
+                                                                                                                       #2     input transfer and MAC computation with minimal register usage, as
+           SSD Package               NAND Flash dies                          SSD Package                   NAND Flash dies   explained in Section III-B, allowing for smaller area footprint per
+                                                                                                                              processing unit and full-plane deployment.
+                   (a) Cambricon-LLM                                   (b) LLM-on-the-Palm (Ours)
+                                                                                                                                 (3) Finally, LLM-on-the-Palm achieves lower energy consumption
+              Fig. 6: System difference between Cambricon-LLM and ours.                                                       by reducing channel I/O traffic. In our design, weight remain local
+                                                                                                                              within the NAND flash dies, and only input vectors are transferred
+          eliminates the need for a large input buffer, significantly reducing area
+                                                                                                                              through I/O channel. In addition, channel-level and on-die broadcast-
+          overhead. During computation, the MAC unit iteratively processes
+                                                                                                                              ing further reduce the I/O burden. In contrast, Cambricon-LLM incurs
+          1024 weight elements that were stored in the Z-NAND page buffer,
+                                                                                                                              higher energy costs due to frequent and large-scale weight transfers
+          completing the operation in 1024 cycles (2.5µs). After these compu-
+                                                                                                                              from NAND flash to the NPU.
+          tations, each plane outputs a 4B result to an external device through
+          the channel, consuming 35ns. Since the ∼2.5µs of overall latency                                                     IV. LLM P ROFILING AND M APPING FOR LLM- ON - THE -PALM
+          of the 1024 MAC operations using a single MAC unit is shorter
+                                                                                                                              A. Prefill vs. Decoding
+          than the cell read latency, 3µs, each MAC unit completes its task
+          before the next page is ready. Consequently, throughput is maximized                                                   LLM inference consists of operations with diverse computational
+          and effectively limited only by the cell-read latency. As a result,                                                 characteristics, each impacting performance of Flash-PIM architec-
+          our proposed Flash-PIM architecture can achieve high performance                                                    ture diferently. LLM inference can be divided into two stages: prefill
+          with just a single MAC unit per plane. Although cell read latency is                                                and decoding, which have different operational intensities. The prefill
+          relatively long, parallel cell reads across multiple planes provide high                                            stage processes input context to generate the first output token.
+          aggregate throughput (i.e., 117GB/s for our configuration), enabling                                                This stage typically involves computing tens to thousands of tokens
+          efficient and fast LLM inference.                                                                                   in parallel and is implemented as a matrix-matrix multiplication
+                                                                                                                              (GEMM) kernel. GEMM is compute-bound and highly optimized
+          C. ONFI command for Flash-PIM                                                                                       for NPUs, which reuse weights stored in on-chip SRAM caches
+             We design a control scheme for the Flash-PIM architecture within                                                 to hide memory access latency. Despite the bandwidth limitations
+          a conventional NAND flash interface protocol, ONFI [17]. The                                                        of NAND flash, the NPU’s larger compute capacity leads to a
+          controller transfers control signals to NAND flash through ONFI pins                                                lower time-to-first-token (TTFT) compared to Flash-PIM. Based on
+          such as DQ (i.e., data pin) and CE # (i.e., chip-enable # pin). To                                                  the observation, we offload the prefill task to the NPU. Detailed
+          transfer input for GEMV, we utilize the standard write data transfer                                                performance comparison between NPU and Flash-PIM for prefill
+          mechanism, but extend it to broadcast input data across multiple                                                    tasks will be shown in Section IV-B.
+          NAND flash dies. While DQ pins are connected to the shared data                                                        Unlike the prefill, decoding stage is memory-bound due to its
+          bus in a channel, the controller transfers input data to the shared bus                                             auto-regressive nature, and tokens are generated sequentially. As
+          and set CE # to 0 for target NAND flash dies for input broadcast.                                                   a result, the decoding stage relies on vector-matrix multiplication
+          While conventional NAND flash selects a single NAND flash die per                                                   (GEMV) kernels, which impose memory bottlenecks not only on
+          channel, our design can select multiple NAND flash dies as CE #                                                     NAND flash but also on DRAM. To relax the memory bottleneck,
+          of each die is controlled by separate signal lines. Additionally, to                                                batching techniques [18]–[20] have been proposed, which handle
+          distinguish Flash-PIM operation with conventional NAND flash read,                                                  multiple requests simultaneously to convert GEMV operations to
+          we assign a new opcode for Flash-PIM (36h) among vendor specific                                                    GEMM operations and increase token-level parallelism. However,
+          opcodes of ONFI.                                                                                                    since LLM inference on smartphones typically involves single-user
+                                                                                                                              scenarios, batching techniques that are commonly used in data centers
+          D. System efficiency of the proposed scheme on smartphones                                                          are generally not applicable in such cases. Therefore, our target
+             Compared to the prior Flash-PIM based LLM inference archi-                                                       workload for decoding stage is the single-batch case, where only
+          tecture, Cambricon-LLM [6], the proposed LLM-on-the-Palm offers                                                     GEMV operations are performed. Since GEMV is memory-bound, it
+          three key advantages for performance, area, and energy as illustrated                                               presents a strong opportunity for acceleration using Flash-PIM, which
+          in Fig. 6. Cambricon-LLM adopts chiplet technology to implement                                                     is designed to alleviate memory access bottlenecks.
+          NPU on the controller die, incorporating components such as a
+          systolic array, SRAM buffers and special function units, etc. The                                                   B. Selective layer-wise mapping strategy for Flash-PIM and NPU
+          NPU performs near-memory processing by transferring weights from                                                       While Flash-PIM is effective for memory-bound operations, the
+          NAND flash dies to the controller die over chiplet interconnects.                                                   transformer decoder block contains diverse types of layers that impact
+             (1) In contrast, LLM-on-the-Palm leverages existing mobile NPUs                                                  Flash-PIM performance differently, as illustrated in Fig. 7(a). These
+          without requiring chiplet-based interconnects for high-bandwidth                                                    layers can be categorized into two types based on their computation
+          weight transfer. The NPU is used exclusively for attention operations,                                              patterns: weight-activation multiplication and activation-activation
+          which do not require model weights. All computations involving                                                      multiplication layers. Fully Connected (FC) layers such as Feed
+          weights are processed by Flash-PIM units within NAND flash dies,                                                    Forward Network (FFN) and the QKV generation and projection
+          eliminating external weight transfers, as detailed in Section IV.                                                   layers in the attention module are based on weight-activation mul-
+             (2) Despite the lightweight architecture, LLM-on-the-Palm                                                        tiplications. These layers involve the multiplication of input feature
+          achieves higher throughput than Cambricon-LLM through improved                                                      vectors with pre-trained weight matrices. Since weights are static
+          plane utilization. While Cambricon-LLM’s on-die processing units                                                    and stored in NAND flash prior to runtime, Flash-PIM achieves a
+
+
+
+
+                     Authorized licensed use limited to: Stanford University. Downloaded on August 30,2026 at 05:47:34 UTC from IEEE Xplore. Restrictions apply.
+                   FC layers                     Attention layers                 Special functions                                            1800                                            Max. Throughput
+
+
+
+
+                                                                                                                     Write throughput [MB/s]
+                                                Decoder block                                                                                  1600
+                         Multi-head attention                                                                                                  1400
+                                                                                                                                               1200
+                                                                                                         xN
+                                                                                                                                               1000
+                                                                                                                                                800
+                                                                                                                                                600
+                                                                                                                                                                        OPT 30B
+    FC layers: weight-act operation                        Attention layers: act-act operation                                                  400
+                                                                                                                                                                       OPT 13B
+                                                                                                                                                200
+      Input vector                                                                Score                                                                               OPT 6.7B
+
+
+
+
+                                                                                                 Value
+                                                   Query                                                                                          0
+                     X                                                                     X
+                              Weight                       X    Key                                                                                       0     50    100   150 200 250 300         350   400    450
+                                                                                                                                                                            Write data size [KiB]
+                         Preloaded on
+                                                                           Produced                           Fig. 8: Dependence of NAND flash write throughput on the write
+                          NAND flash
+                                                                           at runtime                         data size. The write throughput increases as the data size increases
+                                     (a) Transformer decoder block                                            but KV cache update size in LLM decoding is significantly lower
+                                                                                                              than the desired data size for the maximum throughput.
+                     Prefill xDecode
+                               (#output)         Value $ in a 2 KB cell row
+                      KV $        KV $                                                                                                                        TABLE I: System configuration
+                                                                                        Other planes
+                      write      update
+                                                    Context length    WR                                                                                  Interface         Host interface: UFS 4.0, Flash interface: ONFI 5.2
+                                                                                               ...
+                              1x hidden_dim                                                                                                               Capacity          SSD capacity = 56GB, Die capacity = 8GB
+         ...
+
+
+
+
+                                                                           2B
+        xN                                                                          New token vector
+                                                                                                               NAND flash                             Die configuration     4 dies/channel, 8 planes/die, tR=3us
+               #Input x hidden_dim                 Row utilization =
+                                                                                                                                                         Bandwidth          Channel: 3.2GB/s, Host interface: 4.2GB/s
+                                                                                                                                                           Supply           VCC=3.3V, ICC1=70mA
+                                                       (c) Utilization issue in NAND flash                        NPU                                                        Apple Neural Engine Gen6
+   (b) NAND flash write overhead                                Value cache update                               DRAM                                                              LPDDR5 6GB
+Fig. 7: Analysis of each operation in LLM decoding on Flash-
+PIM. Activation-activation multiplication incurs NAND-Flash write                                             significantly increasing latency.
+overhead, especially in Score x Value (SxV) operations.                                                          Our profiling results in Fig. 9 support this analysis. As shown in
+                                                                                                              Fig. 9a, Flash-PIM is significantly faster than NPU in FC layers.
+significant speedup by eliminating the need to frequently transfer                                            However, in attention operations shown in Fig. 9b and Fig. 9c,
+large volumes of weights. As described in Fig.3(c), it takes ∼3                                               Flash-PIM becomes slower than NPU due to significant overhead
+seconds to transfer 6.7B parameters from NAND flash to NPU, which                                             to write NAND-Flash. In particular, SxV performance is dominated
+dominates the entire runtime. In this case, the abundance of compute                                          by the high NAND flash write latency due to the poor row utilization
+resources in NPU does not help to reduce the runtime. In contrast, our                                        (Fig. 9c).
+Flash-PIM reduces the transfer latency to less than 100 ms, leveraging                                           Based on the analysis, we assign the FC layers to Flash-PIM and
+the high internal bandwidth enabled by parallel reads from NAND                                               QKV multiplication to NPU, as depicted in Fig.1. An exception is
+flash planes to their dedicated PUs. Note that we can significantly                                           the Query x Key multiplication for long input sequences. When the
+reduce the overall execution time by offloading only the FC layers                                            context length is long, the benefits of alleviating memory bottleneck
+to Flash-PIM, which accounts for up to 99.5% of decoding latency                                              with Flash-PIM outweigh the NAND flash write overhead (Fig. 9b).
+when executed on NPU.                                                                                         The runtime breakdown in Fig. 9d shows that longer input context
+   On the other hand, attention operations, specifically Query x Key                                          length increases the proportion of attention layers, which underlines
+(QxK) and Score x Value (SxV), are activation-activation multipli-                                            the importance to accelerate attention by using Flash-PIM. In ad-
+cations and are assigned to the NPU and DRAM. This is due to                                                  dition, as shown in the KV cache size in Fig. 9d, KV cache size
+their high overhead when executed with NAND flash memory as                                                   can exceed the DRAM capacity as the input length becomes larger.
+the input vector is multiplied by activation data, either the Key or                                          By moving the Key cache to the NAND flash memory, which is
+Value matrix from the KV cache generated at runtime. In such cases,                                           the half of KV cache, we can save the DRAM capacity and handle
+KV cache produced from QKV generation layer should be written                                                 2X longer context requests. Therefore, we can further optimize the
+to NAND flash when the prefill completes and should be updated                                                Flash-PIM usage by selectively offloading Query x Key task to NPU
+for each token generation as described in Fig. 7 (b), causing extra                                           or Flash-PIM. For a short input context, NPU handles all attention
+overhead to write NAND flash.                                                                                 operations. However, when the request has a much longer context
+   Moreover, the auto-regressive nature of decoding increases the KV                                          (e.g., 4096), Flash-PIM handles a part of the attention layers; Query x
+cache update overhead. Unlike the prefill, the KV cache size grows                                            Key multiplication, saving DRAM space and enhancing performance.
+incrementally with each token, and only a single token vector of the
+hidden dimension (e.g. 4096 for GPT-3-6.7B) can be appended at a                                                                                                       V. E VALUATION
+time. NAND flash throughput deteriorates as the write data size be-
+comes smaller as shown in Fig. 8. For example, in GPT-3-6.7B model,                                           A. Evaluation setup
+NAND flash throughput drops more than 10× from the maximum                                                       In this section, we compare the proposed architecture with the
+I/O throughput. For SxV, the NAND flash write overhead becomes                                                conventional LLM inference architecture using NPU (referred to as
+particularly severe. Since SxV processes dot products between the                                             NPU-only in this paper) and Cambricon-LLM [6]. Our evaluation
+previous token elements, sequential token elements of Value matrix                                            includes single-batch inferences on smartphones for three variants of
+should be stored in the same row in a NAND flash cell array to be                                             GPT-3 [15]: 6.7B, 13B and 30B. In this setup, weights are stored
+read simultaneously as shown in Fig. 7(c). However, when appending                                            in NAND flash due to their large size, while KV caches reside in
+a new token, only one 16-bit data element can be added to a cell row                                          DRAM. Additionally, we analyze the area and power overhead of
+of 2 KB while other elements should be distributed across multiple                                            Flash-PIM and its sensitivity to different NAND flash types and
+planes. This leads to decrease in row utilization by up to 1024×,                                             capacities.
+
+
+
+
+        Authorized licensed use limited to: Stanford University. Downloaded on August 30,2026 at 05:47:34 UTC from IEEE Xplore. Restrictions apply.
+                                                      NPU             Flash-PIM                                                                  Key cache write overhead after prefill                                                                                                                                                                                                          FC layers (in Flash-PIM)
+                                                                                                                                                                                                                                                                Value cache write overhead after prefill
+                                       16                                                                                                        Key cache write overhead during decode                                                                                                                                                                                                          Attention (in NPU)
+  Decoding latency for FC layers [s]
+
+
+
+
+                                                                                 14.3                                                                                                                                                                           Value cache write overhead during decode                                                                                         KV cache size
+
+
+
+
+                                                                                                                                                                                                                        Decoding latency for SxV [ms]
+                                                                                                      Decoding latency for QxK [ms]
+                                       14                                                                                                        Data read & compute                                                                                                                                                                                                 100%                                                                       7
+                                                                                                                                                                                                                                                                Data read & compute
+                                                                                                                                                 NPU latency                                                                                                    NPU latency                                                                                           90%
+                                                                                                                                                                                                                                                                                                                                                                                                                                                6
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                 Runtime breakdown
+                                                                                                                                      60
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                    KV cache size [GB]
+                                       12                                                                                                                                                                                                               200                                                                                                           80%
+                                                                                                                                      50                                                                                                                                                                                                                              70%                                                                       5
+                                       10
+                                                                                                                                                                                                                                                        150                                                                                                           60%                                                                       4
+                                                                                                                                      40                                                                                                                                                                                                                                    DRAM capacity budget
+                                        8                                                                                                                                                                                                                                                                                                                             50%
+                                                                6.1                                                                   30                                                                                                                                                                                                                              40%                                                                       3
+                                                                                                                                                                                                                                                        100
+                                        6
+                                                                                                                                      20                                                                                                                                                                                                                              30%                                                                       2
+                                        4     3.1                                                                                                                                                                                                        50                                                                                                           20%
+                                                                                                                                      10                                                                                                                                                                                                                                                                                                        1
+                                                                                                                                                                                                                                                                                                                                                                      10%
+                                        2                                                                                             0                                                                                                                                                                                                                                0%                                                                       0
+                                                                      0.2               0.5                                                                                                                                                               0
+                                                    0.1                                                                                                                                                                                                                                                                                                                     128    1024   4096    128   1024   4096   128    1024     4096
+                                                                                                                                            128 1024 4096 128 1024 4096 128 1024 4096                                                                          128 1024 4096 128 1024 4096 128 1024 4096
+                                        0
+                                               6.7B               13B              30B                                                              6.7B                        13B                      30B                                                           6.7B                                   13B                 30B                                              6.7B                  13B                  30B
+
+
+                                       (a) FC layers latency                                                                                 (b) Query x Key latency                                                                                          (c) Score x Value latency                                                                                     (d) Runtime breakdown & KV size
+Fig. 9: Profiling results for decoding stage of GPT-3 [15] on NPU and Flash-PIM with different parameter sizes (6.7B, 13B, 30B) and
+different context lengths (128, 1024, 4096) for generating 128 tokens.
+
+                                                                                                NPU-only                                               Cambricon-LLM                             Ours                                                                                                                   NPU-only + LLM-in-a-flash (6GB DRAM)                                     NPU-only + LLM-in-a-flash (3GB DRAM)
+Time per output token [ms]
+
+
+
+
+                                       100000                                                                                                                                                                                                                                                                           Cambricon-LLM + LLM-in-a-flash                                           Ours + LLM-in-a-flash
+
+
+
+
+                                                                                                                                                                                                                                                                              Time per output token [ms]
+                                                                                                                                                                                              14,303     14,315      14,328                               14,340
+                                        10000                                                                                         6,092         6,099         6,106         6,114                                                                                                                 10,000                                                                                              5,169       5,454       5,466      5,752
+                                                    3,121         3,126         3,131         3,135                                                                                                                                                                                                                                                                                                   4,454       4,740       4,752       5,037
+                                                                                                                                                                                                 1,844      1,856       1,868                                  1,880
+       (log scale)
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                            1,801       1,971       1,978      2,148
+                                                                                                                                           785         792           799           806                                                                                                                                                                              1,257       1,264      1,434              1,300       1,312       1,324      1,336
+                                            1000                                                                                                                                                   477         489                             501               513                                                                              802   1,087
+                                                          402         407          411           416                                                                                                                                                                                                       1,000                689      693
+
+
+
+
+                                                                                                                                                                                                                                                                                     (log scale)
+                                                                                                                                                                                                                                                                                                                      580                                       554         561         568        575
+                                                                                                                                              204           211           218           225                                                                                                                                                                                                                     338         350         362        374
+                                                                                        114           118                                                                                                                                                                                                                284      288      293      298
+                                                            105           109                                                                                                                                                                                                                                                                                                                        166
+                                            100                                                                                                                                                                                                                                                                     145       150      154      159               144         152         159
+                                                                                                                                                                                                                                                                                                                                    79       83       88
+                                                                                                                                                                                                                                                                                                            100            74
+
+                                             10
+                                                                                                                                                                                                                                                                                                             10
+                                              1
+                               Input #                128           128          1024          1024                                        128        128          1024          1024           128        128        1024                                    1024                                            1
+                              Output #                128          1024           128          1024                                        128       1024           128          1024           128       1024         128                                    1024                           Input #                   128       128       1024                      1024    128      128    1024       1024   128      128       1024       1024
+                                                                   GPT-3 6.7B                                                                         GPT-3 13B                                            GPT-3 30B                                                                        Output #                   128       1024      128                       1024    128     1024    128        1024   128     1024       128        1024
+                                                                                                                                                                                                                                                                                                                                 GPT-3 6.7B                                          GPT-3 13B                          GPT-3 30B
+Fig. 10: Time per output token of the conventional architecture (NPU-
+only), Cambricon-LLM, and the proposed architecture (Ours).                                                                                                                                                                                                                   Fig. 11: Time per output token when LLM-in-a-flash [3] techniques
+                                                                                                                                                                                                                                                                              are applied.
+   Table I shows the system configuration used for evaluation. For                                                                                                                                                                                                            achieve substantial speedups and meet the reasonable user experience
+NAND flash configuration, we use 256GB UFS 4.0 [21] mobile                                                                                                                                                                                                                    level even for larger models such as 13B or 30B on smartphones.
+storage with Z-NAND [10], which provides cell latency (tR) of 3us                                                                                                                                                                                                                Fig. 11 shows evaluation results of TPOT after applying LLM-
+and channel bandwidth of 3.2GB/s. We use single level cell, which                                                                                                                                                                                                             in-a-flash techniques. While NPU-only baseline benefits from the
+does not require error correction code (ECC) computation. Detailed                                                                                                                                                                                                            DRAM-based weight caching of LLM-in-a-flash, Flash-PIM-based
+discussion on ECC will be provided in Section VI-A. The NAND                                                                                                                                                                                                                  architectures cannot benefit since computation is performed directly
+flash operates at VCC=3.3V and ICC1=70mA for multi-plane read.                                                                                                                                                                                                                within NAND flash and weights are not transferred to DRAM. Since
+DRAM and NPU configurations follow iPhone 15 specifications,                                                                                                                                                                                                                  the effectiveness of DRAM weight caching depends on the available
+using LPDDR5 6GB and Apple Neural Engine Gen6, respectively.                                                                                                                                                                                                                  DRAM capacity for storing the weights, we consider two scenarios
+We simulate NAND flash latency with MQSim [22] and DRAM                                                                                                                                                                                                                       for the NPU-only baseline: (1) a full DRAM capacity (6GB) is
+latency with DRAMSim [23]. Power consumption for NAND flash is                                                                                                                                                                                                                allocated to LLM inference, (2) only half the capacity (3GB) is
+evaluated using the Micron Parallel NAND System Power Calculator.                                                                                                                                                                                                             available. The first case with 6GB DRAM represents an ideal scenario
+MAC units are synthesized in 28nm CMOS technology with Synop-                                                                                                                                                                                                                 where the entire DRAM is dedicated to LLM, while the second case
+sys Design Compiler [24] to estimate area and power consumption.                                                                                                                                                                                                              with 3GB DRAM space reflects a more realistic scenario where
+                                                                                                                                                                                                                                                                              the half of the DRAM is used by other applications, as in the
+B. Decoding latency                                                                                                                                                                                                                                                           LLM-in-a-flash experiments [3]. Under these scenarios, the proposed
+                                                                                                                                                                                                                                                                              architecture achieves reduced average TPOTs of 81ms, 155ms, and
+   Fig. 10 compares the time per output token (TPOT) between the                                                                                                                                                                                                              356ms for 6.7B, 13B, and 30B, respectively. This corresponds to
+NPU-only baseline and the proposed architecture. TPOT represents                                                                                                                                                                                                              geometric mean speedups of 5.9× and 12× over the NPU-only
+the decoding latency required to generate a single output token.                                                                                                                                                                                                              baseline with 6GB and 3GB available DRAM, respectively. Note that
+For the evaluation, we use four different input-output token count                                                                                                                                                                                                            the performance of the NPU-only baseline is still limited even with
+pairs. The average TPOTs for the proposed architecture are 112ms,                                                                                                                                                                                                             LLM-in-a-flash DRAM caching, due to DRAM capacity constraints.
+215ms, and 495ms for GPT-3 models with 6.7B, 13B, and 30B                                                                                                                                                                                                                     As model size and context length increases, or the available DRAM
+parameters, respectively. This results in a geometric mean speedup                                                                                                                                                                                                            capacity decreases, the effectiveness of LLM-in-a-flash techniques
+of 28×/3.7× over the NPU-only/Cambricon-LLM, respectively. As                                                                                                                                                                                                                 diminishes for the NPU-only baseline. In contrast, the performance
+expected, longer input contexts increase TPOT as they increase the                                                                                                                                                                                                            of the proposed architecture does not depend on the available
+computation overhead in attention layers due to the larger KV cache                                                                                                                                                                                                           DRAM capacity as it leverages Flash-PIM rather than DRAM weight
+size. In addition, larger models require reading more weights from                                                                                                                                                                                                            caching. The proposed architecture also achieves a 3.6× speedup over
+NAND flash, further increasing TPOT.                                                                                                                                                                                                                                          Cambricon-LLM when LLM-in-a-flash techniques are applied, thanks
+   To further reduce TPOT, we apply LLM-in-a-flash [3] techniques                                                                                                                                                                                                             to its more efficient design. Note that Cambricon-LLM also does not
+discussed in Section II-C. While LLM-in-a-flash provides reasonable                                                                                                                                                                                                           utilize DRAM for weight caching in this comparsion.
+TPOT for NPU-only on edge devices with larger DRAM capacities
+such as laptops, it does not provide sufficient speedup on smartphones                                                                                                                                                                                                        C. Prefill latency
+due to the limited DRAM capacity. In contrast, by combining                                                                                                                                                                                                                      While the proposed architecture employs both Flash-PIM and NPU
+the proposed architecture with LLM-in-a-flash techniques, we can                                                                                                                                                                                                              for decoding stage, which dominates the end-to-end latency, it relies
+
+
+
+
+                                                   Authorized licensed use limited to: Stanford University. Downloaded on August 30,2026 at 05:47:34 UTC from IEEE Xplore. Restrictions apply.
+                                                                                                                                                               Area overhead [%]
+                                                               NPU            NPU + LLM-in-a-flash                         Flash-PIM                                               2.5                                                             2.29
+Time to first token [s]
+
+
+
+
+                          1000                                                                                                                      538                            2.0
+                                                                                                                238
+                                                                       126                                                                 134                                     1.5
+     (log scale)
+
+
+
+
+                              100                                                                     58                                                                           1.0
+                                                               30                                                              28                3123
+                                                                                                            1410      15              18                                           0.5                 0.29
+                                                                                       12                                               10                                                                                                                                                 0.05
+                                                6                    8 6       6              8                            6                                                       0.0
+                               10                     4                                           4
+                                        3                                          3
+                                            1
+                                                           2                                                                                                                                Cambricon-LLM                              Cambricon-LLM                                      Ours
+                                 1                                                                                                                                                            (Original)                                 (PU/plane)
+                                         128          1024           4096       128           1024           4096      128             1024      4096
+                                                                                                                                                                                   Fig. 14: Area overhead of processing units relative to flash die.
+                                                    GPT-3 6.7B                              GPT-3 13B                               GPT-3 30B
+                                                                                                                                                                                                                                Cell read               I/O           P/E (Flash-PIM)
+Fig. 12: Prefill latency of NPU and Flash-PIM. We use NPU for                                                                                                                                                                                                                48.3
+                                                                                                                                                                                   50
+prefill stage.                                                                                                                                                                     40
+
+
+
+
+                                                                                                                                                          Energy [J]
+                                            NPU-only + LLM-in-a-flash                                      Cambricon-LLM + LLM-in-a-flash                                          30                                                                                                       26.7
+                                            Ours + LLM-in-a-flash (K in DRAM)                              Ours + LLM-in-a-flash (K in Flash)                                                                                        20.7
+                                                                                                                                                                                   20
+ Time per output token [ms]
+
+
+
+
+                                                               6GB DRAM                                               3GB DRAM                                                           10.7                                                       11.4
+                       10,000                                                 5,772                                                                                                10                  5.9                                                                                                   6.6
+                                                                                                                                                                                                                         1.5                                         2.8
+                                                               1,871               1,460                                                                                            0
+                                                                                                      1,082
+         (log scale)
+
+
+
+
+                              1,000                                617
+
+
+
+
+                                                                                                                                                                                         NPU-only
+
+
+
+
+                                                                                                                                                                                                                                      NPU-only
+
+
+
+
+                                                                                                                                                                                                                                                                              NPU-only
+                                                                                                                                                                                                                                                     Cambricon-LLM
+
+
+
+
+                                                                                                                                                                                                                                                                                             Cambricon-LLM
+                                                                                                                                                                                         NPU Cambricon Ours                         NPU Cambricon Ours                      NPU Cambricon Ours
+
+
+
+
+                                                                                                                                                                                                        Cambricon -LLM
+                                                                                      444410
+
+
+
+
+                                                                                                                                                                                                                         Ours
+
+
+
+
+                                                                                                                                                                                                                                                                     Ours
+
+
+
+
+                                                                                                                                                                                                                                                                                                             Ours
+                                                324                                                       324                                       410
+                                        201                          208188                                                          188                                                 -only -LLM                                 -only -LLM                              -only -LLM
+                                                  115102                                                    115102
+                               100
+                                                                                                                                                                                                    GPT-3 6.7B                                   GPT-3 13B                               GPT-3 30B
+                                10
+                                                                                                                       OOM
+                                                                                                                       OOM
+                                                                                                                       OOM
+
+
+
+                                                                                                                                              OOM
+                                                                                                                                              OOM
+                                                                                                                                              OOM
+                                                                                                                                                                                                    Fig. 15: Comparison of energy consumption.
+                                 1
+                                        GPT-3 6.7B              GPT-3 13B      GPT-3 30B              GPT-3 6.7B      GPT-3 13B              GPT-3 30B
+                                                                                                                                                          LLM does not fully exploit plane-level parallelism, as multiple planes
+Fig. 13: Latency for long sequences in (a) decoding stage and (b)
+                                                                                                                                                          within a NAND flash die share a single processing unit, resulting
+prefill stage. We use NPU for prefill stage.
+                                                                                                                                                          in lower throughput. Fig. 14 shows the area overhead relative to
+solely on NPU for prefill stage. As shown in Fig. 12, NPU achieves                                                                                        NAND flash dies. The Cambricon-LLM paper [6] reports that placing
+lower time to first token (TTFT), defined as the latency of prefill                                                                                       a processing unit in every plane for Cambricon-LLM was not feasible
+stage to generate the first output token, compared to Flash-PIM. As                                                                                       as it incurs 2.4% area overhead. Our evaluation confirms the finding.
+prefill stage requires GEMM computations on large amount of inputs,                                                                                       In our study, placing processing unit in each plane for Cambricon-
+which require high-throughput input transfer, Flash-PIM suffers from                                                                                      LLM, labeled as Cambricon-LLM (PU/plane) in Fig. 14, showed
+high latency to transfer input through the low channel bandwidth (i.e.,                                                                                   2.3% area overhead. In contrast, our architecture drastically reduces
+3.2GB/s). Given the importance of TTFT for user experience, we can                                                                                        buffer size as explained in Section III-B, achieving only 0.05% area
+apply LLM-in-a-flash techniques to reduce TTFT. NPU-only with                                                                                             overhead. This demonstrates the feasibility of placing a processing
+LLM-in-a-flash achieves average TTFT of 1.5s/3.5s/8s, for GPT-3                                                                                           unit for each plane in our design.
+6.7B/13B/30B, respectively.
+                                                                                                                                                          F. Energy consumption
+D. Long sequence latency                                                                                                                                     Fig. 15 shows the energy consumption in NAND flash during each
+   To evaluate TPOT for long sequences, we simulated decoding                                                                                             output token generation. The proposed architecture reduces energy
+of GPT-3 variants with 4096 input tokens and 128 output tokens,                                                                                           consumption of NAND flash by 8.3×/4.5× compared to NPU-
+as shown in Fig. 13. We applied LLM-in-a-flash technique for all                                                                                          only/Cambricon-LLM, respectively. In mobile systems with limited
+architectures. As demonstrated in Section IV-B with Fig. 9b, storing                                                                                      battery capacity, low energy consumption is critical. For the NPU-
+Key cache in NAND flash reduces the amount of DRAM usage                                                                                                  only baseline which consumes the highest energy, I/O accounts for
+and prevents out-of-memory (OOM) in DRAM during long sequence                                                                                             89.5% of total energy to transfer weight to NPU from NAND flash.
+decoding, while also improving performance. With 6GB of available                                                                                         Cambricon-LLM reduces I/O energy by reducing the amount of data
+DRAM, our architecture achieves speedup of 2.0×/10×/14× over the                                                                                          transfer using Flash-PIM, but I/O energy still constitutes 80.7% of
+NPU-only baseline for GPT-3 6.7B/13B/30B models, respectively.                                                                                            total energy as it transfers a portion of weights to the external NPU. In
+Compared to Cambricon-LLM under the same DRAM constraint,                                                                                                 contrast, the proposed architecture fully utilizes Flash-PIM, reducing
+our architecture achieves 3.2×/3.3×/3.6× for GPT-3 6.7B/13B/30B                                                                                           I/O energy to 21.8% of the total energy. All three architectures
+models, respectively. Note that the NPU-only baseline slightly out-                                                                                       consume the same energy for flash cell reads, as the same number of
+performs Cambricon-LLM for GPT-3 6.7B when 6GB of DRAM                                                                                                    data needs to be read from Flash array. The proposed design incurs a
+is available, as the NPU-only greatly benefits from the LLM-in-                                                                                           small additional energy (1.3%) for additional program/erase (P/E) for
+a-flash technique by caching a large portion of weights due to                                                                                            Flash-PIM operations. However, the overhead is relatively small and
+small model size and relatively large available DRAM capacity. With                                                                                       the proposed design achieves the lowest total energy consumption.
+3GB of available DRAM, for GPT-3 6.7B, our architecture achieves
+                                                                                                                                                          G. Sensitivity analysis
+speedup of 11×/3.2× over NPU-only/Cambricon-LLM, respectively.
+For GPT-3 13B and GPT-3 30B, our architecture achieves TPOTs of                                                                                              A sensitivity analysis on latency, averaged across the token num-
+129ms and 272ms, respectively. However, NPU-only and Cambricon-                                                                                           bers used in evaluations of Section V-B, shows that NAND flash
+LLM encounter DRAM out-of-memory errors, which our architecture                                                                                           specifications primarily determine the performance of LLM inference
+avoids by offloading Key cache to NAND flash.                                                                                                             in resource-constrained devices such as smartphones. NAND flash
+                                                                                                                                                          with larger capacity, which includes more planes, results in higher
+E. Area overhead                                                                                                                                          performance by increasing the plane-level parallelism of Flash-PIM.
+   Our architecture introduces relatively small area overhead to im-                                                                                      Fig. 16(a) shows that TPOT of the proposed architecture improves
+plement processing units in Flash-PIM, enabling the deployment of                                                                                         with larger capacities. For instance, a 1024GB NAND flash, the
+one processing unit per NAND flash plane. This high plane-level par-                                                                                      largest capacity available in commercial smartphones, achieves a
+allelism significantly improves throughput. In contrast, Cambricon-                                                                                       3.4× speedup over a 128GB NAND flash, the smallest available
+
+
+
+
+                                      Authorized licensed use limited to: Stanford University. Downloaded on August 30,2026 at 05:47:34 UTC from IEEE Xplore. Restrictions apply.
+                                                 6.7B               13B                30B                                                  Ours (M-NAND)                       Ours (Z-NAND)           the approach of Cambricon-LLM [6] that integrates an on-die ECC
+                                900                                                                                           10000
+                                                                                                                                                                                                        module within each plane consuming additional latency and area.
+   Time per output token [ms]
+
+
+
+
+                                                                                                   Time per output token [ms]
+                                            834                                                                                                                                      2,297
+                                800
+                                700                                                                                                                                 978
+                                                                                                                                   1000    501                                              495
+                                600                                                                                                                                       215
+
+
+
+
+                                                                                                           (log scale)
+                                500                           495                                                                                 112                                                   B. Comparison to in-storage processing
+                                                                                                                                    100
+                                400         359                            326
+                                300
+                                                                                             241
+                                                                                                                                                                                                           In-storage processing (ISP), which integrates compute logic into
+                                            185               215                                                                   10
+                                200
+                                100
+                                                              112
+                                                                           142
+                                                                           75                106
+                                                                                                                                                                                                        the controller [26]–[28], improves the performance over conven-
+                                                                                             56
+                                  0                                                                                                   1                                                                 tional NPU-only systems for LLM inference by offloading weight
+                                       128 (128)      256 (256)      512 (512) 1024 (1024)                                                GPT-3 6.7B           GPT-3 13B            GPT-3 30B
+                                         NAND Flash capacity [GB] (plane#)                                                                                                                              computation to storage. ISP typically can employ more complex
+                                      (a) Sensitivity on NAND flash capacity                                                              (b) Sensitivity on NAND flash type                            compute units within the controller die. However, ISP must fetch
+                                               6.7B                 13B                30B                                                            6.7B                13B              30B          large weight matrices from NAND flash to the controller over off-chip
+                                600                                                                                                  20
+                                                                                                                                                19.0                                                    interfaces with limited bandwidth (e.g., 3.2GB/s per channel [16]).
+Time per output token [ms]
+
+
+
+
+                                           516          502         495      491                                                                             17.1         16.4
+                                500                                                          488                                                                                    15.9
+                                                                                                         Time to first token [s]
+
+
+
+
+                                                                                                                                     15
+                                                                                                                                                                                                 15.7
+                                                                                                                                                                                                        This introduces significant latency and energy overhead, especially
+                                400
+                                                                                                                                                                                                        for memory-bound workloads including GEMV in LLM decoding.
+                                300                                                                                                  10
+                                           227          219          215         212         210
+                                                                                                                                                8.2          7.3          7.0        6.8                Meanwhile, our Flash-PIM architecture processes data directly in
+                                200                                                                                                                                                              6.7
+                                           119          114         112      110             109
+                                                                                                                                      5         4.2          3.8          3.6        3.5          3.5
+                                                                                                                                                                                                        NAND flash with much higher bandwidth (e.g., 117GB/s for 256GB
+                                100
+                                                                                                                                                                                                        NAND flash), achieving 4.3x speedup over ISP that assumes the NPU
+                                  0                                                                                                   0
+                                        3400     4900  6400    7900                     9400                                                7           12            17           22        27         integrated in the flash controller under our system configuration.
+                                               DRAM bandwidth [Mbps]                                                                                               TFLOPS
+                                       (c) Sensitivity on DRAM bandwidth                                                                  (d) Sensitivity on NPU performance
+                                                                                                                                                                                                        C. Other applications
+Fig. 16: Sensitivity analysis of the proposed architecture on (a)
+NAND flash capacities, (b) types of NAND flash, (c) DRAM band-                                                                                                                                             The proposed architecture can support a wide range of applica-
+width, and (d) NPU performance.                                                                                                                                                                         tions that includes MAC computation, which serve as fundamental
+                                                                                                                                                                                                        computation kernels in various domains. In vector databases, which
+capacity. However, this speedup scales sub-linearly with capacity                                                                                                                                       store text, image, or audio as high-dimensional vectors, dot product
+because the shared channel incurs increases command transfer delays                                                                                                                                     operations play a critical role in measuring similarity between stored
+as the number of planes increases.                                                                                                                                                                      vectors and input query vector [29]–[31]. By storing these large-scale
+   The type of NAND flash also has a substantial impact on per-                                                                                                                                         vectors in NAND flash, our Flash-PIM-based MAC engine efficiently
+formance. We evaluate the TPOT of the proposed architecture using                                                                                                                                       accelerates the similarity computation, benefiting key applications
+medium-latency NAND flash [9], referred to as M-NAND in this                                                                                                                                            such as Retrieval-Augmented Generation (RAG) [32], recommenda-
+paper, and compare it with our previous evaluations with low-latency                                                                                                                                    tion systems [33], and semantic search [34]. The architecture also
+NAND Flash (Z-NAND) [10]. Fig. 16(b) shows that Z-NAND deliv-                                                                                                                                           applies to signal processing workloads like the Discrete Fourier
+ers a 4.6× speedup over M-NAND. Although Z-NAND offers both                                                                                                                                             Transform (DFT) [35]–[37]. DFT decomposes discrete signals into
+high throughput and low latency for cell reads, conventional memory                                                                                                                                     their constituent frequency components through MAC computations.
+usage cannot fully exploit the throughput due to channel bandwidth                                                                                                                                      Applications such as speech recognition, music analysis, and image
+bottlenecks, limiting its advantage to lower latency only. On the                                                                                                                                       processing, heavily rely on DFT.
+other hand, Flash-PIM bypasses the channel bandwidth bottleneck
+by computing before data is transferred. This enables full utilization                                                                                                                                                           VII. C ONCLUSION
+of the high cell read throughput of Z-NAND, resulting in higher
+performance.                                                                                                                                                                                               We propose a Flash-PIM-based architecture that enables efficient
+   For LLM inference on mobile systems with limited DRAM                                                                                                                                                LLM inference on smartphones, which has limited DRAM capacity.
+capactiy, the latency of NAND flash dominates the overall LLM                                                                                                                                           Conventional mobile systems suffer from excessive data transfer
+performance, making it much more important than DRAM bandwidth                                                                                                                                          overhead, as it must repeatedly load parameters from NAND flash
+and NPU compute throughput. Fig. 16(c) shows that increasing                                                                                                                                            during inference. The proposed architecture addresses this bottleneck
+DRAM bandwidth from 3400Mbps to 9400Mbps results in only a                                                                                                                                              by embedding lightweight compute units in NAND flash die, elimi-
+1.1× geomean speedup. Similarly, Fig. 16(d) shows that increasing                                                                                                                                       nating the off-chip weight transfer. Unlike previous Flash-PIM-based
+NPU throughput from 7 TFLOPS to 27 TFLOPS achieves just a 1.2×                                                                                                                                          architecture, our design fully exploits the high cell read bandwidth of
+speedup.                                                                                                                                                                                                NAND flash by placing compute units in every plane. As a result, the
+                                                                                                                                                                                                        proposed architecture achieves a 3.7× speedup and a 4.5× reduction in
+                                                                                  VI. D ISCUSSION                                                                                                       energy consumption compared to the previous architecture, offering
+A. Exclusion of error correction                                                                                                                                                                        an efficient and practical solution for on-device LLM inference.
+   The proposed Flash-PIM architecture leverages single-level cell
+                                                                                                                                                                                                                                ACKNOWLEDGMENT
+(SLC) NAND flash, which offers a sufficiently low bit error rate
+(BER) ensuring reliable computation and storage without error cor-                                                                                                                                        This work was supported in part by Institute of Information &
+rection code (ECC). SLC is well-suited for Flash-PIM as it provides                                                                                                                                     communications Technology Planning & Evaluation (IITP) grant
+low cell read latency enabling high-throughput Flash-PIM operations.                                                                                                                                    funded by the Korea government (MSIT) (RS-2023-00208606, Neu-
+This design choice aligns with prior works such as [25] and [5]. In                                                                                                                                     roHub+: Scheduler and Simulator for General In-Memory Neural
+contrast, multi-level cell (MLC) NAND flash exhibits significantly                                                                                                                                      Network Accelerators, RS-2022-II220266, Development of Ultra-
+higher BER due to reduced read margins, necessitating ECC for data                                                                                                                                      Low Power Low-Bit Precision Mixed-mode SRAM PIM, No. 2021-
+integrity. However, the conventional ECC module locates at SSD                                                                                                                                          0-01343: Artificial Intelligence Graduate School Program (Seoul
+controller, requiring off-chip data transfer for error correction. To                                                                                                                                   National University)), and BK21 FOUR program at Seoul National
+support Flash-PIM in MLC-based systems, we can additionally adopt                                                                                                                                       University. (Corresponding Author: Jae-Joon Kim).
+
+
+
+
+                                         Authorized licensed use limited to: Stanford University. Downloaded on August 30,2026 at 05:47:34 UTC from IEEE Xplore. Restrictions apply.
+                              R EFERENCES                                            pagedattention. In Proceedings of the 29th Symposium on Operating
+                                                                                     Systems Principles, pages 611–626, 2023.
+ [1] Badhan Chandra Das, M Hadi Amini, and Yanzhao Wu. Security and             [19] Reiner Pope, Sholto Douglas, Aakanksha Chowdhery, Jacob Devlin,
+     privacy challenges of large language models: A survey. ACM Computing            James Bradbury, Jonathan Heek, Kefan Xiao, Shivani Agrawal, and Jeff
+     Surveys, 57(6):1–39, 2025.                                                      Dean. Efficiently scaling transformer inference. Proceedings of Machine
+ [2] Guanqiao Qu, Qiyuan Chen, Wei Wei, Zheng Lin, Xianhao Chen, and                 Learning and Systems, 5:606–624, 2023.
+     Kaibin Huang. Mobile edge intelligence for large language models: A        [20] Gyeong-In Yu, Joo Seong Jeong, Geon-Woo Kim, Soojeong Kim, and
+     contemporary survey. IEEE Communications Surveys & Tutorials, 2025.             Byung-Gon Chun. Orca: A distributed serving system for {Transformer-
+ [3] Keivan Alizadeh, Seyed Iman Mirzadeh, Dmitry Belenko, S Khatam-                 Based} generative models. In 16th USENIX Symposium on Operating
+     ifard, Minsik Cho, Carlo C Del Mundo, Mohammad Rastegari, and                   Systems Design and Implementation (OSDI 22), pages 521–538, 2022.
+     Mehrdad Farajtabar. Llm in a flash: Efficient large language model         [21] Samsung. Ufs 4.0 : Flagship storage, 2023.
+     inference with limited memory. In Proceedings of the 62nd Annual           [22] Arash Tavakkol, Juan Gómez-Luna, Mohammad Sadrosadati, Saugata
+     Meeting of the Association for Computational Linguistics (Volume 1:             Ghose, and Onur Mutlu. {MQSim}: A framework for enabling realistic
+     Long Papers), pages 12562–12584, 2024.                                          studies of modern {Multi-Queue}{SSD} devices. In 16th USENIX
+ [4] Marc Brysbaert. How many words do we read per minute? a review                  Conference on File and Storage Technologies (FAST 18), pages 49–66,
+     and meta-analysis of reading rate. Journal of memory and language,              2018.
+     109:104047, 2019.                                                          [23] Shang Li, Zhiyuan Yang, Dhiraj Reddy, Ankur Srivastava, and Bruce
+ [5] Junkyum Kim, Myeonggu Kang, Yunki Han, Yang-Gon Kim, and Lee-                   Jacob. Dramsim3: A cycle-accurate, thermal-capable dram simulator.
+     Sup Kim. Optimstore: In-storage optimization of large scale dnns with           IEEE Computer Architecture Letters, 19(2):106–109, 2020.
+     on-die processing. In 2023 IEEE International Symposium on High-           [24] SYNOPSYS. Design compiler, 2018.
+     Performance Computer Architecture (HPCA), pages 611–623. IEEE,             [25] Jisung Park, Roknoddin Azizi, Geraldo F Oliveira, Mohammad Sadrosa-
+     2023.                                                                           dati, Rakesh Nadig, David Novo, Juan Gómez-Luna, Myungsuk Kim,
+ [6] Zhongkai Yu, Shengwen Liang, Tianyun Ma, Yunke Cai, Ziyuan Nan,                 and Onur Mutlu. Flash-cosmos: In-flash bulk bitwise operations using
+     Di Huang, Xinkai Song, Yifan Hao, Jie Zhang, Tian Zhi, et al.                   inherent computation capability of nand flash memory. In 2022 55th
+     Cambricon-llm: A chiplet-based hybrid architecture for on-device in-            IEEE/ACM International Symposium on Microarchitecture (MICRO),
+     ference of 70b llm. In 2024 57th IEEE/ACM International Symposium               pages 937–955. IEEE, 2022.
+     on Microarchitecture (MICRO), pages 1474–1488. IEEE, 2024.                 [26] Boncheol Gu, Andre S Yoon, Duck-Ho Bae, Insoon Jo, Jinyoung
+ [7] Myoungjun Chun, Jaeyong Lee, Myungsuk Kim, Jisung Park, and Jihong              Lee, Jonghyun Yoon, Jeong-Uk Kang, Moonsang Kwon, Chanho Yoon,
+     Kim. Rif: Improving read performance of modern ssds using an on-die             Sangyeun Cho, et al. Biscuit: A framework for near-data processing
+     early-retry engine. In 2024 IEEE International Symposium on High-               of big data workloads. ACM SIGARCH Computer Architecture News,
+     Performance Computer Architecture (HPCA), pages 643–656. IEEE,                  44(3):153–165, 2016.
+     2024.                                                                      [27] Chen Zou and Andrew A Chien. Assasin: Architecture support for
+ [8] Congming Gao, Liang Shi, Chun Jason Xue, Cheng Ji, Jun Yang, and                stream computing to accelerate computational storage. In 2022 55th
+     Youtao Zhang. Parallel all the time: Plane level parallelism exploration        IEEE/ACM International Symposium on Microarchitecture (MICRO),
+     for high performance ssds. In 2019 35th Symposium on Mass Storage               pages 354–368. IEEE, 2022.
+     Systems and Technologies (MSST), pages 172–184. IEEE, 2019.                [28] Shine Kim, Yunho Jin, Gina Sohn, Jonghyun Bae, Tae Jun Ham, and
+ [9] Wontaeck Jung, Hyunggon Kim, Do-Bin Kim, Tae-Hyun Kim, Namhee                   Jae W Lee. Behemoth: a flash-centric training accelerator for extreme-
+     Lee, Dongjin Shin, Minyoung Kim, Youngsik Rho, Hun-Jong Lee, Yujin              scale {DNNs}. In 19th USENIX Conference on File and Storage
+     Hyun, et al. 13.3 a 280-layer 1tb 4b/cell 3d-nand flash memory with a           Technologies (FAST 21), pages 371–385, 2021.
+     28.5 gb/mm2 areal density and a 3.2 gb/s high-speed io rate. In 2024       [29] James Jie Pan, Jianguo Wang, and Guoliang Li. Survey of vector
+     IEEE International Solid-State Circuits Conference (ISSCC), volume 67,          database management systems. The VLDB Journal, 33(5):1591–1615,
+     pages 236–237. IEEE, 2024.                                                      2024.
+[10] Wooseong Cheong, Chanho Yoon, Seonghoon Woo, Kyuwook Han,                  [30] James Jie Pan, Jianguo Wang, and Guoliang Li. Vector database
+     Daehyun Kim, Chulseung Lee, Youra Choi, Shine Kim, Dongku Kang,                 management techniques and systems. In Companion of the 2024
+     Geunyeong Yu, et al. A flash memory controller for 15µs ultra-low-              International Conference on Management of Data, pages 597–604, 2024.
+     latency ssd using high-speed 3d nand flash with 3µs read time. In 2018     [31] Cheng Chen, Chenzhe Jin, Yunan Zhang, Sasha Podolsky, Chun Wu,
+     IEEE International Solid-State Circuits Conference-(ISSCC), pages 338–          Szu-Po Wang, Eric Hanson, Zhou Sun, Robert Walzer, and Jianguo
+     340. IEEE, 2018.                                                                Wang. Singlestore-v: An integrated vector database system in single-
+[11] Sara Hooker, Nyalleng Moorosi, Gregory Clark, Samy Bengio, and                  store. Proceedings of the VLDB Endowment, 17(12):3772–3785, 2024.
+     Emily Denton. Characterising bias in compressed models. arXiv preprint     [32] Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir
+     arXiv:2010.03058, 2020.                                                         Karpukhin, Naman Goyal, Heinrich Küttler, Mike Lewis, Wen-tau Yih,
+[12] Andrey Kuzmin, Markus Nagel, Mart Van Baalen, Arash Behboodi, and               Tim Rocktäschel, et al. Retrieval-augmented generation for knowledge-
+     Tijmen Blankevoort. Pruning vs quantization: Which is better? Advances          intensive nlp tasks. Advances in neural information processing systems,
+     in neural information processing systems, 36:62414–62427, 2023.                 33:9459–9474, 2020.
+                                                                                [33] Zihuai Zhao, Wenqi Fan, Jiatong Li, Yunqing Liu, Xiaowei Mei, Yiqi
+[13] Abien Fred Agarap. Deep learning using rectified linear units (relu).
+                                                                                     Wang, Zhen Wen, Fei Wang, Xiangyu Zhao, Jiliang Tang, and Qing Li.
+     arXiv preprint arXiv:1803.08375, 2018.
+                                                                                     Recommender systems in the era of large language models (llms). IEEE
+[14] Dan Hendrycks and Kevin Gimpel. Gaussian error linear units (gelus).
+                                                                                     Transactions on Knowledge and Data Engineering, 36(11):6889–6907,
+     arXiv preprint arXiv:1606.08415, 2016.
+                                                                                     November 2024.
+[15] Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D
+                                                                                [34] Ramanathan Guha, Rob McCool, and Eric Miller. Semantic search. In
+     Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish
+                                                                                     Proceedings of the 12th international conference on World Wide Web,
+     Sastry, Amanda Askell, et al. Language models are few-shot learners.
+                                                                                     pages 700–709, 2003.
+     Advances in neural information processing systems, 33:1877–1901,
+                                                                                [35] Duraisamy Sundararajan. The discrete Fourier transform: theory, algo-
+     2020.
+                                                                                     rithms and applications. World Scientific, 2001.
+[16] Wontaeck Jung, Hyunggon Kim, Do-Bin Kim, Tae-Hyun Kim, Namhee              [36] Tim Olson and Tim Olson. The discrete fourier transform. Applied
+     Lee, Dongjin Shin, Minyoung Kim, Youngsik Rho, Hun-Jong Lee, Yujin              Fourier Analysis: From Signal Processing to Medical Imaging, pages
+     Hyun, et al. 13.3 a 280-layer 1tb 4b/cell 3d-nand flash memory with a           75–120, 2017.
+     28.5 gb/mm2 areal density and a 3.2 gb/s high-speed io rate. In 2024       [37] Tiziano Bianchi, Alessandro Piva, and Mauro Barni. On the implemen-
+     IEEE International Solid-State Circuits Conference (ISSCC), volume 67,          tation of the discrete fourier transform in the encrypted domain. IEEE
+     pages 236–237. IEEE, 2024.                                                      Transactions on Information Forensics and Security, 4(1):86–97, 2009.
+[17] Open NAND Flash Interface (ONFI). Open nand flash interface
+     specification revision 5.1, 2022. https://www.onfi.org/.
+[18] Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin
+     Zheng, Cody Hao Yu, Joseph Gonzalez, Hao Zhang, and Ion Stoica.
+     Efficient memory management for large language model serving with
+
+
+
+
+        Authorized licensed use limited to: Stanford University. Downloaded on August 30,2026 at 05:47:34 UTC from IEEE Xplore. Restrictions apply.
+
