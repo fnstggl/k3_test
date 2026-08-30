@@ -28,7 +28,7 @@ class EnergyParams:
     #  'icc': E = vcc * icc_read * tR / planes_per_die (per-die current model)
     #  'per_page': E = page_read_nj directly
     page_read_model: str = "per_page"
-    page_read_nJ: float = 183.0          # calibrated vs paper Fig 15 in Gate 2
+    page_read_nJ: float = 183.0          # per 2KB page, calibrated vs paper Fig 15 (Gate 2); scaled by page size
     channel_pj_per_byte: float = 200.0   # ONFI I/O incl. controller side; Gate 2 calibrated
     mac_pj_per_op: float = 1.0           # near-plane MAC energy; sensitivity (28nm-class)
     dram_pj_per_byte: float = 60.0       # LPDDR5-class access energy; sensitivity var

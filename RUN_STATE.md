@@ -8,13 +8,13 @@ NAND-internal primitive set required. Falsification-driven; outputs feed a later
 real-NAND experiment on Micron MT29F1T08EELEEJ4-R:E.
 
 # Current Gate
-Gate 3 — K3 workload model (k3/workload.py, k3/mapping.py, experiments/k3_baseline.py).
+Gate 4 — minimum stock-NAND primitive search (experiments/primitive_search.py).
 
 # Gate Status
 - Gate 0 (env + sources): PASSED (commit gate0-source-audit)
 - Gate 1 (Python simulator): PASSED (commit gate1)
 - Gate 2 (Palm reproduction): PASSED (commit gate2-palm-calibrated)
-- Gate 3 (K3 workload): NOT STARTED
+- Gate 3 (K3 workload): PASSED (commit gate3-k3-workload)
 - Gate 4 (primitive search): NOT STARTED
 - Gate 5 (design-space sweep): NOT STARTED
 - Gate 6 (power/economics): NOT STARTED
@@ -58,6 +58,11 @@ See references/llm_on_the_palm_parameters.yaml (with page citations) once writte
 - Analytic transparent Python simulator first (Gate 1); MQSim/DRAMsim3/FEMU as cross-checks.
 
 # Experiments Completed
+- k3_baseline.py @ gate3: param check 2.7795T/104.18B (0.02% err). Best 2TB SLC-class config
+  114.8ms/token (8.7 tok/s, 8.2 J/token); TLC-2TB 0.08-0.14 tok/s (planes deficit ~100x);
+  dense-in-DRAM 0.95 tok/s. KEY: MXFP4 pages need >=4 lanes/plane; wide-striped serial experts
+  beat grouped (collisions); dense-active pool (55.6B params, 111GB/tok BF16) dominates over
+  experts (25.8GB/tok). results/k3_baseline.json + reports/02_k3_workload.md.
 - reproduce_palm.py @ gate2 commit: 24/24 paper latency targets within ±1.1%; internal BW
   125.2 vs 117 GB/s (+7%); energy 1.49 vs 1.5 J. results/palm_reproduction.json.
 - MQSim cross-check (experiments/mqsim/): stock read path 3.21 GB/s (host-bound, = paper
@@ -69,19 +74,21 @@ See references/llm_on_the_palm_parameters.yaml (with page citations) once writte
 - /dev/kvm absent → FEMU KVM mode impossible here; TCG attempt pending (Gate 0 item 4 / Gate 8).
 
 # Next Actions
-1. Write references/llm_on_the_palm_parameters.yaml + notes with citations.
-2. Fetch + validate Kimi K3 architecture from MoonshotAI public sources → configs/k3.yaml.
-3. configs/nand/mt29f1t08eeleej4_r_e.yaml (knowns only; unknowns explicit).
-4. Clone third_party repos (FEMU, MQSim, DRAMsim3, vllm, Kimi-K3, verilator?, yosys?) + LOCK.md.
-5. Attempt FEMU build + TCG run.
-6. reports/00_environment_and_sources.md; commit gate0-source-audit.
+1. Gate 4: configurable primitive model (A_STOCKISH..E_MAC + combos); per-set K3 tok/s,
+   traffic, accumulator width, passes; classify each capability (KNOWN STOCK /
+   LITERATURE-DEMONSTRATED / VENDOR-POSSIBLE / NEW SILICON); Pareto CSV + report;
+   commit gate4-minimum-primitive. NOTE: E2M1 weight-mul = 2-bit shift + conditional add
+   (k3/mxfp.py e2m1_as_int_halves) — shift+add+accumulate may suffice; quantify.
+2. Gate 5 sweep (incl. batch axis + expert-union amortization). 3. Gate 6 economics
+   (batched GPU comparison). 4. Gate 7 RTL. 5. Gate 8 FEMU guest. 6. Finals.
 
 # External Dependencies / Blockers
-- None yet. Anticipated: KVM absence (evidence above) — will document after real build/run attempt.
+- None active. KVM absence documented (FEMU runs TCG).
 
 # Important Files
 - CLAUDE.md (mission/rules), RUN_STATE.md (this file)
-- references/LLM-on-the-Palm.pdf + llm_on_the_palm_fulltext.txt
+- configs/k3.yaml (validated K3 arch), references/llm_on_the_palm_parameters.yaml (+notes)
+- sim/ (calibrated simulator; tests/), experiments/reproduce_palm.py, reports/00+01
 
 # Last Updated
-2026-08-30, pre-first-commit (branch claude/k3-nand-inference-arch-2fspi1).
+2026-08-30, after gate2-palm-calibrated push.

@@ -41,7 +41,9 @@ class EnergyBreakdown:
 def page_read_energy_J(sys: SystemConfig) -> float:
     ep = sys.energy
     if ep.page_read_model == "per_page":
-        return ep.page_read_nJ * NJ
+        # page_read_nJ is calibrated for a 2KB page (Gate 2); sense energy scales
+        # ~linearly with sensed bits (bitline count x page width)
+        return ep.page_read_nJ * NJ * (sys.nand.page_bytes / 2048.0)
     if ep.page_read_model == "icc":
         # per-die read power spread over the planes sensing concurrently
         p_die_W = sys.nand.vcc_V * sys.nand.icc_read_mA * 1e-3

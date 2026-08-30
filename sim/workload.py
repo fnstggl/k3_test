@@ -22,6 +22,7 @@ class GemvOp:
     w_fmt: WFormat = WFormat.FP16
     act_bytes: float = 2.0          # bytes per input activation element on the wire
     count: int = 1                  # identical instances (e.g. selected experts)
+    hints: dict | None = None       # per-op MappingPolicy overrides (plane_fraction, rows_per_page, ...)
 
     @property
     def weight_params(self) -> float:
@@ -52,6 +53,8 @@ class Step:
     dyn_ops: list = field(default_factory=list)      # list[DynOp]
     overlap: bool = False           # dyn ops overlap the NAND time of THIS step
     parallel_nand: bool = False     # nand_ops on disjoint plane groups, run concurrently
+    collision_factor: float = 1.0   # parallel steps: expected makespan factor from
+                                    # placement collisions (k3/mapping.py Monte Carlo)
 
 
 @dataclass

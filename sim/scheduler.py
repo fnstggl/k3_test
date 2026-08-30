@@ -10,7 +10,7 @@ Semantics:
   - Token latency = sum of step times + dyn.fixed_overhead_s.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .architecture import SystemConfig
 from .mapping import map_gemv, MappedOp
@@ -40,6 +40,7 @@ class OpRecord:
 class TokenResult:
     latency_s: float
     records: list = field(default_factory=list)
+    step_times: list = field(default_factory=list)   # (step_name, effective_s)
     nand_busy_s: float = 0.0
     dyn_busy_s: float = 0.0
 
@@ -98,6 +99,7 @@ def time_dyn_op(op: DynOp, sys: SystemConfig) -> float:
 
 def simulate_token(sys: SystemConfig, wl: TokenWorkload) -> TokenResult:
     records: list[OpRecord] = []
+    step_records: list = []
     total = sys.dyn.fixed_overhead_s
     nand_busy = 0.0
     dyn_busy = 0.0
@@ -107,7 +109,8 @@ def simulate_token(sys: SystemConfig, wl: TokenWorkload) -> TokenResult:
         nand_time = 0.0
         nand_times = []
         for op in step.nand_ops:
-            m: MappedOp = map_gemv(op, sys.nand, sys.pim, sys.mapping)
+            pol = replace(sys.mapping, **op.hints) if op.hints else sys.mapping
+            m: MappedOp = map_gemv(op, sys.nand, sys.pim, pol)
             cb = m.channel_bytes
             rec = OpRecord(
                 name=op.name, kind="nand", latency_s=m.latency_s,
@@ -125,10 +128,13 @@ def simulate_token(sys: SystemConfig, wl: TokenWorkload) -> TokenResult:
         if nand_times:
             if step.parallel_nand:
                 # disjoint plane groups required: total plane use must fit the array
-                assert sum(map_gemv(o, sys.nand, sys.pim, sys.mapping).planes_used
-                           for o in step.nand_ops) <= sys.nand.n_planes * 1.001, \
+                def _planes(o):
+                    pol = replace(sys.mapping, **o.hints) if o.hints else sys.mapping
+                    return map_gemv(o, sys.nand, sys.pim, pol).planes_used
+                assert sum(_planes(o) for o in step.nand_ops) \
+                    <= sys.nand.n_planes * step.collision_factor * 1.001, \
                     f"step {step.name}: parallel nand_ops exceed plane count"
-                nand_time = max(nand_times)
+                nand_time = max(nand_times) * step.collision_factor
             else:
                 nand_time = sum(nand_times)
 
@@ -141,10 +147,11 @@ def simulate_token(sys: SystemConfig, wl: TokenWorkload) -> TokenResult:
 
         step_time = max(nand_time, dyn_time) if step.overlap else nand_time + dyn_time
         total += step_time
+        step_records.append((step.name, step_time))
         nand_busy += nand_time
         dyn_busy += dyn_time
 
-    res = TokenResult(latency_s=total, records=records,
+    res = TokenResult(latency_s=total, records=records, step_times=step_records,
                       nand_busy_s=nand_busy, dyn_busy_s=dyn_busy)
     res.internal_weight_bytes = internal_weight_bytes
     return res

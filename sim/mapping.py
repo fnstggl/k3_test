@@ -34,6 +34,9 @@ class MappingPolicy:
     retain_accumulator: bool = True    # accumulate across a row's successive pages
     partial_bytes: float = 4.0         # exported partial width (FP32)
     channel_overlaps_sense: bool = True
+    # Optional explicit channel-group placement (disjoint expert groups):
+    channels_override: int | None = None
+    dies_per_channel_override: int | None = None
 
 
 @dataclass
@@ -71,18 +74,24 @@ class MappedOp:
 def map_gemv(op: GemvOp, nand: NandConfig, pim: PimConfig,
              policy: MappingPolicy) -> MappedOp:
     """Stripe one GemvOp across plane_fraction of the array."""
-    planes_used = max(1, int(round(nand.n_planes * policy.plane_fraction)))
-    # keep whole dies when possible (broadcast scope granularity)
-    planes_per_die = nand.planes_per_die
-    if planes_used >= planes_per_die:
-        planes_used = (planes_used // planes_per_die) * planes_per_die
-        active_planes = planes_per_die
-        dies_used = planes_used // planes_per_die
-        active_dies_per_channel = max(1, min(nand.dies_per_channel,
-                                             math.ceil(dies_used / nand.n_channels)))
+    if policy.channels_override is not None:
+        d_ch = policy.dies_per_channel_override or nand.dies_per_channel
+        planes_used = policy.channels_override * d_ch * nand.planes_per_die
+        active_planes = nand.planes_per_die
+        active_dies_per_channel = d_ch
     else:
-        active_planes = planes_used
-        active_dies_per_channel = 1
+        planes_used = max(1, int(round(nand.n_planes * policy.plane_fraction)))
+        # keep whole dies when possible (broadcast scope granularity)
+        planes_per_die = nand.planes_per_die
+        if planes_used >= planes_per_die:
+            planes_used = (planes_used // planes_per_die) * planes_per_die
+            active_planes = planes_per_die
+            dies_used = planes_used // planes_per_die
+            active_dies_per_channel = max(1, min(nand.dies_per_channel,
+                                                 math.ceil(dies_used / nand.n_channels)))
+        else:
+            active_planes = planes_used
+            active_dies_per_channel = 1
 
     E = elems_per_page(nand.usable_page_bytes, op.w_fmt)
     pages_total = math.ceil(op.weight_params / E)
