@@ -6,13 +6,13 @@ consumes one page of weights. Phases considered:
   SENSE    array -> register, tR_eff. With a cache register, sense of page k+1
            overlaps consumption of page k (paper Fig 5). Without it, they serialize.
   COMPUTE  PIM lanes consume the page (elems/page / lane rate).
-  CHANNEL  shared per-channel bus time attributable to one window:
-             - command issue per die (multi-plane read group)
-             - input broadcast (scope-dependent: once per channel / per die / per plane)
-             - partial-result drain (per plane)
+  CMD      ONFI command sequences launching each die's window. Serialized on the
+           shared channel; with cmd_serializes_with_sense=True (MQSim-style
+           conservative scheduling, validated in Gate 2) they EXTEND the window.
+  DATA     input broadcast (scope-dependent) + partial-result drain on the channel.
+           Streams overlap sensing by default (channel_overlaps_sense).
 
-The steady-state window period is the max of the binding resources; the model also
-reports which resource binds (the bottleneck) so experiments can report it.
+The model reports which resource binds (bottleneck) for every op.
 """
 
 from dataclasses import dataclass
@@ -20,13 +20,19 @@ from dataclasses import dataclass
 from .nand import NandConfig
 from .arithmetic import PimConfig
 
+CMD_SEQ_BYTES = 7.0   # opcode + 5 addr + confirm actually driven on the bus
+
 
 @dataclass
 class WindowTraffic:
-    """Channel-byte breakdown for ONE window on ONE channel."""
+    """Channel-byte breakdown for ONE window on ONE channel.
+    input_bytes are BUS bytes (timing); input_energy_bytes weights broadcast
+    receivers (a CE#-multi-die broadcast toggles every selected die's I/O
+    receivers, so receive energy scales with dies regardless of scope)."""
     cmd_bytes: float
     input_bytes: float
     output_bytes: float
+    input_energy_bytes: float = 0.0
 
     @property
     def total_bytes(self) -> float:
@@ -38,8 +44,9 @@ class WindowTiming:
     period_s: float
     sense_s: float
     compute_s: float
-    channel_s: float
-    bottleneck: str          # 'sense' | 'compute' | 'channel'
+    cmd_s: float             # per-channel command time per window (all dies)
+    data_s: float            # per-channel data (input+output) time per window
+    bottleneck: str          # 'sense' | 'compute' | 'channel-data' | '+cmd' suffix
     traffic: WindowTraffic   # per channel per window
 
 
@@ -56,16 +63,14 @@ def window_timing(nand: NandConfig, pim: PimConfig,
     input_scope: 'channel' (one broadcast serves all dies on the channel),
                  'die' (each die needs its own stream),
                  'plane' (each plane distinct — worst case).
-    channel_overlaps_sense: if False, channel service time ADDS to the sense time
-    (pessimistic serialization; candidate model for the paper's MQSim behavior).
     """
     d = active_dies_per_channel if active_dies_per_channel is not None else nand.dies_per_channel
     p = active_planes_per_die if active_planes_per_die is not None else nand.planes_per_die
 
     sense = nand.effective_tR_s
     compute = pim.compute_time_per_page_s(elems_per_page_val)
-
     cmd = nand.cmd_time_per_die_window_s * d
+
     if input_scope == 'channel':
         in_b = input_bytes_per_window_per_scope
     elif input_scope == 'die':
@@ -75,26 +80,31 @@ def window_timing(nand: NandConfig, pim: PimConfig,
     else:
         raise ValueError(f"bad input_scope {input_scope}")
     out_b = output_bytes_per_plane_window * d * p
-    traffic = WindowTraffic(cmd_bytes=nand.cmd_bytes_per_plane_read * p * d,
-                            input_bytes=in_b, output_bytes=out_b)
-    channel = cmd + (in_b + out_b) / nand.channel_bw_Bps
+    in_energy_b = input_bytes_per_window_per_scope * d if input_scope in ('channel', 'die') \
+        else in_b
+    traffic = WindowTraffic(cmd_bytes=CMD_SEQ_BYTES * nand.cmd_seqs_per_die_window * d,
+                            input_bytes=in_b, output_bytes=out_b,
+                            input_energy_bytes=in_energy_b)
+    data = (in_b + out_b) / nand.channel_bw_Bps
 
-    if nand.cache_register:
-        candidates = {'sense': sense, 'compute': compute, 'channel': channel}
-        if not channel_overlaps_sense:
-            # sense and channel serialize: effective sense-lane time = sense + channel
-            candidates = {'sense+channel': sense + channel, 'compute': compute}
-        bottleneck = max(candidates, key=candidates.get)
-        period = candidates[bottleneck]
+    # sense lane: does the single register force sense+compute to serialize?
+    sense_lane = sense if nand.cache_register else sense + compute
+
+    if channel_overlaps_sense:
+        candidates = {'sense': sense_lane, 'compute': compute, 'channel-data': data}
     else:
-        # no cache register: sense then compute serialize on the single register
-        base = sense + compute
-        if channel_overlaps_sense:
-            candidates = {'sense+compute': base, 'channel': channel}
-        else:
-            candidates = {'sense+compute+channel': base + channel}
-        bottleneck = max(candidates, key=candidates.get)
-        period = candidates[bottleneck]
+        candidates = {'sense+data': sense_lane + data, 'compute': compute}
+    bottleneck = max(candidates, key=candidates.get)
+    period = candidates[bottleneck]
+
+    if nand.cmd_serializes_with_sense:
+        if cmd > 0:
+            period += cmd
+            bottleneck += '+cmd'
+    else:
+        if cmd + data > period:  # command time competes on the channel
+            period = cmd + data
+            bottleneck = 'channel-cmd+data'
 
     return WindowTiming(period_s=period, sense_s=sense, compute_s=compute,
-                        channel_s=channel, bottleneck=bottleneck, traffic=traffic)
+                        cmd_s=cmd, data_s=data, bottleneck=bottleneck, traffic=traffic)

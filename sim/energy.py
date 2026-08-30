@@ -52,7 +52,7 @@ def page_read_energy_J(sys: SystemConfig) -> float:
 def token_energy(sys: SystemConfig, res: TokenResult) -> EnergyBreakdown:
     ep = sys.energy
     cell = res.pages_sensed * page_read_energy_J(sys)
-    chan = res.channel_bytes * ep.channel_pj_per_byte * PJ
+    chan = res.channel_energy_bytes * ep.channel_pj_per_byte * PJ
     mac = res.macs * ep.mac_pj_per_op * PJ
     dram = res.dram_bytes * ep.dram_pj_per_byte * PJ
     npu = res.dyn_flops * ep.npu_pj_per_flop * PJ

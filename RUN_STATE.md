@@ -8,13 +8,12 @@ NAND-internal primitive set required. Falsification-driven; outputs feed a later
 real-NAND experiment on Micron MT29F1T08EELEEJ4-R:E.
 
 # Current Gate
-Gate 1 — writing sim/ modules (units, nand, arithmetic, plane done; next: mapping,
-scheduler, architecture, workload, energy + tests).
+Gate 3 — K3 workload model (k3/workload.py, k3/mapping.py, experiments/k3_baseline.py).
 
 # Gate Status
 - Gate 0 (env + sources): PASSED (commit gate0-source-audit)
-- Gate 1 (Python simulator): IN PROGRESS
-- Gate 2 (Palm reproduction): NOT STARTED
+- Gate 1 (Python simulator): PASSED (commit gate1)
+- Gate 2 (Palm reproduction): PASSED (commit gate2-palm-calibrated)
 - Gate 3 (K3 workload): NOT STARTED
 - Gate 4 (primitive search): NOT STARTED
 - Gate 5 (design-space sweep): NOT STARTED
@@ -45,9 +44,8 @@ scheduler, architecture, workload, energy + tests).
   215ms (13B), 495ms (30B); per-config and sensitivity numbers captured in the yaml.
 
 # Current Hypotheses
-- Paper's effective period/page ≈ tR + ~0.4us x dies_per_channel (fit from capacity-sensitivity
-  TPOTs; implies per-die distinct input broadcast + channel command overhead). To be derived
-  properly in Gate 2, not hardcoded.
+- (RESOLVED in Gate 2) window period = max(tR, MAC, data) + dies/ch x 290ns ONFI cmd sequence
+  (MQSim constants). Reproduces all 24 paper latency points within 1.1%.
 - K3 active ~104B params/token at 4.25 bit/param (MXFP4+scales) ⇒ ~55GB NAND reads/token ⇒
   commodity TLC/QLC plane counts/tR look challenging; SLC-mode/plane-count/tR sweep is decisive.
 
@@ -60,7 +58,12 @@ See references/llm_on_the_palm_parameters.yaml (with page citations) once writte
 - Analytic transparent Python simulator first (Gate 1); MQSim/DRAMsim3/FEMU as cross-checks.
 
 # Experiments Completed
-(none yet)
+- reproduce_palm.py @ gate2 commit: 24/24 paper latency targets within ±1.1%; internal BW
+  125.2 vs 117 GB/s (+7%); energy 1.49 vs 1.5 J. results/palm_reproduction.json.
+- MQSim cross-check (experiments/mqsim/): stock read path 3.21 GB/s (host-bound, = paper
+  baseline class); unthrottled internal ceiling 25.6 GB/s = paper ISP baseline (27 GB/s) ±5%.
+- Energy coefficient calibration: 183 nJ/2KB-page sense (range 87-183 from ICC tension),
+  200 pJ/B I/O receiver-weighted. Held fixed for K3 gates.
 
 # Active Problems
 - /dev/kvm absent → FEMU KVM mode impossible here; TCG attempt pending (Gate 0 item 4 / Gate 8).

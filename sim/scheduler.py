@@ -27,6 +27,7 @@ class OpRecord:
     macs: float = 0.0
     channel_cmd_bytes: float = 0.0
     channel_input_bytes: float = 0.0
+    channel_input_energy_bytes: float = 0.0
     channel_output_bytes: float = 0.0
     dram_bytes: float = 0.0
     dyn_flops: float = 0.0
@@ -57,6 +58,12 @@ class TokenResult:
     @property
     def channel_bytes(self) -> float:
         return (self._sum("channel_cmd_bytes") + self._sum("channel_input_bytes")
+                + self._sum("channel_output_bytes"))
+
+    @property
+    def channel_energy_bytes(self) -> float:
+        """Receiver-weighted bytes for I/O energy accounting."""
+        return (self._sum("channel_cmd_bytes") + self._sum("channel_input_energy_bytes")
                 + self._sum("channel_output_bytes"))
 
     @property
@@ -107,6 +114,7 @@ def simulate_token(sys: SystemConfig, wl: TokenWorkload) -> TokenResult:
                 bottleneck=m.timing.bottleneck,
                 pages_sensed=m.pages_sensed, macs=op.macs,
                 channel_cmd_bytes=cb["cmd"], channel_input_bytes=cb["input"],
+                channel_input_energy_bytes=cb["input_energy"],
                 channel_output_bytes=cb["output"],
                 planes_used=m.planes_used, windows_per_plane=m.windows_per_plane,
                 period_us=m.timing.period_s * 1e6,

@@ -74,7 +74,7 @@ def test_pim_compute_time():
 
 def _no_cmd_nand(**kw):
     n = palm_znand()
-    n.cmd_bytes_per_plane_read = 0.0
+    n.cmd_seqs_per_die_window = 0
     for k, v in kw.items():
         setattr(n, k, v)
     return n
@@ -107,7 +107,7 @@ def test_window_channel_bound_scopes():
     assert approx(t_die.traffic.input_bytes, 2048 * 4)
     # per-plane input: 32 * 2KB = 20.48us -> channel bound
     t_pl = window_timing(n, p, 1024, 2048, 'plane', 0.0)
-    assert t_pl.bottleneck == 'channel'
+    assert t_pl.bottleneck == 'channel-data'
     assert approx(t_pl.period_s, 2048 * 32 / 3.2e9)
     # channel scope counts once
     t_ch = window_timing(n, p, 1024, 2048, 'channel', 0.0)
@@ -172,7 +172,7 @@ def test_gpt3_weight_bytes():
 
 def test_scheduler_serial_and_overlap():
     sys_cfg = SystemConfig()
-    sys_cfg.nand.cmd_bytes_per_plane_read = 0.0
+    sys_cfg.nand.cmd_seqs_per_die_window = 0
     op = GemvOp("a", 1024, 1024)     # 1M weights -> 1024 pages -> 4 windows/plane
     dyn = DynOp("d", dram_bytes=50e9 * 0.001)  # exactly 1ms at 50GB/s
     wl_serial = TokenWorkload("t", [Step("s", [op], [dyn], overlap=False)])
@@ -185,7 +185,7 @@ def test_scheduler_serial_and_overlap():
 
 def test_scheduler_parallel_nand_disjoint():
     sys_cfg = SystemConfig()
-    sys_cfg.nand.cmd_bytes_per_plane_read = 0.0
+    sys_cfg.nand.cmd_seqs_per_die_window = 0
     sys_cfg.mapping.plane_fraction = 0.5
     a, b = GemvOp("a", 4096, 4096), GemvOp("b", 4096, 4096)
     wl_par = TokenWorkload("t", [Step("s", [a, b], parallel_nand=True)])
@@ -220,7 +220,7 @@ def test_energy_accounting():
                                   channel_pj_per_byte=10.0, mac_pj_per_op=1.0,
                                   dram_pj_per_byte=5.0, npu_pj_per_flop=0.5,
                                   static_W=1.0)
-    sys_cfg.nand.cmd_bytes_per_plane_read = 0.0
+    sys_cfg.nand.cmd_seqs_per_die_window = 0
     op = GemvOp("a", 1024, 1024)
     wl = TokenWorkload("t", [Step("s", [op], [DynOp("d", dram_bytes=1e6, flops=1e6)])])
     res = simulate_token(sys_cfg, wl)

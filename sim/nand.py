@@ -22,12 +22,20 @@ class NandConfig:
     # --- timing ---
     tR_us: float = 3.0                  # array -> page buffer sense time
     cache_register: bool = True         # second register: next-page sense overlaps consumption
-    # Channel command/handshake overhead per die per page window that occupies the
-    # shared channel bus and cannot overlap that die's own data phases.
-    # ONFI command+address cycles for a multi-plane read group. SENSITIVITY variable:
-    # fitted/validated against MQSim in Gate 2.
-    cmd_bytes_per_plane_read: float = 8.0    # 2 cmd + 5 addr + confirm ~ 8 bytes/plane
-    cmd_cycle_ns: float = 25.0               # SDR command-cycle time (tWC class); sensitivity
+    # --- ONFI command-sequence model (grounded in MQSim ONFI_Channel_NVDDR2 defaults,
+    # which mirror ONFI NV-DDR2 spec-class values; see reports/01_palm_reproduction.md) ---
+    t_CS_ns: float = 20.0               # CE setup
+    t_WC_ns: float = 25.0               # WE command/address cycle (legacy SDR)
+    t_WB_ns: float = 100.0              # CLK high to R/B low
+    t_RR_ns: float = 20.0               # ready to data output
+    t_DBSY_ns: float = 500.0            # multi-plane dummy-busy between plane addresses
+    cmd_addr_cycles: int = 6            # cmd+5addr (+confirm folded) per plane group
+    # Command sequences issued on the channel per die per page window.
+    # PIM broadcast command (paper Sec III-C, opcode 36h): 1 sequence selects the die's
+    # whole plane group. Stock per-plane addressing needs planes_per_die sequences
+    # with t_DBSY between them (MQSim ReadCommandTime[n] structure).
+    cmd_seqs_per_die_window: int = 1
+    cmd_serializes_with_sense: bool = True   # MQSim-style: command time extends the window
     # --- channel/interface ---
     channel_bw_Bps: float = GBps(3.2)
     # --- multi-level cell + ECC ---
@@ -69,10 +77,20 @@ class NandConfig:
         return self.tR_s * (1.0 + self.read_retry_expected_extra_reads)
 
     @property
+    def cmd_seq_time_s(self) -> float:
+        """One ONFI read/PIM command sequence: t_CS + 6*t_WC + t_WB + t_RR
+        (MQSim ReadCommandTime[1] structure; 290ns with defaults)."""
+        return (self.t_CS_ns + self.cmd_addr_cycles * self.t_WC_ns
+                + self.t_WB_ns + self.t_RR_ns) * 1e-9
+
+    @property
     def cmd_time_per_die_window_s(self) -> float:
-        """Bus time to issue one multi-plane read command group to one die."""
-        return (self.cmd_bytes_per_plane_read * self.planes_per_die
-                * self.cmd_cycle_ns * 1e-9)
+        """Channel bus time to launch one die's page window.
+        n sequences chained with t_DBSY between them (MQSim ReadCommandTime[n])."""
+        n = self.cmd_seqs_per_die_window
+        if n <= 0:
+            return 0.0
+        return n * self.cmd_seq_time_s + (n - 1) * self.t_DBSY_ns * 1e-9
 
     @property
     def plane_read_bw_Bps(self) -> float:

@@ -28,7 +28,7 @@ from .plane import window_timing, WindowTiming
 @dataclass
 class MappingPolicy:
     plane_fraction: float = 1.0        # fraction of all planes striped by each op
-    input_scope: str = "die"           # 'channel' | 'die' | 'plane'
+    input_scope: str = "channel"           # 'channel' | 'die' | 'plane'
     rows_per_page: int = 1             # R: row segments sharing a page (input reuse)
     export_every_page: bool = True     # paper: 4B partial out per plane per window
     retain_accumulator: bool = True    # accumulate across a row's successive pages
@@ -64,7 +64,8 @@ class MappedOp:
                                      / (self.active_planes_per_die * self.active_dies_per_channel)))
         w = self.windows_per_plane * channels_used
         return {"cmd": t.cmd_bytes * w, "input": t.input_bytes * w,
-                "output": t.output_bytes * w}
+                "output": t.output_bytes * w,
+                "input_energy": t.input_energy_bytes * w}
 
 
 def map_gemv(op: GemvOp, nand: NandConfig, pim: PimConfig,
