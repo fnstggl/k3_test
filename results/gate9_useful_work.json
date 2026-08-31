@@ -1,0 +1,149 @@
+{
+ "provenance": {
+  "git": "1a2950f98b379f59aaed5deadc2dcf8d09c68d33",
+  "ts": "2026-08-31T17:35:14Z"
+ },
+ "native_K3": {
+  "bytes_per_token_GB": 137.0,
+  "macs_per_token_G": 104.2
+ },
+ "first_principles_bandwidth_bounds": {
+  "array_1.0TBps": {
+   "500tok_s": {
+    "max_effective_sensed_GB_per_token": 2.0,
+    "vs_native_137GB_reduction_needed": 68.5
+   },
+   "1000tok_s": {
+    "max_effective_sensed_GB_per_token": 1.0,
+    "vs_native_137GB_reduction_needed": 137.0
+   }
+  },
+  "array_3.0TBps": {
+   "500tok_s": {
+    "max_effective_sensed_GB_per_token": 6.0,
+    "vs_native_137GB_reduction_needed": 22.8
+   },
+   "1000tok_s": {
+    "max_effective_sensed_GB_per_token": 3.0,
+    "vs_native_137GB_reduction_needed": 45.7
+   }
+  },
+  "array_10.0TBps": {
+   "500tok_s": {
+    "max_effective_sensed_GB_per_token": 20.0,
+    "vs_native_137GB_reduction_needed": 6.8
+   },
+   "1000tok_s": {
+    "max_effective_sensed_GB_per_token": 10.0,
+    "vs_native_137GB_reduction_needed": 13.7
+   }
+  }
+ },
+ "useful_work_per_sense": {
+  "conventional_macs_per_sense_b1": 30840,
+  "batch_reuse_note": "conventional MACs/sense scale x B via page-buffer reuse (exact, needs latch persistence); this is the real lever, capped by per-user latency and expert-union for MoE",
+  "sweep": [
+   {
+    "operands_per_sense": 1,
+    "conventional_macs_per_sense_b1": 30840,
+    "mws_and_or_exact_gemv_macs": 0,
+    "failbit_count_exact_macs_per_sense": 4096,
+    "note": "MWS AND/OR is exact but not a sum; count is exact popcount but at MXFP4 density needs 32 senses/block-set -> < conventional at B=1",
+    "evidence": "MEASURED (MWS AND/OR, Flash-Cosmos) | HYPOTHESIS (exposed count)"
+   },
+   {
+    "operands_per_sense": 2,
+    "conventional_macs_per_sense_b1": 30840,
+    "mws_and_or_exact_gemv_macs": 0,
+    "failbit_count_exact_macs_per_sense": 4096,
+    "note": "MWS AND/OR is exact but not a sum; count is exact popcount but at MXFP4 density needs 32 senses/block-set -> < conventional at B=1",
+    "evidence": "MEASURED (MWS AND/OR, Flash-Cosmos) | HYPOTHESIS (exposed count)"
+   },
+   {
+    "operands_per_sense": 4,
+    "conventional_macs_per_sense_b1": 30840,
+    "mws_and_or_exact_gemv_macs": 0,
+    "failbit_count_exact_macs_per_sense": 4096,
+    "note": "MWS AND/OR is exact but not a sum; count is exact popcount but at MXFP4 density needs 32 senses/block-set -> < conventional at B=1",
+    "evidence": "MEASURED (MWS AND/OR, Flash-Cosmos) | HYPOTHESIS (exposed count)"
+   },
+   {
+    "operands_per_sense": 8,
+    "conventional_macs_per_sense_b1": 30840,
+    "mws_and_or_exact_gemv_macs": 0,
+    "failbit_count_exact_macs_per_sense": 4096,
+    "note": "MWS AND/OR is exact but not a sum; count is exact popcount but at MXFP4 density needs 32 senses/block-set -> < conventional at B=1",
+    "evidence": "MEASURED (MWS AND/OR, Flash-Cosmos) | HYPOTHESIS (exposed count)"
+   },
+   {
+    "operands_per_sense": 16,
+    "conventional_macs_per_sense_b1": 30840,
+    "mws_and_or_exact_gemv_macs": 0,
+    "failbit_count_exact_macs_per_sense": 4096,
+    "note": "MWS AND/OR is exact but not a sum; count is exact popcount but at MXFP4 density needs 32 senses/block-set -> < conventional at B=1",
+    "evidence": "MEASURED (MWS AND/OR, Flash-Cosmos) | HYPOTHESIS (exposed count)"
+   },
+   {
+    "operands_per_sense": 32,
+    "conventional_macs_per_sense_b1": 30840,
+    "mws_and_or_exact_gemv_macs": 0,
+    "failbit_count_exact_macs_per_sense": 4096,
+    "note": "MWS AND/OR is exact but not a sum; count is exact popcount but at MXFP4 density needs 32 senses/block-set -> < conventional at B=1",
+    "evidence": "MEASURED (MWS AND/OR, Flash-Cosmos) | HYPOTHESIS (exposed count)"
+   },
+   {
+    "operands_per_sense": 48,
+    "conventional_macs_per_sense_b1": 30840,
+    "mws_and_or_exact_gemv_macs": 0,
+    "failbit_count_exact_macs_per_sense": 4096,
+    "note": "MWS AND/OR is exact but not a sum; count is exact popcount but at MXFP4 density needs 32 senses/block-set -> < conventional at B=1",
+    "evidence": "MEASURED (MWS AND/OR, Flash-Cosmos) | HYPOTHESIS (exposed count)"
+   },
+   {
+    "operands_per_sense": 64,
+    "conventional_macs_per_sense_b1": 30840,
+    "mws_and_or_exact_gemv_macs": 0,
+    "failbit_count_exact_macs_per_sense": 4096,
+    "note": "MWS AND/OR is exact but not a sum; count is exact popcount but at MXFP4 density needs 32 senses/block-set -> < conventional at B=1",
+    "evidence": "MEASURED (MWS AND/OR, Flash-Cosmos) | HYPOTHESIS (exposed count)"
+   },
+   {
+    "operands_per_sense": 96,
+    "conventional_macs_per_sense_b1": 30840,
+    "mws_and_or_exact_gemv_macs": 0,
+    "failbit_count_exact_macs_per_sense": 4096,
+    "note": "MWS AND/OR is exact but not a sum; count is exact popcount but at MXFP4 density needs 32 senses/block-set -> < conventional at B=1",
+    "evidence": "MEASURED (MWS AND/OR, Flash-Cosmos) | HYPOTHESIS (exposed count)"
+   },
+   {
+    "operands_per_sense": 128,
+    "conventional_macs_per_sense_b1": 30840,
+    "mws_and_or_exact_gemv_macs": 0,
+    "failbit_count_exact_macs_per_sense": 4096,
+    "note": "MWS AND/OR is exact but not a sum; count is exact popcount but at MXFP4 density needs 32 senses/block-set -> < conventional at B=1",
+    "evidence": "MEASURED (MWS AND/OR, Flash-Cosmos) | HYPOTHESIS (exposed count)"
+   }
+  ]
+ },
+ "required_primitive_for_targets": {
+  "search_ceiling_native_interactive": {
+   "agg_tok_s": 105,
+   "usd_per_Mtok_opt": 0.257,
+   "usd_per_Mtok_central": 0.614,
+   "J_per_token_opt": 1.08
+  },
+  "gap_to_T1": {
+   "agg_factor": 4.8,
+   "dollar_factor": 2.6
+  },
+  "required_L3_primitive": {
+   "name": "exact maskable cross-bitline popcount over the full page width",
+   "must_resolve_macs_per_sense": ">= ~5x conventional (i.e. >=1.5e5 exact MACs/sense at B=1) to lift agg to 500 tok/s at fixed array $",
+   "must_operate_within": "<= tR (=3-22us SLC) per count op",
+   "must_mask_to": "32-column MX blocks (E8M0 scale boundary) \u2014 a whole-page count is useless for K3",
+   "and_do_all_bitplane_pairs_in": "<= ~8 senses/block-set (not 32) to beat conventional dense sensing \u2014 requires combining multiple bitplane pairs per sense (e.g. multi-level TLC threshold coding), UNPROVEN",
+   "evidence": "L3 \u2014 no such primitive demonstrated on commodity NAND; Flash-Cosmos MWS gives AND/OR (not popcount); program-verify counters exist but on-demand maskable exposure is undocumented (BABOL E2 target)"
+  },
+  "verdict": "Reaching T1 with NATIVE K3 requires a cross-bitline popcount primitive that resolves ~5x more exact MACs per sense than conventional dense sensing AND masks to 32-blocks AND folds multiple bitplanes per sense. No audited mechanism provides this exactly. The 100x-per-sense claim is FALSE for exact K3 on demonstrated commodity behavior."
+ }
+}

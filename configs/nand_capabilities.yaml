@@ -64,6 +64,54 @@ multi_wordline_sensing_inter_block:
   mod_class: F1
   source: "Flash-Cosmos MICRO'22 Sec 4.1/5.2 Fig 13-14"
 
+mcflash_readoffset_bitwise:
+  primitive: dynamic_sensing_bitwise
+  exact_operation: >
+    2 operands co-encoded as LSB+MSB pages of ONE MLC cell; a normal page read
+    with SHIFTED reference voltage (SET FEATURE read-retry offset) yields AND
+    (shifted LSB read), OR (shifted MSB read), XNOR (Soft-Bit-Read), NOT (MSB
+    read w/ constant LSB). Result read out over standard ONFI bus.
+  operand_location: "LSB+MSB of same cell (both pre-programmed)"
+  result_location: "page buffer -> host over standard ONFI (crosses the bus)"
+  n_operands: 2                     # 3-4 with TLC/QLC proposed only
+  runtime_data_participation: "NO — staging a runtime operand costs a ~600us MLC program"
+  bitlines_communicate: false
+  latency_us: "40 (AND) .. 70 (OR/NOT) .. ~80-90 (XNOR, 4 sensing phases)"
+  reliability: "RBER=0 fresh (all parts); <=0.00203% at 1.5k P/E; <0.015% at 10k P/E (fig)"
+  required_control_access: "USER-MODE standard ONFI SET FEATURE read-offset + Soft-Bit-Read"
+  tested_devices: "50 Micron chips incl. **MT29F1T08EELEEJ4 (176-layer CT)** = our BABOL target family; also 64-layer FG parts"
+  evidence: L1     # <-- MEASURED ON THE EXACT TARGET FAMILY (MCFlash Table 2)
+  mod_class: F0    # user-mode commands, zero hardware change
+  source: "MCFlash arXiv:2605.05119 / J.Supercomputing 2026, Sec 4.2/5.2 Table 2 Fig 4"
+  k3_relevance: >
+    STRENGTHENS the stock primitive set on our exact part (error-free 2-operand
+    bitwise page ops, user-mode) but changes NOTHING structural for K3 GEMV: no
+    lateral shift-add, no accumulator, no cross-bitline reduction; operands must
+    be co-programmed (runtime activation cannot participate without a 600us
+    program); results cross the bus. Confirms Gate-4 falsification stands.
+    IMPORTANT for BABOL: proves read-offset/SBR are exercisable on THIS die.
+
+parabit_locationfree:
+  primitive: latch_chained_bitwise
+  exact_operation: >
+    CACHE READ RANDOM senses cells at arbitrary wordlines and holds in the sense
+    latch across senses; successive senses combined by latch control (AND: skip
+    latch re-init; OR: re-init + enable transfer) -> bitwise op between operands
+    on the SAME bitline, different wordlines. Location-free variant adds an
+    inverter per bitline for XOR.
+  operand_location: "same bitline, different WLs (aligned columns)"
+  n_operands: "2 per step; chainable"
+  runtime_data_participation: false
+  bitlines_communicate: false
+  latency_us: "~25/sense (MLC datasheet); XNOR/XOR ~100us"
+  hardware_cost: "location-free XOR: extra inverter+transistors per BL ~1.2% die area"
+  reliability: "error behavior characterized on real Intel MLC chips; the OPS themselves never run on real silicon (simulated)"
+  required_control_access: "new privileged NVMe command sequences + modified CMD-parse (NOT user-mode)"
+  evidence: L3     # ops simulated; reliability-only measured
+  mod_class: F2    # location-free needs per-BL periphery add
+  source: "ParaBit MICRO'21 (NSF-PAR 10316348) Sec 4.1-4.4"
+  k3_relevance: "latch persistence across senses (F1 via CACHE READ RANDOM) is the reuse mechanism the reducer needs; still no accumulation/counting."
+
 latch_xor:
   primitive: latch_XOR
   exact_operation: "2-operand XOR between data in on-chip latches (existing feature for randomization/program-verify); XNOR via inverse-read of one operand"
