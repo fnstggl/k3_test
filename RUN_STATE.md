@@ -8,7 +8,7 @@ NAND-internal primitive set required. Falsification-driven; outputs feed a later
 real-NAND experiment on Micron MT29F1T08EELEEJ4-R:E.
 
 # Current Gate
-Gate 6 — power + economics vs GPU deployment (reports/04_power_cost_go_no_go.md).
+Gate 7 — fallback RTL: minimal MXFP4/MXFP8 reducer (rtl/k3_nand_reducer.sv).
 
 # Gate Status
 - Gate 0 (env + sources): PASSED (commit gate0-source-audit)
@@ -17,7 +17,7 @@ Gate 6 — power + economics vs GPU deployment (reports/04_power_cost_go_no_go.m
 - Gate 3 (K3 workload): PASSED (commit gate3-k3-workload)
 - Gate 4 (primitive search): PASSED (commit gate4-minimum-primitive)
 - Gate 5 (design-space sweep): PASSED (commit gate5-design-space)
-- Gate 6 (power/economics): NOT STARTED
+- Gate 6 (power/economics): PASSED (commit gate6-economics)
 - Gate 7 (fallback RTL): NOT STARTED
 - Gate 8 (FEMU): NOT STARTED
 - Final deliverables: NOT STARTED
@@ -58,6 +58,12 @@ See references/llm_on_the_palm_parameters.yaml (with page citations) once writte
 - Analytic transparent Python simulator first (Gate 1); MQSim/DRAMsim3/FEMU as cross-checks.
 
 # Experiments Completed
+- economics.py @ gate6: >10x claim FALSIFIED for throughput serving (GPU 8xB300 at B=256:
+  1.9 J/tok, $0.96/Mtok beats NAND best 5.0 J/tok, $1.88/Mtok — GPU ~2-2.5x better; robust
+  across sensitivity range). >10x HOLDS ONLY vs low-batch GPU (B<=8): x12-25 on $/tok. Root
+  cause: per-bit read energy comparable (NAND 5-11 vs HBM 4-8 pJ/bit); GPUs amortize bytes/token
+  23x via batch 256 while K3 MoE expert-union caps NAND batching at 4-8. NAND niche = capacity-$
+  per stream (min deployment $3k/100W vs $550k/12kW). results/economics.json.
 - sweep.py @ gate5: 14568 points; closed-form vs simulator gap 4.2%. Bottleneck = array sense
   BW (planes x page/tR) once lanes >= 4-8; arithmetic cheap; channel binds only at B>=16.
   Practical frontier: SLC-mode-on-commodity-TLC 16x8x6 (768 planes, 5.5TB raw) = 8 tok/s
