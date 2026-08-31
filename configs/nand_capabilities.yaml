@@ -136,16 +136,70 @@ enhanced_slc_programming:
 
 charge_recycling_read:
   primitive: cr_read
-  exact_operation: "consecutive same-block WL reads reuse WL/BL charge (skip full precharge/discharge): first WL full read, subsequent WLs recycle -> lower tR + energy"
-  status: PENDING_AUDIT   # AiF agent filling exact numbers; placeholders below are the paper's claimed anchors to be verified
-  tR_reduction_claimed: "~28us -> ~9.7us (~64%); ~2.8x effective read BW"
-  energy_claimed: "18.278 pJ/bit -> 5.098 pJ/bit (~72%)"
-  conditions: "consecutive WLs, same block; first-read startup + last-read discharge overhead; random access loses benefit"
-  validation_basis: "circuit sim calibrated to real NAND + fabricated CTF array (to confirm)"
-  evidence: L3       # to be refined by audit (likely L2/L3 boundary)
-  mod_class: F1      # 'minor flash control changes' claimed; verify per part
-  source: "AiF ISCA'25 (audit in progress)"
-  k3_relevance: "DIRECTLY applies to weight streaming (contiguous page reads within a block) — biggest physically-grounded tR/energy lever for the sense-bound baseline."
+  exact_operation: >
+    consecutive same-block WL reads skip precharge+discharge, replaced by a
+    'recycling' phase: only next target WL VPASS(6V)->VREF(3.5V), just-read WL
+    VREF->VPASS, other WLs hold VPASS, BLs slightly recharged. tR = tRECY+tEVAL.
+  tR_measured_baseline_us: 28.0        # single-sense read, real TLC chip (AiF Table 2)
+  tR_crread_us: 9.7                    # -64%; recycling phase 6.04us (SPICE-sim)
+  bandwidth_gain: "2.8x per-chip (6.4 vs conventional); ~3.8x vs (2,3,2) LSB coding"
+  energy_pj_per_bit: "18.278 -> 5.098 (-72.1%, SPICE simulated)"
+  conditions: >
+    successive reads to SAME block WITHOUT interval; first read pays precharge,
+    last pays discharge; WLs read as SLC single-sensing (needs be-enc (1,3,3)
+    Gray-coding); weights on LSB pages only (1/3 TLC capacity). Exact end-to-end
+    (be-enc is lossless remap; BCH corrects before arithmetic).
+  validation_basis: >
+    functional correctness MEASURED on a fabricated 9x9 CTF cell array (BL current
+    identical conv vs cr-read); tR/energy magnitudes circuit-SIMULATED (Cadence
+    Spectre) calibrated to the measured 28us/24.22mW anchors. No full die fabbed.
+  control_changes: "X-decoder WL-voltage control + timer-code change in flash scheduler = 'minor modifications to existing flash chip logic' (die-internal; NO COTS command path today)"
+  evidence: L3       # measured on a 9x9 array + calibrated sim, but NOT our part, NOT a full die
+  mod_class: F1      # existing HW (X-decoder/timer), needs vendor firmware/control exposure
+  source: "AiF ISCA'25 (DOI 10.1145/3695053.3731073) Sec 4.2, Table 2, Fig 8-10"
+  k3_relevance: "biggest physically-grounded tR/energy lever; applies to contiguous weight streaming. In Gate-9 search cr-read gives ~2.3x on $/Mtok. NOT firmware-only; HYPOTHESIS on our part until BABOL."
+
+babol_controller:
+  primitive: software_defined_ONFI_controller
+  exact_operation: >
+    FPGA channel controller with software-composed ONFI waveforms: arbitrary
+    command/address/data cycles, pSLC read (vendor-specific command prefix),
+    SET FEATURES / read-retry register access, ns-parameterized timing.
+  proves: "ONFI-level CONTROLLABILITY on real COTS parts; ZERO in-array arithmetic"
+  tested_devices: "COTS SK hynix (100us), Toshiba (78us), **Micron (53us, 2 LUN/ch)** SO-DIMMs; exact part numbers not disclosed"
+  measurement: "Keysight 16862A logic analyzer on the ONFI bus (hardware-grade timing)"
+  evidence: L2       # measured real controller on real COTS packages incl. a Micron 2-LUN part (matches our DDP)
+  mod_class: F0      # it IS the controller; proves what a BABOL-class rig can drive
+  source: "BABOL MICRO'24 (DOI 10.1109/MICRO61859.2024.10869629), open-sourced"
+  k3_relevance: "the exact instrument BABOL_TEST_SPEC assumes is REAL and published; validates that E0/E2 command sequences (pSLC, read-retry, timing capture) are physically executable on a Micron part."
+
+ares_flash_page_buffer_arith:
+  primitive: page_buffer_full_adder_shift
+  exact_operation: >
+    modified page buffer providing full-adder logic + bit-shift, driven by
+    dedicated control sequences -> integer ADD / ACCUMULATE / MULTIPLY in-array;
+    inter-bitline transfer UNIDIRECTIONAL (lower->higher BL) within up to 32 BLs.
+  headline: "8.58x/9.89x perf + 97.9x/14x energy (accumulate); 8.2x/4.5x (vector mult) vs out/in-storage"
+  modification: "peripheral (page buffer + control); NO array redesign"
+  evidence: L3       # simulation-class (circuit sim + SSD simulator); no silicon
+  mod_class: F2
+  source: "Ares-Flash MICRO'24 (DOI 10.1109/MICRO61859.2024.00109) — abstract+secondary"
+  k3_relevance: >
+    INDEPENDENT corroboration of the Gate-7 minimum-silicon answer: a full-adder+
+    shift page-buffer mod is the established minimum for exact in-NAND integer
+    arithmetic. Its 32-BL shift range EXACTLY matches one MXFP4 32-element block —
+    striking alignment with K3's MX granularity. This is the F2 primitive our
+    fallback RTL implements.
+
+crossbit_interbitline:
+  primitive: interbitline_dynamic_logic
+  exact_operation: "dynamic-logic page-buffer modules enabling intra- AND inter-bitline ops + in-flash ECC (IF-ECC) -> reliable MLC in-flash processing"
+  headline: "1.8x bit-density vs SLC-only IFP; 2.1x/2.5x perf/energy vs SOTA IFP; IF-ECC 2.8x faster than shipping to on-die ECC"
+  modification: "peripheral/page-buffer ('embraces existing flash circuit design'); NO array redesign"
+  evidence: L3       # simulation-class (dynamic-circuit sim + app sim); no silicon claimed
+  mod_class: F2
+  source: "CrossBit MICRO'25 (DOI 10.1145/3725843.3756055) — abstract+secondary"
+  k3_relevance: "smallest known inter-bitline communication circuit; its IF-ECC enabling MLC IFP could relax the SLC-mode 2x capacity penalty (sensitivity, unverified)."
 
 program_verify_failbit_count:
   primitive: exposed_failbit_count
