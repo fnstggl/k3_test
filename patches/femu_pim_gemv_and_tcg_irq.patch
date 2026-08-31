@@ -1,0 +1,166 @@
+diff --git a/hw/femu/csd/csd.c b/hw/femu/csd/csd.c
+index 95ade2438..96c715343 100644
+--- a/hw/femu/csd/csd.c
++++ b/hw/femu/csd/csd.c
+@@ -1124,6 +1124,101 @@ static uint16_t csd_nvm_to_afdm(FemuCtrl *n, NvmeNamespace *ns, NvmeCmd *cmd,
+     return NVME_SUCCESS;
+ }
+ 
++/*
++ * K3-on-NAND Gate 8: NVME_CMD_CSD_PIM_GEMV
++ *
++ * Models the minimum in-NAND reduction primitive found in Gate 4 (D_ACC:
++ * per-plane SIMD shift-add reducer with retained accumulators) with the
++ * Gate-2-calibrated window timing:
++ *     period = max(tR, compute_ns_per_page) + dies_per_channel * 290ns
++ *     op     = fill (tR + compute) + n_pages * period
++ * The charged latency uses FEMU's *modeled* device time (reqlat/expire_time),
++ * never host wall clock. cqe.result returns the modeled nanoseconds so a
++ * TCG guest can cross-check the model exactly.
++ *
++ * cdw10 = n_pages (<=1024; one 4B partial per page is DMAed back)
++ * cdw11 = compute_ns_per_page (reducer occupancy; 0 = sense-bound)
++ * cdw12 = dies_per_channel sharing the channel (command-sequence overhead)
++ * cdw13 = input AFDM id (broadcast input vector; may be 0 = ones)
++ * cdw14/15 = slba of the weight region (weights stay inside the device;
++ *            only partials leave, per the PIM contract)
++ * prp1/prp2 = destination for n_pages * 4B partial sums
++ *
++ * Functional semantics (verifiable end to end from the guest):
++ *   partial[p] = sum_{i<PG} w[p*PG+i] * x[i mod xlen]   (uint8 * uint8, mod 2^32)
++ * with PG = 2048 bytes per logical weight page.
++ */
++#define CSD_PIM_PGSZ       2048u
++#define CSD_PIM_CMDSEQ_NS  290u
++#define CSD_PIM_MAXPAGES   1024u
++
++static uint16_t csd_pim_gemv(FemuCtrl *n, NvmeNamespace *ns, NvmeCmd *cmd,
++                             NvmeRequest *req)
++{
++    FemuCsdState *csd = csd_state(n);
++    uint32_t n_pages = le32_to_cpu(cmd->cdw10);
++    uint32_t comp_ns = le32_to_cpu(cmd->cdw11);
++    uint32_t dpc     = le32_to_cpu(cmd->cdw12);
++    uint32_t in_id   = le32_to_cpu(cmd->cdw13);
++    uint64_t slba    = ((uint64_t)le32_to_cpu(cmd->cdw15) << 32)
++                     | le32_to_cpu(cmd->cdw14);
++    uint64_t prp1    = le64_to_cpu(cmd->dptr.prp1);
++    uint64_t prp2    = le64_to_cpu(cmd->dptr.prp2);
++    uint8_t *space   = (uint8_t *)n->mbe->logical_space;
++    uint64_t woff    = slba * 512ULL;
++    uint32_t partials[CSD_PIM_MAXPAGES];
++    uint64_t tR_ns, period_ns, total_ns;
++    uint8_t *xbuf = NULL;
++    uint64_t xlen = 0;
++    uint16_t status;
++
++    if (n_pages == 0 || n_pages > CSD_PIM_MAXPAGES || dpc == 0) {
++        return NVME_INVALID_FIELD | NVME_DNR;
++    }
++    if (woff + (uint64_t)n_pages * CSD_PIM_PGSZ > n->mbe->size) {
++        return NVME_LBA_RANGE | NVME_DNR;
++    }
++
++    if (in_id) {
++        FemuCsdAfdm *afdm;
++        qemu_mutex_lock(&csd->lock);
++        afdm = csd_get_afdm_locked(csd, in_id);
++        if (!afdm || !afdm->data || !afdm->size) {
++            qemu_mutex_unlock(&csd->lock);
++            return NVME_INVALID_FIELD | NVME_DNR;
++        }
++        xbuf = afdm->data;
++        xlen = afdm->size;
++        qemu_mutex_unlock(&csd->lock);
++    }
++
++    for (uint32_t p = 0; p < n_pages; p++) {
++        uint32_t acc = 0;
++        uint8_t *w = space + woff + (uint64_t)p * CSD_PIM_PGSZ;
++        for (uint32_t i = 0; i < CSD_PIM_PGSZ; i++) {
++            uint32_t x = xbuf ? xbuf[i % xlen] : 1u;
++            acc += (uint32_t)w[i] * x;
++        }
++        partials[p] = cpu_to_le32(acc);
++    }
++
++    status = dma_read_prp(n, (uint8_t *)partials, n_pages * 4u, prp1, prp2);
++    if (status) {
++        return status | NVME_DNR;
++    }
++
++    /* Gate-2-calibrated window model, charged in modeled device time */
++    tR_ns = ns->ssd ? ns->ssd->sp.pg_rd_lat : 3000;
++    period_ns = (tR_ns > comp_ns ? tR_ns : comp_ns)
++              + (uint64_t)dpc * CSD_PIM_CMDSEQ_NS;
++    total_ns = (tR_ns + comp_ns) + (uint64_t)n_pages * period_ns;
++    req->reqlat += total_ns;
++    req->expire_time += total_ns;
++    req->cqe.n.result = cpu_to_le32((uint32_t)total_ns);
++
++    return NVME_SUCCESS;
++}
++
+ static uint16_t csd_io_cmd(FemuCtrl *n, NvmeNamespace *ns, NvmeCmd *cmd,
+                            NvmeRequest *req)
+ {
+@@ -1149,6 +1244,8 @@ static uint16_t csd_io_cmd(FemuCtrl *n, NvmeNamespace *ns, NvmeCmd *cmd,
+         return csd_set_qos(n, cmd);
+     case NVME_CMD_CSD_DELETE_GROUP:
+         return csd_delete_group(n, cmd);
++    case NVME_CMD_CSD_PIM_GEMV:
++        return csd_pim_gemv(n, ns, cmd, req);
+     default:
+         return NVME_INVALID_OPCODE | NVME_DNR;
+     }
+diff --git a/hw/femu/csd/csd.h b/hw/femu/csd/csd.h
+index 91a17c21e..a7511829d 100644
+--- a/hw/femu/csd/csd.h
++++ b/hw/femu/csd/csd.h
+@@ -13,6 +13,9 @@ enum FemuCsdIoCommands {
+     NVME_CMD_CSD_CREATE_GROUP   = 0xf6,
+     NVME_CMD_CSD_SET_QOS        = 0xf7,
+     NVME_CMD_CSD_DELETE_GROUP   = 0xf8,
++    /* K3-on-NAND study (Gate 8): per-plane-group PIM GEMV modeling the
++     * Gate-4 minimum primitive (D_ACC). Data direction: controller->host. */
++    NVME_CMD_CSD_PIM_GEMV       = 0x9a,
+ };
+ 
+ enum FemuCsdAdminCommands {
+diff --git a/hw/femu/intr.c b/hw/femu/intr.c
+index 514aa059f..75d5a23f9 100644
+--- a/hw/femu/intr.c
++++ b/hw/femu/intr.c
+@@ -1,4 +1,5 @@
+ #include "./nvme.h"
++#include "qemu/main-loop.h"
+ 
+ static int nvme_add_kvm_msi_virq(FemuCtrl *n, NvmeCQueue *cq)
+ {
+@@ -166,7 +167,15 @@ static void nvme_isr_notify_legacy(void *opaque)
+ {
+     NvmeCQueue *cq = opaque;
+     FemuCtrl *n = cq->ctrl;
+-
++    /* K3-on-NAND Gate 8: FEMU poller threads reach this fallback when the
++     * KVM irqfd route is unavailable (e.g. TCG). msix/msi_notify perform
++     * guest memory writes and MUST hold the BQL when called from a non-QEMU
++     * thread; take it here so FEMU works under -accel tcg. */
++    bool need_bql = !bql_locked();
++
++    if (need_bql) {
++        bql_lock();
++    }
+     if (cq->irq_enabled) {
+         if (msix_enabled(&(n->parent_obj))) {
+             msix_notify(&(n->parent_obj), cq->vector);
+@@ -179,6 +188,9 @@ static void nvme_isr_notify_legacy(void *opaque)
+             //pci_irq_pulse(&n->parent_obj);
+         }
+     }
++    if (need_bql) {
++        bql_unlock();
++    }
+ }
+ 
+ void nvme_isr_notify_admin(void *opaque)
