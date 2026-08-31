@@ -8,14 +8,14 @@ NAND-internal primitive set required. Falsification-driven; outputs feed a later
 real-NAND experiment on Micron MT29F1T08EELEEJ4-R:E.
 
 # Current Gate
-Gate 4 — minimum stock-NAND primitive search (experiments/primitive_search.py).
+Gate 5 — NAND design-space sweep (experiments/sweep.py).
 
 # Gate Status
 - Gate 0 (env + sources): PASSED (commit gate0-source-audit)
 - Gate 1 (Python simulator): PASSED (commit gate1)
 - Gate 2 (Palm reproduction): PASSED (commit gate2-palm-calibrated)
 - Gate 3 (K3 workload): PASSED (commit gate3-k3-workload)
-- Gate 4 (primitive search): NOT STARTED
+- Gate 4 (primitive search): PASSED (commit gate4-minimum-primitive)
 - Gate 5 (design-space sweep): NOT STARTED
 - Gate 6 (power/economics): NOT STARTED
 - Gate 7 (fallback RTL): NOT STARTED
@@ -58,6 +58,12 @@ See references/llm_on_the_palm_parameters.yaml (with page citations) once writte
 - Analytic transparent Python simulator first (Gate 1); MQSim/DRAMsim3/FEMU as cross-checks.
 
 # Experiments Completed
+- primitive_search.py @ gate4: stock (A0/A1) caps at 0.50 tok/s SLC / 0.136 TLC with 137GB/token
+  exported; hypothetical count-primitive (A2) 25-2500x WORSE than export under MX 32-block scales;
+  minimum in-NAND set = C_ADD/D_ACC (SIMD lateral shift+add @<=175ns/pass + 8x32b retained
+  accumulators + multi-die broadcast cmd) = 5.76 tok/s, matches full MAC engine (sense-bound).
+  Firmware-only K3 FALSIFIED structurally (no lateral datapath in stock page buffers).
+  results/primitive_search.csv + reports/03_minimum_primitive.md.
 - k3_baseline.py @ gate3: param check 2.7795T/104.18B (0.02% err). Best 2TB SLC-class config
   114.8ms/token (8.7 tok/s, 8.2 J/token); TLC-2TB 0.08-0.14 tok/s (planes deficit ~100x);
   dense-in-DRAM 0.95 tok/s. KEY: MXFP4 pages need >=4 lanes/plane; wide-striped serial experts
