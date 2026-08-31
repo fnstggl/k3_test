@@ -8,7 +8,8 @@ NAND-internal primitive set required. Falsification-driven; outputs feed a later
 real-NAND experiment on Micron MT29F1T08EELEEJ4-R:E.
 
 # Current Gate
-Gate 8 — FEMU guest run + PIM command integration (reports/06_femu.md).
+COMPLETE — all software-executable gates (0–8) passed; final deliverables written.
+Only remaining work is physical (BABOL real-NAND experiment, spec'd). See audit below.
 
 # Gate Status
 - Gate 0 (env + sources): PASSED (commit gate0-source-audit)
@@ -19,8 +20,22 @@ Gate 8 — FEMU guest run + PIM command integration (reports/06_femu.md).
 - Gate 5 (design-space sweep): PASSED (commit gate5-design-space)
 - Gate 6 (power/economics): PASSED (commit gate6-economics)
 - Gate 7 (fallback RTL): PASSED (commit gate7-rtl-fallback)
-- Gate 8 (FEMU): NOT STARTED
-- Final deliverables: NOT STARTED
+- Gate 8 (FEMU): PASSED (commit gate8-femu; TCG guest, PARTIALS PASS + modeled-ns match)
+- Final deliverables: PASSED (FINAL_REPORT.md, GO_NO_GO.md, BABOL_TEST_SPEC.md, README, Makefile)
+
+# Completion audit (verdict: software program COMPLETE; next step is physical/BABOL)
+- Gate 0 audit: DONE (reports/00). LLM-on-Palm: reproduced ±1.1% (reports/01).
+- K3 workload: modeled, 0.02% param err (reports/02). Primitive search: DONE (reports/03).
+- Design sweep: DONE 14568 pts (reports/03b). Economics/go-no-go: DONE (reports/04).
+- RTL fallback: designed+verified(40M cases)+synthesized (reports/05, results/rtl/).
+- FEMU: built + TCG-run + PIM_GEMV integrated + 2 real bugs fixed (reports/06); KVM
+  externally blocked (no /dev/kvm) but one-command repro works on any host.
+- MQSim: integrated + cross-checked (reports/01, experiments/mqsim/). Tests: 21 pass.
+- Provenance: every results/*.json carries git+timestamp+host. FACT/MODEL/HYPOTHESIS
+  labeled throughout. RUN_STATE current. FINAL/GO_NO_GO/BABOL_TEST_SPEC complete.
+- EXTERNAL BLOCKER (only remaining work): physical NAND. BABOL_TEST_SPEC.md E0/E2/E3
+  states minimum capabilities, latency bounds (<=1us per 32-block count; <=tR reducer),
+  command targets, and pass/fail. No fabricated measurements anywhere.
 
 # Established Facts
 - K3 validated from primary sources (configs/k3.yaml, all brief numbers confirmed; TR Table 1:
@@ -58,6 +73,11 @@ See references/llm_on_the_palm_parameters.yaml (with page citations) once writte
 - Analytic transparent Python simulator first (Gate 1); MQSim/DRAMsim3/FEMU as cross-checks.
 
 # Experiments Completed
+- FEMU @ gate8: PIM_GEMV (opcode 0x9A) in CSD mode with Gate-2 window timing; TCG guest
+  (real 6.8 kernel + nvme-cli) run: 8 partials BIT-EXACT vs host + modeled ns 0x97b8=38840
+  matches Python model exactly. Fixed 2 real FEMU bugs (CSD FTL-thread never started ->
+  IO timeout; TCG msix_notify missing BQL). KVM blocked (no /dev/kvm). reports/06_femu.md,
+  results/femu_guest_serial.log, patches/femu_pim_gemv_and_tcg_irq.patch.
 - rtl/ @ gate7: k3_nand_reducer.sv (multiplier-free shift-add MX reducer, 8 retained rows);
   Verilator bit-exact vs golden over 40M element pairs (random suite caught+fixed a real
   e=15 shift bug); yosys+sky130: full lane 3362 cells/28038um2, element path 423 cells/
@@ -93,15 +113,15 @@ See references/llm_on_the_palm_parameters.yaml (with page citations) once writte
   200 pJ/B I/O receiver-weighted. Held fixed for K3 gates.
 
 # Active Problems
-- /dev/kvm absent → FEMU KVM mode impossible here; TCG attempt pending (Gate 0 item 4 / Gate 8).
+- None blocking software work. /dev/kvm absent → FEMU ran under TCG (functional, modeled
+  time only); one-command KVM repro provided for a KVM host (scripts/femu_guest_run.sh).
 
-# Next Actions
-1. Gate 4: configurable primitive model (A_STOCKISH..E_MAC + combos); per-set K3 tok/s,
-   traffic, accumulator width, passes; classify each capability (KNOWN STOCK /
-   LITERATURE-DEMONSTRATED / VENDOR-POSSIBLE / NEW SILICON); Pareto CSV + report;
-   commit gate4-minimum-primitive. NOTE: E2M1 weight-mul = 2-bit shift + conditional add
-   (k3/mxfp.py e2m1_as_int_halves) — shift+add+accumulate may suffice; quantify.
-2. Gate 5 sweep (incl. batch axis + expert-union amortization). 3. Gate 6 economics
+# Next Actions (all remaining work is PHYSICAL — see BABOL_TEST_SPEC.md)
+- Software program COMPLETE. Next step is the BABOL bench experiment on real
+  MT29F1T08EELEEJ4-R:E: E0.2/E0.3 (measure tR + SLC-mode tR) then E2.2 (attempt a
+  <=1us per-32-block fail-bit count). That decides firmware-only viability and pins the
+  tR the economics depend on. Nothing further is doable in software without the part.
+- (superseded — kept for history) Gate 4: configurable primitive model; Gate 5 sweep; economics
    (batched GPU comparison). 4. Gate 7 RTL. 5. Gate 8 FEMU guest. 6. Finals.
 
 # External Dependencies / Blockers
@@ -113,4 +133,4 @@ See references/llm_on_the_palm_parameters.yaml (with page citations) once writte
 - sim/ (calibrated simulator; tests/), experiments/reproduce_palm.py, reports/00+01
 
 # Last Updated
-2026-08-30, after gate2-palm-calibrated push.
+2026-08-31, all gates 0-8 PASSED + final deliverables written (FINAL_REPORT/GO_NO_GO/BABOL_TEST_SPEC).

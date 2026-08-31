@@ -127,6 +127,26 @@ index 91a17c21e..a7511829d 100644
  };
  
  enum FemuCsdAdminCommands {
+diff --git a/hw/femu/femu.c b/hw/femu/femu.c
+index b4ec35b13..157582b7b 100644
+--- a/hw/femu/femu.c
++++ b/hw/femu/femu.c
+@@ -1121,6 +1121,15 @@ static bool femu_needs_ftl_thread(FemuCtrl *n)
+         if (NS_BBSSD(ns) || NS_ZNSSD(ns)) {
+             return true;
+         }
++        /* K3-on-NAND Gate 8 fix: pure-CSD namespaces also route every IO
++         * request through the to_ftl/to_poller rings (nvme_process_sq_io has
++         * no inline path for CSD), so the FTL thread must run or IO never
++         * completes. femu_ftl_process_req returns lat=0 for CSD; the CSD
++         * command handlers charge their own modeled latency via
++         * req->expire_time. */
++        if (NS_CSD(ns)) {
++            return true;
++        }
+     }
+ 
+     return false;
 diff --git a/hw/femu/intr.c b/hw/femu/intr.c
 index 514aa059f..75d5a23f9 100644
 --- a/hw/femu/intr.c
