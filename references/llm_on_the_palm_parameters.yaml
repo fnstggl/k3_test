@@ -1,0 +1,137 @@
+# Parameters extracted from:
+#   H. Kim, S. Han, J.-J. Kim, "LLM-on-the-Palm: Mobile LLM Inference with
+#   PIM-Enhanced NAND Flash Memory", ICCAD 2025.
+#   DOI: 10.1109/ICCAD66269.2025.11240826
+# Local copy: references/LLM-on-the-Palm.pdf
+# Companion citation notes: references/llm_on_the_palm_notes.md
+# Every entry lists the paper location it came from. Entries marked
+# `status: inferred` are derived from stated facts (MODEL, not FACT).
+
+paper:
+  title: "LLM-on-the-Palm: Mobile LLM Inference with PIM-Enhanced NAND Flash Memory"
+  venue: "ICCAD 2025"
+  doi: "10.1109/ICCAD66269.2025.11240826"
+
+models:
+  # Evaluated: GPT-3 variants (paper Sec V-A, ref [15])
+  gpt3_6p7b:
+    total_params: 6.7e9            # Sec I / V-A
+    weight_dtype_bytes: 2          # "16-bit 6.7B model ... 13 GB" (Sec I); FP16 throughout
+    hidden_dim: 4096               # Sec IV-B: "hidden dimension (e.g. 4096 for GPT-3-6.7B)"
+    # Standard GPT-3 6.7B architecture (Brown et al. 2020, their ref [15]):
+    n_layers: 32                   # status: sourced from GPT-3 paper (ref [15] Table 2.1)
+    n_heads: 32                    # status: sourced from GPT-3 paper
+    ffn_mult: 4                    # GPT-3 uses 4x FFN; status: sourced from GPT-3 paper
+  gpt3_13b:
+    total_params: 13.0e9
+    hidden_dim: 5140               # GPT-3 paper table 2.1 (5140); status: sourced from ref [15]
+    n_layers: 40
+  gpt3_30b:
+    total_params: 30.0e9           # paper says "GPT-3 30B"; nearest GPT-3 config is 175B/13B...
+    # NOTE: OPT-30B appears in Fig 8 labels (OPT 6.7B/13B/30B). GPT-3 paper has no 30B;
+    # OPT-30B: hidden 7168, 48 layers. status: ambiguous in paper; treat as OPT-30B geometry.
+    hidden_dim: 7168
+    n_layers: 48
+
+nand_flash:
+  type: "Z-NAND (Samsung low-latency 3D NAND), SLC"   # Sec V-A + ref [10] (ISSCC 2018)
+  slc_no_ecc: true                # Sec VI-A: SLC BER low enough to omit ECC entirely
+  capacity_GB: 256                # Sec I, II, III-B, V-A text. NOTE: Table I misprints "56GB";
+                                  # all other text says 256GB and 32 dies x 8GB = 256GB checks out.
+  die_capacity_GB: 8              # Table I
+  dies_per_channel: 4             # Table I
+  planes_per_die: 8               # Table I
+  tR_us: 3.0                      # Table I + Sec III-B + ref [10] title ("3us read time")
+  n_channels: 8                   # status: inferred = 256GB / 8GB/die / 4 die/ch = 8 channels
+  n_dies: 32                      # status: inferred = capacity/die_capacity
+  n_planes_total: 256             # Sec III-B: "256 MAC units in total for a 256GB NAND flash"
+                                  # Fig 16a x-labels equate capacity to plane count (256GB -> 256)
+  page_bytes: 2048                # Sec IV-B: "a cell row of 2 KB"; Fig 7(c) "Value $ in a 2 KB cell row"
+  weights_per_page: 1024          # Sec III-B: "1024 weight elements ... stored in the Z-NAND page buffer"
+  channel_bw_GBps: 3.2            # Table I + Sec III-B (ONFI channel, ref [16])
+  host_interface: "UFS 4.0"       # Table I
+  host_bw_GBps: 4.2               # Table I
+  flash_interface: "ONFI 5.2"     # Table I
+  vcc_V: 3.3                      # Table I
+  icc1_multiplane_read_mA: 70     # Table I ("ICC1=70mA for multi-plane read", Sec V-A)
+  max_write_throughput_MBps: ~1700  # Fig 8 plateau ("Max. Throughput" dashed line ~1700-1800)
+  pim_opcode: "0x36"              # Sec III-C: vendor-specific ONFI opcode 36h for Flash-PIM
+  input_broadcast: "CE#-based multi-die broadcast over shared DQ bus"  # Sec III-C
+
+pim_unit:
+  macs_per_plane: 1               # Sec I / III-B
+  total_macs: 256                 # Sec I: "256 MAC units for 256 GB SSD"
+  mac_freq_MHz: 400               # Sec III-B: "MAC units operating at 400 MHz"
+  multiplier: "FP16"              # Sec III-A: "16-bit floating-point multiplier"
+  adder: "FP32"                   # Sec III-A: "32-bit floating-point adder"
+  accumulator_bytes: 4            # Fig 4(b): 4B result register
+  input_register_bytes: 1         # Sec III-B: "next input data is preloaded into a 1B register"
+  weights_per_page_pass: 1024     # Sec III-B
+  mac_time_per_page_us: 2.5       # Sec III-B: "1024 cycles (2.5us)" < tR (3us)
+  input_transfer_per_2B_ns: 0.6   # Sec III-B: at 3.2 GB/s channel
+  mac_cycle_ns: 2.5               # Sec III-B: "MAC computation time of 2.5ns"
+  output_bytes_per_pass: 4        # Sec III-B: "each plane outputs a 4B result"
+  output_transfer_ns: 35          # Sec III-B: "consuming 35ns"
+  pipeline: "input transfer + MAC overlapped inside 3us cell-read window; next page read overlaps current MAC (Fig 5)"
+  area_overhead_pct_of_die: 0.05  # Fig 14 / Sec V-E ("only 0.05% area overhead")
+  synthesis: "28nm CMOS, Synopsys Design Compiler"  # Sec V-A
+  # Comparison points (Sec V-E / Fig 14):
+  cambricon_pu_per_plane_area_pct: 2.3
+  cambricon_original_area_pct: 2.29
+
+system:
+  npu: "Apple Neural Engine Gen6 (iPhone 15)"  # Table I / Sec V-A
+  npu_tflops_sensitivity_range: [7, 27]        # Fig 16(d) x-axis
+  dram: "LPDDR5 6GB"                           # Table I
+  dram_bw_sensitivity_Mbps: [3400, 9400]       # Fig 16(c) x-axis (per-pin data rate)
+  dram_capacity_budget_GB: 6                   # Table I; "3GB realistic" scenario also used (Sec V-B)
+  simulators: "MQSim for NAND latency, DRAMSim for DRAM latency"    # Sec V-A
+  nand_power_model: "Micron Parallel NAND System Power Calculator"  # Sec V-A
+
+mapping:
+  flash_pim_ops: "All FC layers: QKV generation, attention output projection, FFN (weight-activation GEMV)"  # Sec IV-B, Fig 1(b)
+  npu_ops: "Attention QxK, softmax, SxV (activation-activation); prefill entirely on NPU"  # Sec IV-A/B
+  long_context_exception: "QxK moved to Flash-PIM when context ~4096; K cache optionally in flash"  # Sec IV-B
+  kv_cache: "DRAM (K cache optionally NAND for long ctx)"
+  fc_share_of_npu_decoding_latency: 0.995      # Sec IV-B: "up to 99.5% of decoding latency"
+
+results:
+  internal_bw_GBps: 117           # Sec III-B: "117GB/s for our configuration"; Sec VI-B repeats
+  tpot_ms_avg: {gpt3_6p7b: 112, gpt3_13b: 215, gpt3_30b: 495}   # Sec V-B
+  # Fig 10 per-config TPOT (input#/output#) [ms]:
+  tpot_ms_fig10:
+    gpt3_6p7b: {in128_out128: 105, in128_out1024: 109, in1024_out128: 114, in1024_out1024: 118}
+    gpt3_13b:  {in128_out128: 204, in128_out1024: 211, in1024_out128: 218, in1024_out1024: 225}
+    gpt3_30b:  {in128_out128: 477, in128_out1024: 489, in1024_out128: 501, in1024_out1024: 513}
+  speedup_vs_npu_only_geomean: 28
+  speedup_vs_cambricon_geomean: 3.7
+  with_llm_in_a_flash_tpot_ms: {gpt3_6p7b: 81, gpt3_13b: 155, gpt3_30b: 356}  # Sec V-B
+  ttft_s_npu_llm_in_a_flash: {gpt3_6p7b: 1.5, gpt3_13b: 3.5, gpt3_30b: 8}     # Sec V-C
+  # Fig 16(a) capacity sensitivity, TPOT [ms] at capacity GB (= plane count):
+  capacity_sensitivity_tpot_ms:
+    gpt3_6p7b: {128: 185, 256: 112, 512: 75, 1024: 56}
+    gpt3_13b:  {128: 359, 256: 215, 512: 142, 1024: 106}
+    gpt3_30b:  {128: 834, 256: 495, 512: 326, 1024: 241}
+  # Fig 16(b) NAND type sensitivity (M-NAND = medium-latency NAND, their refs [9]/[16],
+  # a 280-layer 1Tb 4b/cell part; paper gives no tR for it):
+  mnand_tpot_ms: {gpt3_6p7b: 501, gpt3_13b: 978, gpt3_30b: 2297}
+  znand_speedup_over_mnand: 4.6
+  # Fig 15 energy per output token, NAND-flash energy only [J]
+  # (bar totals as printed; splits given as percentages in Sec V-F):
+  energy_J_per_token:
+    npu_only:  {gpt3_6p7b: 10.7, gpt3_13b: 20.7, gpt3_30b: 48.3}
+    cambricon: {gpt3_6p7b: 5.9,  gpt3_13b: 11.4, gpt3_30b: 26.7}
+    ours:      {gpt3_6p7b: 1.5,  gpt3_13b: 2.8,  gpt3_30b: 6.6}
+  energy_reduction: {vs_npu_only: 8.3, vs_cambricon: 4.5}   # Sec V-F
+  energy_split_ours: {io_pct: 21.8, pe_flashpim_pct: 1.3, cell_read_pct: ~76.9}  # Sec V-F
+  energy_split_npu_only_io_pct: 89.5
+  energy_split_cambricon_io_pct: 80.7
+  isp_comparison_speedup: 4.3     # Sec VI-B: 4.3x over in-storage processing (NPU in controller)
+  dram_bw_speedup_3400_to_9400: 1.1   # Fig 16(c): only 1.1x geomean
+  npu_tflops_speedup_7_to_27: 1.2     # Fig 16(d): only 1.2x
+
+# Derived quantities we will re-derive in Gate 2 (MODEL, do not treat as paper facts):
+derived_notes:
+  theoretical_internal_bw_GBps: 174.8   # 256 planes x 2KB / 3us; paper's effective 117 is lower
+  effective_page_period_us_256GB: ~4.48 # implied by 117 GB/s; to be derived from scheduling
+  period_fit_from_capacity_sweep: "period ≈ 3us + ~0.4us * dies_per_channel (fit to Fig 16a; hypothesis)"

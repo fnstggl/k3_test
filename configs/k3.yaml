@@ -1,0 +1,98 @@
+# Kimi K3 architecture — validated against public primary sources.
+# Sources:
+#   [TR]  MoonshotAI, "Kimi K3: Open Frontier Intelligence", technical report
+#         (references/k3_tech_report.pdf, from github.com/MoonshotAI/Kimi-K3, Table 1 + Sec 2)
+#   [HF]  huggingface.co/moonshotai/Kimi-K3 config.json (fetched 2026-08-30)
+#   [GH]  github.com/MoonshotAI/Kimi-K3 README
+# Status: FACT unless noted. MODEL-derived fields are marked derived:true and are
+# recomputed + asserted by k3/workload.py (Gate 3).
+
+model:
+  name: "Kimi-K3"
+  total_params: 2.78e12            # [TR Table 1] "2.78T"
+  active_params_per_token: 104.2e9 # [TR Table 1] "104.2B"
+  hidden_dim: 7168                 # [TR Table 1][HF]
+  num_layers: 93                   # [TR Table 1][HF] (backbone; excludes 1 MTP layer)
+  num_dense_layers: 1              # [TR Table 1][HF first_k_dense_replace=1]
+  num_kda_layers: 69               # [TR Table 1][HF linear_attn_config.kda_layers len=69]
+  num_gated_mla_layers: 24         # [TR Table 1][HF full_attn_layers len=24]
+  layer_pattern: "3x KDA + 1x Gated MLA repeated; extra Gated MLA as final layer 93"  # [TR 2.1]
+  vocab_size: 163840               # [HF] ("160K" in TR Table 1)
+  tie_word_embeddings: false       # [HF]
+  max_context: 1048576             # [HF][TR]
+  num_mtp_layers: 1                # [TR Table 1]; used for EAGLE-3-style speculative draft [TR 4.1.4]
+  vision_encoder: "MoonViT-V2, 401M params, 27 layers"  # [TR Table 1][GH]; excluded from decode workload
+
+attention:
+  num_heads: 96                    # [TR Table 1][HF]
+  kda:                             # [TR 2.1.1; Kimi Linear ref [64] of TR]
+    head_dim_k: 128                # [HF linear_attn_config.head_dim]
+    head_dim_v: 128
+    short_conv_kernel: 4           # [HF]
+    projections:                   # weight matrices per layer (derived from TR eqs. 2,6)
+      Wq: [7168, 12288]
+      Wk: [7168, 12288]
+      Wv: [7168, 12288]
+      Wg_fullrank: [7168, 12288]   # [TR 2.1.1 "Full-rank gate", eq. 6]
+      Wo: [12288, 7168]
+      Wbeta: [7168, 96]
+      Walpha_lowrank: "low-rank d->r->12288; r not stated in TR/HF config"  # sensitivity: r in {32..128}
+    state_per_head: [128, 128]     # S_t in R^{dk x dv} [TR eq. 1] -> dynamic, not weights
+  gated_mla:                       # [TR 2.1.2; DeepSeek-V2 MLA + NoPE + full-rank gate]
+    q_lora_rank: 1536              # [HF]
+    kv_lora_rank: 512              # [HF]
+    qk_rope_head_dim: 64           # [HF] (NoPE applied — no RoPE rotation [TR 2.1.2]; dims retained)
+    qk_nope_head_dim: 128          # [HF]
+    v_head_dim: 128                # [HF]
+    projections:                   # derived DeepSeek-V3-style shapes; verified in Gate 3 vs vLLM
+      Wq_a: [7168, 1536]
+      Wq_b: [1536, 18432]          # 96 heads x (128+64)
+      Wkv_a: [7168, 576]           # 512 + 64
+      Wkv_b: [512, 24576]          # 96 x (128+128)
+      Wg_fullrank: [7168, 12288]   # [TR eq. 7]
+      Wo: [12288, 7168]
+
+moe:                               # [TR 2.3 Stable LatentMoE]
+  num_routed_experts: 896          # [TR Table 1][HF]
+  experts_per_token: 16            # [TR Table 1][HF]
+  num_shared_experts: 2            # [TR Table 1][HF]
+  latent_dim: 3584                 # [TR Table 1 "3584 (0.5x)"][GH README]
+  expert_hidden_dim: 3072          # [TR Table 1][HF moe_intermediate_size]
+  routed_expert_io_dim: 3584       # routed experts operate in latent space R^l -> R^l [TR eq. 11]
+  activation: "SiTU-GLU"           # [TR 2.3.2] gated 3-matrix FFN (Wg, Wu, Wd)
+  extra_norms: "RMSNorm(u) before W_up [TR 2.3.1]"
+  w_down: [7168, 3584]             # W↓ [TR eq. 11]
+  w_up: [3584, 7168]               # W↑ [TR eq. 11]
+  shared_expert_io_dim: 7168       # full-width [TR 2.3]
+  shared_expert_hidden_dim: 3072   # derived:true — NOT explicitly stated; Table 1 "MoE hidden dim
+                                   # per expert = 3072" presumed to apply to shared experts too.
+                                   # SENSITIVITY: shared hidden in {3072, 6144}; resolve vs vLLM in Gate 3.
+  dense_layer_ffn_hidden: 33792    # [HF intermediate_size] for the single dense layer
+
+attn_res:                          # [TR 2.2 Block Attention Residuals]
+  scheme: "block"
+  num_blocks: 8                    # 12-layer blocks; 9 sources counting embedding [TR 2.2]
+  params: "negligible (pseudo-query w_l in R^7168 per layer)"
+  inference_cost: "dynamic-side; O(N*d) per layer per token"
+
+quantization:                      # [TR 4.1.4]
+  routed_expert_weights: "MXFP4 (OCP MX: E2M1 elements, E8M0 scale per 32-elem block)"  # [TR 4.1.4 + ref 104]
+  routed_expert_activations: "MXFP8"  # [TR 4.1.4]
+  bits_per_mxfp4_param: 4.25       # 4 + 8/32 (OCP MX spec)
+  bits_per_mxfp8_param: 8.25       # 8 + 8/32
+  non_expert_weights: "higher precision — attention projections, LatentMoE W↓/W↑, shared experts,
+    routers explicitly excluded from MXFP4 [TR 4.1.4]. HF checkpoint dtype bf16 for these.
+    Deployment may use FP8 blockwise for some (SENSITIVITY: {bf16=16, fp8=8.25} bits)."
+  qat: true                        # QAT through SFT+RL [TR 4.1.4]
+
+# Derived parameter accounting (MODEL; asserted by k3/workload.py within ±2%):
+derived:
+  routed_expert_params_each: 33.03e6     # 3 x 3584 x 3072
+  routed_expert_params_total: 2.72e12    # 92 MoE layers x 896 x 33.03e6
+  routed_expert_params_active: 48.6e9    # 92 x 16 x 33.03e6
+  dense_active_params: ~55.6e9           # everything read every token (KDA+MLA+shared+W↓W↑+dense+head)
+  kda_params_per_layer: ~442e6
+  mla_params_per_layer: ~232e6
+  moe_nonrouted_per_layer: ~187e6        # W↓+W↑+2 shared+router
+  embedding_params: 1.17e9
+  lm_head_params: 1.17e9

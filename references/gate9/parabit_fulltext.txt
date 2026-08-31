@@ -1,0 +1,1504 @@
+  ParaBit: Processing Parallel Bitwise Operations in NAND Flash
+                       Memory based SSDs
+             Congming Gao†                       Xin Xin∗             Youyou Lu†                   Youtao Zhang§             Jun Yang∗          Jiwu Shu†
+                           Department of Computer Science and Technology / BNRist, Tsinghua University† , China
+                              Department of Electrical and Computer Engineering, University of Pittsburgh∗ , USA
+                                      Department of Computer Science, University of Pittsburgh§ , USA
+                                                           shujw@tsinghua.edu.cn
+
+ABSTRACT                                                                                           1   INTRODUCTION
+Processing-in-memory (PIM) and in-storage-computing (ISC) archi-                                   Memory wall remains a major performance bottleneck of modern
+tectures have been constructed to implement computation inside                                     computing-centric systems [36]. Recent studies have proposed two
+memory and near storage, respectively. While effectively mitigating                                types of solutions — processing-in-memory (PIM) and in-storage
+the overhead of data movement from memory and storage to the                                       computing (ISC), to address the large data movement overhead
+processor, due to the limited bandwidth of existing systems, these                                 between memory/storage and processor. By exploiting the compu-
+architectures still suffer from the large data movement overhead                                   tation capability and high bandwidth of DRAM and NVM memory
+between storage and memory, in particular, if the amount of re-                                    technologies, PIM architectures integrate basic logic computation
+quired data is large. It has become a major constraint for further                                 in memory and offload computation to memory, which achieves
+improving the computation efficiency in PIM and ISC architectures.                                 great bandwidth and performance improvement with low design
+    In this paper, we propose ParaBit, a scheme that enables Parallel                              complexity and overhead [2, 47, 49, 56]. Alternatively, ISC archi-
+Bitwise operations in NAND flash storage where data reside. By                                     tectures [43, 48] also offload computation to processors inside SSD
+adjusting the latching circuit control and the sequence of sensing                                 controller, near storage, which mitigates the data movement over-
+operations, ParaBit enables in-flash bitwise operation with no or                                  head from storage to the main processor.
+little extra hardware, which effectively reduces the overhead of                                       Most existing PIM and ISC techniques assume the data has been
+data movement between storage and memory. We exploit the mas-                                      loaded into memory before processing such that the data swapping
+sive parallelism in NAND flash based SSDs to mitigate the long                                     between memory and storage is negligible. However, this assump-
+latency of flash operations. Our experimental results show that the                                tion is too optimistic: due to the limited memory size, data-intensive
+proposed ParaBit design achieves significant performance improve-                                  applications often have to store data in storage initially, and move
+ments over the state-of-the-art PIM and ISC architectures.                                         data from storage to memory before and during the processing. Our
+                                                                                                   preliminary study shows that PIM and ISC schemes exhibit 30×
+CCS CONCEPTS                                                                                       and 60× data movement cost over bitwise operation cost while the
+                                                                                                   interconnection interface exhibits limited bandwidth, respectively.
+• Hardware → External storage; • Computer systems organi-
+                                                                                                   Therefore, it is beneficial to enable computation inside storage (e.g.,
+zation → Architectures.
+                                                                                                   SSD) where data resides, thus reducing or avoiding significant data
+                                                                                                   movement from storage to memory.
+KEYWORDS                                                                                               To mitigate the data movement overhead between memory and
+flash memory, in-storage computing, near data processing, bitwise                                  storage, we propose ParaBit, a scheme that conducts Parallel Bitwise
+operation                                                                                          operations in NAND flash memory based SSDs. ParaBit exploits
+                                                                                                   the intrinsic computation capability of the control circuits in com-
+ACM Reference Format:                                                                              modity SSD so that it can be implemented with firmware upgrade,
+Congming Gao† Xin Xin∗ Youyou Lu†               Youtao Zhang§    Jun Yang∗
+                                                                                                   i.e., no extra hardware. ParaBit adjusts the sensing and transistor
+Jiwu Shu† . 2021. ParaBit: Processing Parallel Bitwise Operations in NAND
+Flash Memory based SSDs. In MICRO-54: 54th Annual IEEE/ACM Interna-
+                                                                                                   controls to perform bitwise operations in latching circuit during
+tional Symposium on Microarchitecture (MICRO ’21), October 18–22, 2021,                            read operation. ParaBit supports seven common bitwise operations
+Virtual Event, Greece. ACM, New York, NY, USA, 12 pages. https://doi.org/                          (including AND, OR, XNOR, NAND, NOR, XOR and NOT) in NAND flash
+10.1145/3466752.3480078                                                                            based SSDs. While each bitwise operation in ParaBit takes longer
+                                                                                                   latency than that in PIM and ISC architectures, ParaBit exploits
+                                                                                                   massive parallelism of SSD or high scalability in all-flash array and
+Permission to make digital or hard copies of all or part of this work for personal or              strives to achieve the overall efficiency. We then propose location-
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation          free ParaBit to further improve the performance. Location-free
+on the first page. Copyrights for components of this work owned by others than ACM                 ParaBit facilitates bitwise operations with operands resided in flash
+must be honored. Abstracting with credit is permitted. To copy otherwise, or republish,
+to post on servers or to redistribute to lists, requires prior specific permission and/or a
+                                                                                                   cells from different wordlines by integrating an extra inverter and
+fee. Request permissions from permissions@acm.org.                                                 two control transistors to assist XOR and XNOR operations. To the
+MICRO ’21, October 18–22, 2021, Virtual Event, Greece                                              best of our knowledge, ParaBit is the first work that leverages the
+© 2021 Association for Computing Machinery.                                                        intrinsic computation capability of flash memory’s circuits to re-
+ACM ISBN 978-1-4503-8557-2/21/10. . . $15.00
+https://doi.org/10.1145/3466752.3480078                                                            alize in-SSD data processing. We implement the ParaBit schemes
+
+
+
+
+                                                                                              59
+MICRO ’21, October 18–22, 2021, Virtual Event, Greece                                                                                                                                                           Congming Gao, et al.
+
+
+and evaluate them in three case studies. Our experimental results                                                                                                                                                     Plane0
+                                                                                                      GC              DA                       Die0                                Die1
+show that ParaBit schemes, by performing computations inside
+
+
+
+
+                                                                                                                                                                                                         DieDie
+                                                                                                                                                                                                                      Plane1
+SSDs, significantly reduce the data movement overhead and thus                                    GC
+                                                                                                  FTL             DA
+                                                                                                                  Other                     Die0   Multiplexed Fiber
+                                                                                                                                                                               Die1                                  Plane0
+                                                                                                                                                                                                                        Blk
+                                                                                                                                               Chip   Internals                                                      Plane1
+                                                                                                                                                                                                                        …
+improve the system performance.                                                                 FTL              Other                         Multiplexed Fiber
+                                                                                                                                                                                                                       Blk
+                                                                                                                                                                                                                        Blk
+   We summarized our contributions as follows. 1) We proposed                                                                               Chip Internals                                                             …
+
+
+
+
+                                                                                          Interface
+
+
+
+
+                                                                                                                                                   Chip0
+
+
+                                                                                                                                                                                 Chip2
+                                                                                                           Controller
+
+
+
+
+                                                                                                                                                                                            Channels
+                                                                                                                                                                                                                       Blk
+
+
+
+
+                                                                                                                            ChipChip
+                                                                                                                          Controller
+an in-flash-computing scheme, referred to as ParaBit, to realize
+
+
+
+
+                                                                                      Interface
+
+
+
+
+                                                                                                                                           Chip1Chip0
+
+
+                                                                                                                                                                         Chip3Chip2
+                                                                                                              Flash
+                                                                                                                                                                                                                        SSL
+
+
+
+
+                                                                                                         Controller
+
+
+
+
+                                                                                                                                                                                          Channels
+bitwise operations in NAND flash memory with no or little hard-
+
+
+
+
+                                                                                                                      Controller
+
+
+
+
+                                                                                                                                                                                                             Block
+                                                                                                                                                                                                                      Page m
+
+
+
+
+                                                                                                                          Flash
+                                                                                                           Flash
+ware modification; 2) We constructed a ParaBit based SSD design,                                                                                                                                                      SSL
+                                                                                                                                                                                                                        …
+
+
+
+
+                                                                                                                                                                                                          Block
+                                                                                    Host
+                                                                                                                                                                                                                     Page m0
+                                                                                                                                                                                                                       Page
+
+
+
+
+                                                                                                                      Flash
+which includes several additional components for implementing                                                                                                                                                           …
+                                                                                                                                                                                                                       GSL
+
+
+
+
+                                                                                                                                        Chip1
+
+
+                                                                                                                                                                      Chip3
+                                                                                 Host
+ParaBit inside SSDs; 3) We evaluated the performance of ParaBit                                                                                                                                                       Page 0
+                                                                                                                                                                                                                      GSL
+in MLC SSD using a modified SSD simulator and compared it with
+state-of-the-art PIM and ISC architectures. The reliability of ParaBit
+                                                                                                      Die Internals(a) The architecture of Block
+                                                                                                                                           SSD.  Internals
+
+
+
+
+                                                                                                                                                                                         BL1BL1
+
+
+                                                                                                                                                                                                       BL3BL3
+                                                                                                                                                                            BL0BL0
+
+
+                                                                                                                                                                                         BL2BL2
+also is verified in real flash chips.                                                                 Die Internals
+                                                                                                       Cache register                    Block Internals
+                                                                                                        Data register                                                 SSL                                        String
+   In the rest of the paper, we briefly discuss the background and                                     Cache register                                                                                            Select Line
+                                                                                                                                                                                                                String
+
+
+
+
+                                                                                                                                                             0/10/1
+                                                                                                       Data register                                               WL3
+                                                                                                                                                                  SSL                                           Select Line
+
+
+
+
+                                                                                          Decoder
+related works in Section 2. We present the motivation in Section 3
+                                                                                                       Plane0 Plane1                                              WL2                                               Control
+
+
+
+
+                                                                                                                                                           Page
+and elaborate our design in Section 4. We analyze the experimental                                                                                                WL3
+
+
+
+
+                                                                                       Decoder
+                                                                                                       (Cell Array)      (Cell Array)                             WL1
+                                                                                                                                                                  WL2
+                                                                                                                                                                                                                     Gates
+                                                                                                                                                                                                                   Control
+results in Section 5 and get the conclusion in Section 6.                                              Plane0 Plane1
+
+
+
+
+                                                                                                                                                        Page
+                                                                                                                                                                                                                    Gates
+
+
+
+
+                                                                                                                                                     Flash
+                                                                                   RowRow
+                                                                                                       (Cell Array)     (Cell Array)                             WL0
+                                                                                                                                                                 WL1
+                                                                                                                                                                 GSL                                             Ground
+2 BACKGROUND AND RELATED WORK
+
+
+
+
+                                                                                                                                                  Flash
+                                                                                                                                                                 WL0                                             Select Line
+                                                                                                         Column Decoder
+                                                                                                                                                               GSL                                              Ground
+                                                                                                                                                                                                                 Source Line
+2.1 NAND Flash Memory based SSDs                                                                                                                                                                                Select Line
+                                                                                                        Column Decoder                                                                                          Source Line
+Figure 1(a) shows the architecture of a typical planar MLC based
+                                                                                                                      (b) The internal details about die and block.
+SSD. Inside SSD, there is a host interface, which is used to connect
+SSD and host system. The flash controller contains several impor-                           Figure 1: The architecture of SSD and its internals.
+tant components, which are in charge of Garbage Collection (GC),              section. As shown in Figure 2, data register and cache register are
+Data Allocation (DA), address mapping (Flash Translation Layer,               implemented via two latches, which can buffer data derived from
+FTL), and some other functions, such as Wear Leveling (WL) and                sense amplifiers while outputting the cached data. In the discussion,
+cache [1]. Apart from these components, a flash chip controller               we represent the logic value at a location X as L(X)=x 1x 2x 3x 4 ,
+is equipped to connect flash chips and flash controller. To boost             where x 1 , x 2 , x 3 , and x 4 indicate the logic value when the MLC
+the performance of SSDs, internal architecture is organized in four           cell being sensed is in state E, S1, S2, and S3, respectively. Each
+levels of parallelism, from channel to chip, to die, and to plane             x i (1<=i<=4) takes 0 or 1 indicating if location X has low or high
+[15, 16]. Inside each die, multiple planes are maintained and each            voltage, respectively.
+plane contains a series of blocks. Each block contains several pages.                                            L1                                                                                             L2 6
+                                                                                            3                                          4                                       7
+   Figure 1(b) show the internal details of die and block. Inside                            0000                                       1111                                    1111                               0000
+a die, two planes are engineered. Around planes, there are two                             2 C                                                                               A    B                                     OUT
+address decoders, determining the data access location. On the top                          M1                                          M2                                      M4
+                                                                                         EN1                                                          EN2                                               5
+of planes, two registers, termed cache register and data register, are
+                                                                                                                                                       EN3                               M3            SET            M5
+engineered to transfer data to or from flash array. To speed up read
+                                                                                                          MSO
+operation, data can be transferred from cache register to host while                      SO
+                                                                                                       1 1111
+concurrently moving data from flash array to data register. This
+process is termed Cache Read, which has been widely supported                            Figure 2: Initialization of latching circuit.
+in modern flash memory [23, 39]. Inside the block, all flash cells               Figure 2 illustrates how we initialize the latch circuit before
+are organized as cell array. In the right of Figure 1(b), all cells in        read operation. SO and EN1 signals are initially set to “high” (step
+horizontal direction are connected through a wordline (WL) and all            1 and step 2) and transistors MSO and M1 are enabled to force the
+cells in vertical direction are stringed and selected by bitline (BL).        voltage at C to ground so that L(C)=0000 (step 3). Consequently,
+According to the number of bits stored in a cell, flash cells can be          L(A)=L(C)=1111 (step 4). Then, SET signal is set to “high” (step 5)
+divided into several types: Single Level Cell (SLC), Multi Level Cell         so that L(OUT)=0000 (step 6) and L(B)=L(OUT )=1111 (step 7).
+(MLC), Triple Level Cell (TLC) and Quad Level Cell (QLC). Take                   To differentiate four states in an MLC cell (E, S1, S2 and S3),
+Figure 1(b) as an example, where each MLC cell stores a 2-bit value,          three reference voltages (VREAD1 , VREAD2 and VREAD3 ) are used as
+each bit of which belongs to different page. All MLC cells reside in          threshold voltages, as shown in the middle of Figure 3. By applying
+the same WL are grouped and used as two physical pages. Inside                different sensing voltages in a sequence of Single Read Operations
+SSDs, read and write are performed in page-based operation while              (SROs), we get the outputs by comparing the sensing voltages and
+erase is processed in block-based operation.                                  the current cell voltage. The comparison result is transferred to SO
+                                                                              node where    the value
+                                                                                          0000   L1
+                                                                                                       may be   0 (if the cell voltage isL2lower than
+                                                                                                              1111
+2.2     Latching Circuit in Flash Memory                                                  4
+                                                                              sensing voltage)                3 voltage is higher). The value at
+                                                                                                 or 1 (if the cell
+                                                                                          1111                0000          1111             0000
+Given ParaBit relies on adjusting the control sequence of latch-              SO is then moved and stored in the latches A     (L1
+                                                                                                                               B
+                                                                                                                                   and L2). Since the
+                                                                                              C                                                OUT
+ing circuit, we next elaborate the baseline implementation in this                         M1 is independent
+                                                                              sensing circuit                M2 of2 L2, SROsM4can be performed to
+                                                                                                       EN1                                                            EN2
+                                                                                                                                                                      EN3                     M3                SET         M5
+                                                                                                             MSO
+                                                                                                       SO
+                                                                                                          1 1111
+                                                                         60
+ParaBit: Processing Parallel Bitwise Operations in NAND Flash Memory based SSDs                                             MICRO ’21, October 18–22, 2021, Virtual Event, Greece
+                                                                                                                 C
+                                                                                                              M1               M2
+                 L1          1111                                         L2                               EN1 by attaching a dual-contact
+                                                                                                                                     EN2
+                             1.3                                                                    is realized                              cell to the bitline so that the
+         0000                1100                2                                                                                    EN3 is sensed. Given the parallel
+                                                                                                    negated value of the bitline’s output
+            C                               A    B                                   OUT                           MSO
+          M1                  M2 1.2            M4                                                  DRAMSO   cells in a row, bulk bitwise operations can be realized.
+                                                                                                               1 0011
+      EN1                         EN2                                                                   PIM architectures usually assume that all operands have been
+                                     EN3        M3                SET               M5              loaded into the memory. The data movement between storage and
+            MSO                                                                                     memory is rarely studied in the literature.
+      SO                         LSB Read
+       1.1 0011
+
+
+
+
+                                                VREAD0
+
+                                                             VREAD1
+
+                                                                       VREAD2
+                                                                                VREAD3
+                                                                                                        ISC: ISC architectures were designed to offload computation to
+                 1    2                                  E            S1 S2 S3
+                                                                                                    the integrated computing units that reside in storage modules. By
+                Latching                                                                            sending only the results back to the processor, ISC effectively miti-
+          L1     Circuit L2             LSB              1            1 0 0
+                                        MSB              1            0 0 1                         gates the data movement between storage and the main processor
+               1    2     3
+                                                                                                    [11, 31, 43, 48, 50]. Previous works adopt FPGA or embedded ARM
+     0110 0000 L1          1111 1001 MSB Read                             L2                        to implement computations so as to achieve good tradeoff between
+     2.3     1.4           1.3    2.4
+        0111                  1000        3                                                         programmability and computing capability, which potentially can
+           C                           A   B                                             OUT        meet different computation     requirements. While ISC architectures
+   2.2    M1                  M2 1.2                                                                                  0000 L1
+                                         M4                                                         can implement2 bulk1 bitwise operations, they face two shortcomings:
+    EN1                            EN2                                                                       0110 0111
+                                                                      SET           M5
+                                                                                                    First, processing   bitwise operation in an powerful computing unit
+                                    EN3         M3                                                                        C
+                                                                                                                 2     M1 Take FPGA as an example, SRAM-based FPGA
+                                                                                                    is not cost-effective.
+             MSO
+      SO                                                                                                          EN1
+        1.1 0111                                                                                    requires additional    power consumption to maintain operands in
+               2.1                                                                                  SRAM, compromising the energy efficiency. Second, due to the lim-
+            0001                                                                                                          MSOin SSD controller and low interconnection
+      Figure 3: Latching circuit of reading LSB and MSB.                                            ited memorySO   capacity
+                                                                                                                       1 0111
+sense and store new value in L1 while previous sensed value has                                     bandwidth, the data movement
+                                                                                                                             2          overhead remains high.
+                                                                                                                         0001
+                                                                                                        Instead, this work   exploits a new computing paradigm that of-
+been buffered in L2 and then be transferred out from node OUT
+(referred to as “CacheVRead”).                                                                      floads basic bitwise operations to flash memory and then further
+                          READ0    VREAD1      VREAD2  VREAD3
+   To read the LSB bit (least-significant-bit) from an MLC cell, the                                reduce data movement overhead to and from the storage.
+controller applies a sensing voltage VREAD2 , denoted as step 1 at
+the top of Figure 3, which includes three sub steps. Depending on                                   2.4    Other Related Works
+the state of the cell, all possible outputs at SO are represented as                                In addition to DRAM-based PIMs [18, 49, 56], recent studies enabled
+L(SO)=0011 (step 1.1) while the voltage of cell in E and S1 states                                  bitwise operations in different memory technologies, e.g., SRAM,
+is lower than VREAD2 and voltage of cell in S2 and S3 states is                                     RRAM and MRAM. These works leverage electrical characteristics
+higher. The transistor M 2 is then enabled (step 1.2) and voltage                                   [10, 33, 53] or stateful logic operation [5, 55, 58] to conduct simple
+at A is forced to ground if SO has a sensed high voltage, e.g., L(A)                                bitwise operations.
+changes from 1 to 0 only when L(SO)=1 at step 1.3. As a result,                                        However, due to the poor density, high cost and immature pro-
+L(A)=L(A)old ∧ L(SO)=1100, i.e., it is the same as the LSB bit value.                               cess technology, these new memory medium based PIM architec-
+Step 2 transfers the sensed value to L2 to enable cache read.                                       tures are still a long way from widespread use. For NDP (Near Data
+   The process to read MSB bit (most-significant-bit) (at the bottom                                Processing), Akin et al. proposed to place processing units near
+of Figure 3) is similar. The difference is that we employ two sensing                               main memory so that data can be processed without high data
+voltages VREAD1 and VREAD3 to sense data to L1. At step 1.1,                                        movement cost [3]. NDP often introduces higher design overhead,
+L(SO)=0111 when sensing voltage is applied at VREAD1 . At step 1.2,                                 due to the demands for high-speed processor, more memory con-
+we then enable M2 and force the voltage at A to ground if L(SO)=1.                                  trollers and I/O circuits [4]. For ISC, powerful computing units are
+As a result, L(A)=L(A)old ∧ L(SO)=1000 and L(C)=L(A)=0111 at step                                   included in high-end SSDs to process the data before being moved
+1.3 and step 1.4. After finishing step 1, M2 is disabled. At step 2.1,                              to the memory [11, 31, 48]. Although ISC achieves good perfor-
+sensing voltage VREAD3 is applied and L(SO)=0001. Similarly, we                                     mance by bringing data near storage, designing a bitwise operation
+enable M1 (step 2.2) so that L(C)=L(C)old ∧ L(SO)=0110 (step 2.3)                                   dedicated ISC is not cost-effective.
+and L(A)=L(C)=1001 (step 2.4), i.e., it is the same as the MSB bit.
+Step 3 transfers the sensed value to L2 to enable cache read.                                       3     MOTIVATION
+                                                                                                    We motivate our design by studying the data movement between
+2.3     PIM and ISC                                                                                 SSD and memory in PIM and ISC architectures, respectively. We
+PIM: PIM typically exploits the intrinsic computation capability                                    choose an image segmentation benchmark program [14] as the
+inside DRAM or NVM technologies, which mitigate the data move-                                      example, which employs color recognition to realize region seg-
+ment overhead between memory and processor [41, 49, 56]. For                                        mentation. To determine whether one pixel belongs to a color range,
+example, Ambit is a typical DRAM based PIM architecture that                                        the program uses YUV color recognition and leverages bitwise op-
+exploits charge sharing for computation [49]. For example, to im-                                   erations [6]. Assume the YUV color space is discretized to 10 levels
+plement AND operation in DRAM, Ambit activates three cells on                                       in each channel, the “orange” color can then be represented as:
+the same bitline so that, if at least two cells’ voltages are high, the                                Y_Class[ ]={0,1,1,1,1,1,1,1,1,1};
+voltage on the bitline is above Vdd /2 after charge sharing. Other-                                    U_Class[ ]={0,0,0,0,0,0,0,1,1,1};
+wise, the voltage is lower than Vdd /2. The NOT operation in Ambit                                     V_Class[ ]={0,0,0,0,0,0,0,1,1,1}.
+
+
+
+
+                                                                                               61
+     MICRO ’21, October 18–22, 2021, Virtual Event, Greece                                                                                                                                Congming Gao, et al.
+
+
+        Given a pixel whose YUV value is (2,7,9), it falls into orange’s                                                             4.1     Performing Bitwise in Latching Circuit
+     color space if “Y_Class[2] AND U_Class[7] AND V_Class[9]”                                                                       Intuitively, our latching circuit based bitwise operation is to com-
+     is evaluated to be true. The color recognition can be concurrently                                                              pute, e.g., Zi = Xi AND Yi (i=0,1,2...), by first storing Xi and Yi in
+     performed with multiple pixels and colors. In the experiment, the                                                               the LSB and MSB of the same MLC cell, and then having Zi com-
+     number of images varies from 10,000 to 200,000, the resolution of                                                               puted and buffered in the output latch (i.e., L2 latch in Figure 2). For
+     each image is set to 800×600, the YUV color space is discretized to                                                             clarity, the truth table for the set of bitwise operations supported
+     256 levels in each channel, and four types of colors are recognized.                                                            by ParaBit is shown in Table 1.
+     Due to the limited memory size, image data need to be stored in
+     storage before processing — it takes 267.5GB space to store 200,000
+                                                                                                                                                 Table 1: Truth table of bitwise operation.
+     images with each image occupying 1.37MB space. When writing
+     well-reconstructed images to storage, the program performs a light-                                                                   State (LSB/MSB) AND OR XNOR NAND NOR XOR NOT
+     weight pre-processing that transforms YUV value into recognized                                                                         E      (1/1)     1 1      1      0     0    0 (0/0)
+     color based YUV classes, which reduces the per image space con-                                                                        S1      (1/0)     0 1      0      1     0    1 (0/1)
+     sumption to 0.72MB (800×600×3 channels×4 bits per channel), or                                                                         S2      (0/0)     0 0      1      1     1    0 (1/1)
+                                                                                                                                            S3      (0/1)     0 1      0      1     0    1 (1/0)
+     140GB for 200,000 images. Clearly, this data volume is still beyond
+     the memory capacity of a typical PIM/ISC system.
+        To evaluate the data movement overhead, we choose the Ambit                                                                     To conduct an AND operation, the output should be 1000 ac-
+     PIM architecture [49] with its latency of bitwise operation mea-                                                                cording to the truth table and the state value notion used in Section
+     sured in H-spice[51], and Cosmos OpenSSD platform [13] as ISC                                                                   2.2, i.e., the output is 1, 0, 0, and 0 when the MLC to be sensed is in
+     architecture, respectively. For the storage device, we use a Samsung                                                            E, S1, S2, S3 state, respectively. Only when the cell is in E state
+     SSD 970 PRO with MLC flash memory and 512GB capacity [46].                                                                      indicating both LSB and MSB are 1s, we have the output being 1.
+     Given current Cosmos OpenSSD platform’s bandwidth is out-dated                                                                     As donated in Figure 5(a), AND operation can be achieved by
+     (about 2GB/s while modern SSDs’ bandwidth is often greater than                                                                 employing two-step latching circuit control. At first step, we de-
+     3GB/s), we attach Samsung SSD 970 PRO to the Cosmos OpenSSD                                                                     termine whether the cell being sensed is in state E by applying
+     platform for moving data from flash memory to computing unit.                                                                   the sensing voltage at VREAD1 and having L(SO)=0111 at step 1.1.
+     We remap all images’ logical addresses sequentially so as to exploit                                                            Then, at step 1.2, M2 is enabled to force node A to ground if SO has
+     SSD’s peak bandwidth [27]. More details about the evaluation can                                                                a sensed high voltage. We have L(A)=L(A)old ∧ L(SO)=1000 (step
+     be found in Section 5. Figure 4 summarizes the results. While it                                                                1.3), where L(A)old is the initialized value 1111. For the second step,
+     actually triggers data swap between memory and SSD if the size of                                                               the value of L(A) is transferred to L2 by enabling M3 (step 2.1) and
+     data operands exceeds the DRAM or SRAM capacity in PIM and                                                                      then L(OUT)=L(B)=1000 (step 2.3).
+     ISC, respectively, we ignore result writeback and thus only account                                                                The process of performing AND operation is the same as reading
+     for the time spent in moving data from SSD.                                                                                     LSB bit illustrated in Figure 3, except for the applied sensing voltage.
+                  4 0        D a ta M o v e m e n t                               4 0        D a ta M o v e m e n t
+                                                                                                                                     That is, AND operation can be realized inside flash memory based
+E x e . T im e ( s )
+
+
+
+
+                                                                E x e . T im e ( s )
+
+
+
+
+                  2 0         A N D in P IM                                       2 0         A N D in IS C                          SSDs by leveraging the intrinsic bit read capability without extra
+                                                      3 0 .7
+
+
+
+
+                                                                                                                                     hardware modification.
+                                                                                                                      6 0 .2
+
+
+
+
+                1 .0                                                            1 .0
+                 0 .5                                                            0 .5
+                  0 .0
+                                                                                                                                        To conduct an OR operation, the output should be 1101. We
+                          1 0 K    5 0 K   1 0 0 K    2 0 0 K                     0 .0
+                                                                                          1 0 K    5 0 K   1 0 0 K    2 0 0 K        take the three-step latching circuit control, which is the same as
+                       (a) The evaluation with PIM.                                    (b) The evaluation with ISC.                  reading MSB bit except for the applied sensing voltages. As shown
+     Figure 4: The execution time of data movement and bitwise                                                                       in Figure 5(b), at step 1.1, L(SO)=0011 while sensing voltage is
+     operations in PIM and ISC architectures.                                                                                        applied at VREAD2 , and then we have L(A)=L(A)old ∧ L(SO)=1100
+        From the figure, both PIM and ISC spend most of their execution                                                              (step 1.3) and L(C)=L(A)=0011 (step 1.4). At step 2.1, sensing voltage
+     time on data movement while only a small portion of their execution                                                             is applied at VREAD3 to have L(SO)=0001. Then, by enabling M1
+     time on bitwise AND operations. PIM and ISC spend 43.9s and 41.8s,                                                              (step 2.2), we have L(C)=L(C)old ∧ L(SO)=0010 (step 2.3), where
+     respectively, on data movement, which are 30.7× and 60.2× longer                                                                L(C)old =0011. Lastly, at step 2.4, L(A)=L(C)=1101, i.e., it is the same
+     than the time on AND operations, respectively. In the experiment,                                                               as the result of OR operation. Again, step 3.1 enables M3 to transfer
+     the PCIe Gen3× 4 is used as the interconnection but remains a                                                                   the value to L2 for cache read and L(OUT)=1101 (step 3.3).
+     performance bottleneck. To summarize, it can greatly improve the                                                                   To conduct an XNOR operation, the output should be 1010
+     system performance if the computation can be offloaded to SSD so                                                                based on the truth table. In Figure 6, we take a new six-step latching
+     that only the computation results, i.e., a small amount of data, need                                                           circuit control to determine whether the cell being sensed is in state
+     to be transferred from SSD to DRAM and/or FPGA.                                                                                 E or S2. Six steps are elaborated as follows:
+                                                                                                                                        Step 1.1 employs sensing voltage VREAD1 (step 1.1) and enables
+     4             THE DESIGN OF PARABIT                                                                                             M2 (step 1.2) so that L(A)=1000 (step 1.3) and L(C)=0111 (step 1.4);
+     As a solution to address the issue in the preceding section, we pro-                                                               Step 2.1 enables M3 to transfer the value in the preceding step
+     pose to offload bitwise operations to SSD. We first present how to                                                              to OUT, i.e., L(OUT)=L(B)=L(B)old ∧ L(A)=1000;
+     perform such operations in NAND flash based SSDs, and then elab-                                                                   Step 3.1 employs sensing voltage VREAD0 and enables M2 (step
+     orate the implementation details, followed by additional discussion.                                                            3.2) to set L(A)=0000 (step 3.3) and have L(C)=1111 (step 3.4);
+
+
+
+
+                                                                                                                                62
+                      L1            1111             1111            L2    0000
+                                    1                   2                 2
+                                    1100             0011                  1100
+                  C                              A     B                   OUT
+             M1                    M2 1               M4
+          EN1                         EN2
+                                           EN3       M3      SET          M5
+ParaBit: Processing Parallel Bitwise Operations
+                                              2 in NAND Flash Memory based SSDs                                    MICRO ’21, October 18–22, 2021, Virtual Event, Greece
+                   MSO
+           SO
+                1 0011
+
+                         L1              1111         1111        L2           0000               0000 L1              1111                        L2
+  S3 0 1                                1.3          2.2                       2.3                4                    3
+                                         1000                                                     1111                 0000         1111                0000
+           0000               E             S1 VREAD2 0111
+                                                      S2 VREAD3 S3             1000
+  S2 0 0       C                                   A     B                     OUT                   C                            A   B                   OUT
+          LSBM1            1            M2 1.2
+                                             1        04
+                                                      M         0                                  M1                 M2 2          M4
+  S1 1 0 MSB               1                 0        0         1
+ VREAD1  EN1                                 EN2                                                EN1                      EN2
+                                             EN3                 SET          M5                                           EN3        M3       SET       M5
+   E 11                                                M3
+                MSO                          2.1                                                        MSO
+         SO                                                                                     SO
+    LSB                                                                                              1 1111
+       MSB 1.1 0111
+                 (a) Performing AND operation in latching circuit.                         Figure 7: Initialization of latching circuit for performing
+                                                                                           NAND, NOR, XOR and NOT bitwise operations.
+          0010 0000 L1                  1111      1111                L2      0000
+   S3 0 1 2.3   1.4                     1.3 2.4     3.2                       3.3          value in L2 is the same as traditional one while the value in L1 is
+ VREAD3      0011                       1100 1101 0010                        1101         inverted. In detail, as presented in Figure 7, SO and EN2 signals are
+   S2 0 0   2.2 C                               A   B                          OUT
+ VREAD2                                                                                    initially set to “high” and transistors MSO and M1 are enabled to force
+              M1                        M2 1.2    M4
+   S1 1 0
+          EN1                              EN2                                             the voltage at A to ground so that L(A)=0000 and L(C)=L(A)=1111.
+   E 11                                      EN3       M3       SET           M5           In the following discussion, we use the table representation to
+                 MSO                         3.1                                           elaborate the implementation.
+          SO
+     LSB    1.1 0011                                                                          For NAND operation, the last three rows in Table 2 indicate we
+        MSB        2.1
+                0001                                                                       need one initialization, one sensing step and one transfer step. The
+                 (b) Performing OR operation in latching circuit.                          second and third columns of each row elaborate the control details
+Figure 5: Latching circuit control for performing AND and OR                               at each step. The second row indicates the initialization of latching
+bitwise operations.                                                                        circuit. The third row indicates we use sensing voltage VREAD1
+   Step 4.1 employs sensing voltage VREAD2 and enables M1 (step                            and enable M1 , thus the values at node C and A are changed. The
+4.2) so that L(C)=L(C)old ∧ L(SO)=1111 ∧ 0011=1100 (step 4.3) and                          fourth row indicates we enable M3 and transfer value from L1 to L2,
+L(A)=L(C) =0011 (step    4.4);                                                             and then we can have L(OUT)=L(B)=0111, e.g., it is the same as the
+                     VREAD0 E VREAD1 S1            S2          S3
+   Step 5.1 employs sensing voltage VREAD3 and enables M2 (step                            result of NAND operation.
+                LSB         1           1           0           0                             Table 2: Performing NAND operation in latching circuit.
+5.2) so that L(SO)=0001
+                MSB         and
+                            1           0 old ∧ L(SO)=0011
+                                L(A)=L(A)           0           1 ∧ 0001
+=0010 (step 5.3); VREAD0 E VREAD1 S1                                                         Rows           NAND        L(SO) Mx L(C) L(A) L(B) L(OUT)
+                                                   S2          S3
+   Step 6.11111   0000
+             enables    so that   1111 old ∧L(A)=0111∧0010=0101
+                                                 1111               0000                        1     Initialization       -     - 1111 0000 1111 0000
+    S3 0 1 3.4
+                LSB  M3L1   1 L(B)=L(B)
+                                 1.3 1              0
+                                                   2.2
+                                                               L2
+                                                                0 2.3                           2         VREAD1         0111 M1 1000 0111 1111 0000
+                   1.4      1           3.36.3), e.g,.
+                                        0           0           1
+(step 6.2) and  MSB
+                L(OUT)=L(B)=1010
+                0111                (step
+                                  1000 0000 0111       it is the  same as
+                                                                    1000                        3         L1 to L2         -    M3 1000 0111 1000 0111
+theS2   0 0 of XNOR C
+     result         operation.     1.2 3.2 A       B                 OUT
+                                      M
+   S1 1 0 1111M   0000                  1111            1111          L2 0000
+                    1                    2
+                          L1                            M  4                                  For NOR operation, after initialization, we need two sensing
+   S3 0 1 3.4
+ VREAD1     EN1 1.4                   1.3 EN2  3.3        2.2             2.3
+               0111                     1000 0000 0111 SET                1000             steps and one transfer step as shown in Table 3. The third row
+    E   1 1                                  EN3                         M  5
+   S2
+ VREAD00 0           C                         3.2 A M3B
+                                         1.2 2.1                          OUT              indicates we use sensing voltage VREAD2 and enable M1 to have
+                 M   M   SO           M2
+   S1 1 0   SO      1                                   M4                                 L(A)=L(C)=0011. The fourth row indicates we use sensing voltage
+      LSB EN1
+ VREAD1         1.1 0111                     EN2
+          MSB             3.1                                                              VREAD3 and enable M2 to conduct L(A)=0010. The last row indicates
+   E 11             1111                     EN3        M3        SET    M5
+ VREAD0                                       2.1
+                                                                                           we enable M3 and transfer value from L1 to L2, and then we have
+                     MSO
+            SO                                S1 VREAD2 S2 VREAD3 S3
+     LSB        1.1 0111 E                                                                 L(OUT)=L(B)=0010, e.g., it is the same as the result of NOR operation.
+          MSB LSB         3.1 1                1           0           0                     Table 3: Performing NOR operation in latching circuit.
+                    1111
+               MSB             1               0           0           1
+             (a) The first, second and third steps of XNOR operation.                       Rows        NOR      L(SO) Mx L(C) L(A) L(B) L(OUT)
+                               E              S1 VREAD2 S2 VREAD3 S3
+                                                                                             1    Initialization   -    - 1111 0000 1111 0000
+            1101 1111 L1                0000            0111          L2 1000
+   S3 0 1 5.4LSB 4.3           1      4.4      1
+                                               5.3         0
+                                                          6.2          0 6.3                 2        VREAD2     0011 M1 1100 0011 1111 0000
+ VREAD3        MSB
+               1100            1               0
+                                        0011 0010 0101     0           1 1010                3        VREAD3     0001 M2 1101 0010 1111 0000
+   S2
+ VREAD20 0      4.2 C                    5.2        A      B              OUT                4        L1 to L2     -   M3 1101 0010 1101 0010
+                                      M
+   S1 1 0 1101M   1111                  0000
+                                         2              0111          L2 1000
+                    1                                   M
+                          L1                               4
+   S3 0 1 EN1
+            5.4 4.3                   4.4 EN2  5.3        6.2            6.3                  For XOR operation, we have M ⊕N = MN +MN . The control se-
+ VREAD3        1100                     0011 0010 0101 SET                1010
+    E   1 1                                  EN3        M                M  5              quence is illustrated in Table 4. For MN , it is true only when the cell
+   S2
+ VREAD20 0                               5.2 6.1 A
+                                                           3
+               4.2 C MSO                                   B              OUT
+   S1LSB10  SO   M  1                 M2                M4                                 being sensed is in state S3. Thus, the third row implements MN by
+                4.1
+            EN1 0011
+          MSB            5.1                 EN2                                           using sensing voltage VREAD3 . And then, sensed value is transferred
+   E 11             0001                     EN3        M3        SET    M5                and buffered at node OUT by enabling M3 . For MN , we use sensing
+             (b) The M                        6.1 of XNOR operation.
+                         SO fifth and sixth steps
+            SO
+                      fourth,
+                                                                                           voltage VREAD1 and VREAD2 to determine whether the cell is in
+                4.1 0011circuit control for performing XNOR bit-
+     LSB6: Latching
+Figure    MSB            5.1                                                               state S1. But before implementing MN , the values at A and C should
+wise operation. 0001
+                                                                                           be re-initialized at the fifth row. And then, sixth and seventh rows
+   By adjusting the initial values, the sensing voltages, and the
+                                                                                           indicate the implementation of MN . After seventh row’s control,
+control transistors, we may implement other bitwise operations,
+e.g., NAND, NOR, XOR, and NOT, which are the inverted values of AND,                       we have L(A)=MN . At the last step, we enable M3 to transfer value
+OR, XNOR, and LSB/MSB value. Before performing these bitwise                               from L1 to L2 so that we have L(OUT)= L(B)=L(B)old ∧ L(A)old
+operations, values in latches should be re-initialized, of which the                       =L(B)old + L(A)old =L(OUT )old + L(A)old =MN + MN .
+
+
+
+
+                                                                                      63
+MICRO ’21, October 18–22, 2021, Virtual Event, Greece                                                                                           Congming Gao, et al.
+
+
+  Table 4: Performing XOR operation in latching circuit.                      output is transferred to OUT. Otherwise, the output at OUT should be
+ Rows        XOR      L(SO) Mx L(C) L(A) L(B) L(OUT)                          0 while the value in LSB is 0. Thus, L(A)=L(A)old ∧ L(SO)=1001 ∧
+  1    Initialization   -    - 1111 0000 1111 0000                            1=0000 and L(OUT)=0000.
+  2        VREAD3     0001 M1 1110 0001 1111 0000                                The AND operation takes place at A while the second operand is
+  3        L1 to L2     -   M3 1110 0001 1110 0001                            sensed and stored at SO. But if the second operand is from MSB cell
+  4        VREAD0     1111 M2 1111 0000 1110 0001                             and requires two sensing operations, the value in A will be override.
+  5        VREAD1     0111 M1 1000 0111 1110 0001                             Therefore, AND operation in location-free ParaBit works only when
+  6        VREAD2     0011 M2 1011 0100 1110 0001                             the second operand is stored in LSB. To be completely location-
+  7        L1 to L2     -   M3 1011 0100 1010 0101                            free, one more latch and some transistors should be engineered to
+                                                                              store the secondL1operand from MSB. Such a solution
+                                                                                                                                L2 6
+                                                                                                                                      incurs more
+  For NOT operation, Table 5 lists the controls to invert the LSB                         3              4 discussed7 in future work.
+                                                                              hardware overhead,
+                                                                                           0000     will be
+                                                                                                          1111       1111          0000
+and the MSB bits, respectively. The inversion is mainly achieved
+                                                                                        Table                      A
+                                                                                            2 C7: OR operation in location-free
+                                                                                                                       B        ParaBit.
+                                                                                                                                   OUT
+by setting different initial values at A and C.                                             M1            M2
+                                                                                        LSB   L(SO)      L(A)        M4
+                                                                                                                     L(B)       L(OUT)
+   Table 5: Performing NOT operation in latching circuit.                               EN1                   EN2            5
+                                                                                          1      0    1111->1111
+                                                                                                              EN30110->0000
+                                                                                                                     M3    SET     M5
+                                                                                                                              1001->1111
+ Rows       NOT-LSB         L(SO) Mx L(C) L(A) L(B) L(OUT)
+                                                                                              MSO
+    1    Initialization        -     - 1111 0000 1111 0000                              SO0      1    1111->0000 0110->0110 1001->1001
+                                                                                           1 1111
+    2       VREAD2           0011 M1 1100 0011 1111 0000                         To conduct an OR operation, after normal initialization, the
+    3       L1 to L2           -    M3 1100 0011 1100 0011                    value in MSB is sensed by employing VREAD1 and VREAD3 , and the
+ Rows       NOT-MSB         L(SO) Mx L(C) L(A) L(B) L(OUT)                    sensed value is transferred to B so as to have L(B)=0110. Then, LSB
+    1    Initialization        -     - 1111 0000 1111 0000                    read operation is performed to have L(A)=1100 after re-initializing
+    2       VREAD1           0111 M1 1000 0111 1111 0000                      the latching circuit. As shown in Table 7, if L(A)=1, the output
+    3       VREAD3           0001 M2 1001 0110 1111 0000                      should be 1 no matter what the value of MSB is, i.e., L(B)=L(B)old ∧
+                                                                                          M6      MSO
+    4       L1 to L2           -    M3 1001 0110 1001 0110                    L(A)=0000
+                                                                                     SO and    L(OUT)=L(B)=1111. Otherwise, the output is deter-
+                                                                              mined by the value in MSB that has been stored in L2. Thus we
+4.2     Location-free ParaBit                                                           M7
+                                                                              have L(OUT)=L(B)=1001.
+The basic ParaBit works when two operand bits share the same MLC.                The OR operation takes place at B while the second operand
+When the operands are from different cells, ParaBit reallocates               stored at A is transferred to L2. Since L1 is independent with L2, L1
+them to the same cell, which incurs high reallocation overhead and            can be reset and then used to store the second operand from MSB
+compromises the benefits of bitwise operations.                               by employing two sensing operations.
+   Given the aligned cells from the same bitline but different word-                            L1                                         L1
+lines share the same latch circuit, it is possible to devise two step               1                                       2
+                                                                                                            A MSB                                       A MSB
+sensing strategy that senses one cell in the first step and an aligned                      C                                        C
+cell in the second step. By adjusting the sensing voltage and latch                    M1                   M2                 M1                       M2
+                                                                                   EN1                  B        EN2        EN1                     B        EN2
+circuit controls, we may have the bitwise operation of correspond-                                    LS                                          LS
+                                                                                     M6          SB                             M6          SB
+ing bits generated and buffered at the output latch of the latching             SO LSB          M                      SO                  M
+                                                                                                     MSO                                        MSO
+circuit. This is referred to as location-free ParaBit in this paper.
+Location-free ParaBit eliminates bit reallocation such that it can                                                                   LSB
+                                                                                   M7                                   M7
+effectively improve the in-storage computation performance.                   Figure 8: Performing XOR operation in location-free ParaBit.
+   To support location-free ParaBit, the intrinsic CACHE READ RANDOM
+command in NAND flash memory is leveraged, which can employ                      To conduct an XOR operation, it can be expressed as M ⊕ N =
+sensing voltages at random wordlines [23, 39]. In the following               MN + MN , which can be performed by combining AND, OR and NOT
+discussion, for two operand bits to be computed, we assume that               operations. Assume that M and N indicate the operands in MSB and
+one operand bit is stored in the LSB of one MLC cell while the other          LSB bits, respectively. The XOR operation is performed by two steps,
+bit in the MSB of an aligned MLC cell (i.e., from the same bitline            as presented in Figure 8. At step 1, to compute MN , L1 is initialized
+but different wordline).                                                      as Figure 7 to perform NOT operation and followed by reading and
+                                                                              storing MSB value at A, i.e., M. Then, the LSB bit is sensed and its
+        Table 6: AND operation in location-free ParaBit.                      inverted value is stored at SO, i.e., N . By enabling M2 , we can have
+         LSB L(SO)       L(A)       L(B)       L(OUT)
+                                                                              L(A)=L(SO) ∧ L(A)old , where L(SO) is N and L(A)old is M. Then,
+          1      0    1001->1001 1111->0110 0000->1001
+                                                                              the output of MN is transferred to B. At step 2, to compute MN ,
+          0      1    1001->0000 1111->1111 0000->0000
+                                                                              operand in MSB is read and stored in A firstly, and then the LSB bit
+    To conduct an AND operation, there are two steps after normal             is sensed. To get the original value stored in LSB, additional inverter
+initialization. First, VREAD1 and VREAD3 are employed to perform              is engineered between SO and MSO . As shown in the right of Figure
+MSB read operation, thus we can have L(A)=1001. Second, VREAD2                8, the original value is got by enabling M7 and disabling M6 . Then, M2
+is employed to sense LSB bit. As elaborated in Table 6, if L(SO)=0,           is enabled to compute MN . As a result, we have the result of MN
+i.e., the value in LSB is 1, the output is determined by the sensed           at A, and then OR operation is performed by transferring value from
+value at A, i.e., the value in MSB. Thus, L(A)=L(SO) ∧ L(A)old =0 ∧           A to B. Similar to AND operation, location-free ParaBit performs XOR
+1001=1001, which is the result of AND operation. After that the               operation only when the second operand is from LSB.
+
+
+
+
+                                                                         64
+                                                                                                                               B
+                                                                                                                                         0 i-t                    1 e-t            0                 1
+                                                                                                                                                                                                                     VREAD1
+                                                                                                                                                                  Extra Bitwise Type
+                                                                                                                                                   Intra Bitwise Type         Operand Tag
+                                                                                                                                                                                                                     VREAD0
+                                                                                                                                                  PBA11             PBA12              PBA13             PBA14
+
+
+
+
+                                                                                                                                Batch1
+                                                                                                                                                  PBA10             PBA11              PBA12             PBA13
+ParaBit: Processing Parallel Bitwise Operations in NAND Flash Memory based SSDs                                                          0 i-t                MICRO
+                                                                                                                                                                1 ’21, October 18–22,
+                                                                                                                                                                                0 2021, Virtual Event,
+                                                                                                                                                                                                1      Greece
+
+
+   For NAND, NOR and XNOR operations, they can be realized by                                                   inside a batch, the  reserved space
+                                                                                                                                  PBA0             PBA1 (DWord 2 PBA2
+                                                                                                                                                                   and DWord 3)PBA3in first
+
+
+
+
+                                                                                                                                ReAlloc ReAlloc
+                                                                                                                                Batch1 Batch0
+inverting the initialized status of latching circuit firstly, and then                                          operand command is used to store the logical address of second
+implementing similar sensing and transistor controls.                                                           operand; Fourth, if there are     multiple batches that are PBA25
+                                                                                                                                               PBA21                          performed
+   If there are multiple XOR operations with more than two operands,                                            sequentially, the reserved bits in DWord 13 are used to determine
+the buffer inside SSD is used to store temporary result and then                                                                 PBA10 order;
+                                                                                                                the batch’s computation           PBA11           PBA12
+                                                                                                                                                    Fifth, 3 reserved            PBA13
+                                                                                                                                                                       bits in DWord     13
+reload the result and inverted result as the operands to A in latching                                          of the second operand command is used to record extra bitwise
+circuit. This process is the same as the data-load process in perform-                                          type, denoted as “e-t”. NotePBA23
+                                                                                                                                                that, if operand size exceedsPBA27
+                                                                                                                                                                               flash page
+ing write operation [37]. But for AND and OR operations, since their                                            size, the batch is partitioned into several sub-operations. To bind
+temporary results have been stored at A and B, following bitwise                                                sub-operations,   the reservedPBA25
+                                                                                                                              PBA23
+                                                                                                                                                 DWord 2 and PBA27
+                                                                                                                                                                 DWord 3 of the second
+
+
+
+
+                                                                                                                               Batch2
+operations can be performed by sensing operand to SO instead of                                                 operand command in current sub-operation are used to record the
+storing previous result to the buffer.                                                                                        PBA21
+                                                                                                                logical address                 PBA23
+                                                                                                                                 of next sub-operation’s    firstPBA25           PBA27
+                                                                                                                                                                 operand. If operand    (or
+                                                                                                                partitioned0 i-t p-t
+                                                                                                                             operand)             p-t than 0flash page size,18 reserved
+                                                                                                                                       size 1is smaller
+4.3        Implementation                                                                                       bits in DWord 13 is used to store the offset address of operand in
+Commodity SSDs already support these actions and allow selection                                                flash page and operand’s size at the granularity of sector.
+of sensing voltages for error tolerance purpose, e.g., read retry                                                          2                                                10
+                                                                                                                           3                        LBA                     11           LBA
+or LDPC [42, 60]. Therefore, ParaBit is compatible with existing
+technologies, which requires firmware upgrade rather than (or with                                                       13 0        i-t batch
+                                                                                                                                          offset
+                                                                                                                                         order
+                                                                                                                                           size                             13 1 e-t batch
+                                                                                                                                                                                      order
+                                                                                                                                                                                             offset
+                                                                                                                                                                                              size
+little) extra hardware modification. The following discussion will                                                          1st operand command                                 2nd operand command
+reveal a sequence of host and device level actions.                                                                         Figure 10: NVMe ParaBit command reconstruction.
+                                                                        (FTL/GC/WL/…)
+
+
+
+
+               CMD       Operands   Parallel Read
+                                                              Component
+                                                              Traditional
+
+
+
+
+                                                                                                                   After receiving commands from system side, CMD Parse module
+   Component
+
+
+
+
+                                                                                        Controller
+
+
+
+               Parse    ReAllocation  (bitwise)
+    ParaBit
+
+
+
+
+                                                                                                                parses them and constructs device commands. For example, we
+                                       Add New
+                                     Result Batch                                                               assume that host system implements three bitwise operations with
+               Batch0 CMD0 / CMD1 / CMD2 /…
+               Batch1 CMD0 / CMD1 / CMD2 /…                                                                     four operands and the size of each operand is twice of flash page size.
+                                                                                                               VREAD1
+                                                                                                                Thus, after CMD Parse module, each operand is partitioned into two
+     Figure 9: ParaBit implementation in SSD controller.
+                                                                                            Flash Array
+
+
+
+
+                                                                                                               VREAD0
+                                                                                                                commands and totally eight device commands (denoted as CMD
+       Page0
+   Figure        Page1
+          9 presents       Page2 ofPage3
+                      an overview               ……
+                                      the ParaBit          Pagen
+                                                   implementation    in                                         in Figure 11) are constructed and organized in a batch structure.
+the SSD controller. The left sub-figure shows the components that                                               Inside each batch, two sub-operations are contained and each sub-
+       Plane0
+deal with        Plane1 Plane2
+           the implementation        Plane3 and……
+                                 of ParaBit,               Planen
+                                                   traditional  compo-                                          operation includes two device commands at the granularity of flash
+nents are presented in the right sub-figure. First, after receiving the                                         page. The commands belonging to different sub-operations are used
+commands for bitwise operation from the host system, CMD Parse                                                  to read one operand, e.g., CMD0 in first sub-operation and CMD2
+module parses the host commands, constructs device commands                                                     in second sub-operation. To bind two operands in the same sub-
+and organizes them in a batch structure. Each batch is in charge of                                             operation, CMD0 and CMD2 stores the physical addresses of CMD1
+one bitwise operation with two operands. Then, Operands ReAl-                                                   and CMD3 (e.g., denoted as PBA1 in CMD0), which can be obtained
+location module prepares the data for each batch by reallocating                                                after FTL. To bind two sub-operations, CMD1 stores the physical
+operands if necessary. Lastly, Parallel Read module performs dif-                                               address of CMD2 (denoted as PBA2 in CMD1). To distinguish two
+ferent control sequences to accomplish the bitwise operations. If                                               operands, one bit is used to record the operand tag. Also, the intra-
+there are multiple bitwise operations, after finishing two batches,                                             and extra- batch bitwise types are recorded in CMD0 and CMD1,
+a new batch is added to further compute the result of previous                                                  respectively. Note that, if operand (or partitioned operand) size is
+two batches. After finishing all bitwise operations, the controller                                             smaller than flash page, the address offset and operand size are
+returns the result to the host system.                                                                          recorded as well.
+4.3.1 Command Reconstruction at Host and Device. The reserved                                                                             sub-operation                            sub-operation
+free bytes in NVMe read command is used to store the bitwise                                                                    CMD0                          CMD1               CMD2              CMD3
+operation semantic, including free bytes in DWord 2, 3 and 13, each                                                             PBA1                          PBA2               PBA3              PBA4
+                                                                                                                  Batch0
+
+
+
+
+of which contains 4 reserved bytes [30, 35]. Assume that there is a                                                                PBA0                       PBA1               PBA2              PBA3
+formula for calculating (M ? N ) ! (M ? N ) ! (M ? N ), where (M ? N )
+                                                                                                                            0 i-t                         1 e-t             0                  1
+is defined as a bitwise batch, M and N indicate the first and second                                                                                                                                             VREAD1
+                                                                                                                                                   Extra Bitwise Type
+operands in the batch, ? and ! indicate the types of intra- and extra-                                                              Intra Bitwise Type         Operand Tag
+batch bitwise operation. Thus, at least five semantics, including                                                                                                                                                VREAD0
+                                                                                                                                PBA11                         PBA12              PBA13             PBA14
+                                                                                                                   Batch1
+
+
+
+
+intra bitwise type, operand tag, pointer, extra bitwise type
+                                                                                                                                PBA10                         PBA11              PBA12             PBA13
+and batch order, are required while parsing the formula.
+   First, to distinguish whether the current command maintains the                                                          0 i-t                         1                 0                  1
+first or second operand, the first reserved bit in DWord 13 of both
+                                                                                                                                                  Figure 11: The structure of batch list.
+operand commands is used to store operand tag, denoted as “0” or                                                                          PBA0                    PBA1            PBA2             PBA3
+                                                                                                                 ReAlloc ReAlloc
+                                                                                                                 Batch1 Batch0
+
+
+
+
+“1” in Figure 10; Second, intra-bitwise type takes three reserved bits                                          4.3.2 Reallocating Operands. For ParaBit, after constructing de-
+                                                                                                                           of
+
+
+
+
+in DWord 13 of the first operand command, denoted as “i-t”, while                                                                   PBA21ReAllocation module isPBA25
+                                                                                                                vice commands, Operands                          implemented if
+there are 8 types of bitwise operations; Third, to bind two operands                                            necessary. Operands ReAllocation module is skipped only when
+                                                                                                                                        PBA10                  PBA11             PBA12             PBA13
+                                                                                                                   of
+
+
+
+
+                                                                                                                                                          PBA23                              PBA27
+
+
+                                                                                                          65
+                                                                                                                               PBA23                          PBA25              PBA27
+                                                                                                                 atch2
+
+
+
+
+                                                                                                                               PBA21                          PBA23              PBA25             PBA27
+MICRO ’21, October 18–22, 2021, Virtual Event, Greece                                                                                Congming Gao, et al.
+
+
+two operands reside in two aligned pages sharing the same MLCs.                   S1 to S7) as 111, 110, 100, 101, 001, 000, 010, and 011, respectively.
+Otherwise, it needs to reallocate operands to the same MLCs.                      When conducting the AND operation, sensing voltage at VREAD1 is
+   If there is more than one bitwise operation, the result of re-                 applied to determine whether the TLC being sensed is in state E.
+allocated operands should be set as one of the operands for the
+subsequent bitwise operation. Thus, a new device command is con-                  4.4.2 Scalability. Comparing to other storage medium, e.g., DRAM
+structed to maintain its information. For example, in Figure 12, after            or 3D XPoint, NAND flash memory based SSD is more cost-efficient,
+performing sub-operation                      sub-operation
+              operand reallocation, data in PBA0     and PBA1 are reallo-         has better parallelism and scalability. ParaBit can achieve better
+cated to CMD0
+          the same MLCs,CMD1               CMD2 addresses
+                             of which the physical          CMD3
+                                                               are PBA21          computation efficiency for all-flash storage system that consists of
+and PBA22.PBA1              PBA2 share the
+               Since reallocated            PBA3
+                                              same wordline, PBA4only the         hundreds or thousands of SSDs [25]. Moreover, NAND flash mem-
+   Batch0
+
+
+
+
+physical PBA0
+           address of the first operand page  (i.e. PBA21) isPBA3
+                                                              recorded in         ory based ParaBit also can be applied in NVDIMM based system
+                            PBA1            PBA2
+new command. Totally, the computations in Figure 11 deliver four                  [45]. The latching circuit is independent of memory cells, thus it
+      0 i-t              1 e-t
+new device    commands,     constructing0a new batch (Batch2
+                                                         1
+                                                                in the bot- VREAD1can also be extended to other NVMs, such as PCM, STT-MRAM or
+tom of Figure                  Extra Bitwiseoperation
+                                             Type                                 ReRAM, in which operand bits also can share the same cell. Com-
+            Intra12). To implement
+                  Bitwise    Type bitwiseOperand        in the new batch,
+                                                      Tag
+the intra-bitwise                                                           VREAD0paring to NAND flash memory, low-latency NVMs exhibit lower
+         PBA11 type PBA12   of Batch0 is recorded
+                                           PBA13 as previous-bitwise
+                                                            PBA14
+   Batch1
+
+
+
+
+type, denoted as p-t in Batch2. To perform bitwise operation in                   read and write latencies, thus achieving better performance.
+the newPBA10
+           batch, ParaBitPBA11          PBA12
+                          is used to read the results ofPBA13
+                                                         reallocated
+                                                                               4.4.3 Reliability and Errors. This is a common problem faced by
+      0 i-t           1              0              1
+operands firstly, and then Operands ReAllocation reallocates   them
+                                                                               all bitwise-operation based PIMs (no matter using what kind of
+followed by Parallel Read module to get the result of new batch.
+                                                                               memory medium, such as SRAM, DRAM and NVM [12, 19, 22, 33].),
+                       PBA0          PBA1         PBA2       PBA3
+   ReAlloc ReAlloc
+
+
+
+
+                                                                               because the traditional ECC is not compatible with bitwise logic
+   Batch1 Batch0
+
+
+
+
+                                                                               operation, except for XOR or XNOR. ParaBit accomplishes bitwise
+                                   PBA21                 PBA25
+                                                                               operations after the sensing operations, which prevents the ECC
+                                                                               modules from detecting and correcting sensing errors. If the appli-
+                       PBA10         PBA11       PBA12       PBA13
+                                                                               cation is less error-tolerant, we move two operand pages to new
+                               PBA23                     PBA27                 MLCs before operation (even if the operand pages already share
+                                                                               the same physical page) to minimize the impact from error sources.
+                                                                               We will evaluate the impact of errors in the experimental section.
+                     PBA23         PBA25         PBA27
+  Batch2
+
+
+
+
+                                                                               4.4.4 Overhead Analysis. ParaBit introduces space overhead due
+                     PBA21         PBA23         PBA25       PBA27
+                                                                               to storing commands at the device side, which is around 5MB when
+            0 i-t p-t          1     p-t     0           1                     exploiting the maximal parallelism at the plane level, Location-free
+              Figure 12: The structure of new batch.                           ParaBit requires hardware modifications including extra transistors
+    Inside SSDs, the scrambling function that mutates the original             and inverters. The latching circuit and column decoder account for
+2data for reliability purpose [59]
+                                 10 would complicate the use of Para-
+                                             LBA
+                                                                               9.9%∼11.9% of the die area [24, 26, 32] while the latching circuit
+3           LBA                  11
+ Bit. To solve this problem, scrambling function is disabled when              takes up about 35% [37]. To summarize, the hardware overhead is
+13 0 i-t batch order             13 1 e-tand
+ operands are allocated or reallocated,   batch orderwhen the results
+                                             enabled                           around 1.2% of the die area.
+ are restored. Similarly, encryption function iscommand
+ first operand  command         second  operand   also disabled when
+ operands are reallocated.                                                     5 EVALUATION
+4.3.3 Operands Alignment. Given ParaBit operates on bits saved                 5.1 Evaluation Setup
+in the same MLC cell, it requires operand alignment before opera-              The PIM architecture: We adopt the Ambit [49] PIM architecture
+tion. The operands may be pre-allocated to aligned locations if the            as the baseline. We also construct Ambit with powerful configu-
+computation semantics can be predicted in advance, e.g., through               ration, including 2 ranks, 16 banks, and 256 subarrays with 16KB
+profiling. Otherwise, the operands get aligned at runtime, which is            row buffer size (compared to 4~8KB in regular DRAM). The timing
+achieved by reading data from old pages and writing to new pages               parameters of t RC D /t RAS /t RP /t F AW are set to be 13.75/35/13.75/30
+with offsets. The buffer inside SSD can be exploited to temporarily            ns. The latency of bitwise operations is evaluated using H-spice[51]
+store the first operand before alignment.                                      while the maximum size of operands that can be processed in par-
+                                                                               allel is set to 16KB with the limitation of power constraint.
+4.4             Discussion                                                        The ISC architecture: We adopt Cosmos OpenSSD platform
+4.4.1 Extending MLC to TLC/QLC. To simplify the discussion, we                 [13] as the ISC architecture, which implements SSD controller inside
+choose MLC to elaborate how ParaBit works. MLC-based ParaBit                   Zynq-7000 FPGA, and then we attache a 512GB SSD [46] to the
+exhibits three advantages: (1) Choosing MLC introduces less write              platform in this work. The Zynq-7000 FPGA with 19.2 Mb BRAM,
+amplification from pre-computation reallocation, which helps to                437,200 Flip-Flops and 218,600 LUTs is used and its frequency is
+achieve better endurance. (2) MLC has better performance and thus              100MHz. The LUT in the FPGA is configured as 6-input LUT so
+improves the operation efficiency. (3) Most bitwise operations are             that at most five bitwise operations can be processed at once.
+binary, making it natural to adopt MLC.                                           The ParaBit architecture: The evaluated SSD is equipped with
+   In practice, the design principles of ParaBit are applicable to TLC         128 chips and 4 planes per chip, and the size of flash page is set to
+or QLC as well. For example, TLC encodes its eight states (from E,             8KB. We used a 512GB SSD. The write latency is set to 640 µs and
+
+
+
+
+                                                                         66
+   ParaBit: Processing Parallel Bitwise Operations in NAND Flash Memory based SSDs                                                            MICRO ’21, October 18–22, 2021, Virtual Event, Greece
+
+
+  each sensing latency is set to 25 µs, which are typical for MLC based                                            level, location-free ParaBit with two 8MB operands achieves the
+  flash memory [46]. Such a configuration enables SSD to perform a                                                 similar results with ParaBit w/ 8MB, always outperforming PIM
+  parallel bitwise operation with two 8MB operands. In this work, a                                                architecture.
+  widely studied SSD simulator [21] is used to track the duration of
+  bitwise operation in SSD, while Samsung 970 Pro SSD [46] is used                                                 5.3     Case Studies
+  to collect the duration of moving results from SSD to DRAM. The
+                                                                                                                   We studied three applications when moving different amount of
+  size of used DRAM is set to 64GB.
+                                                                                                                   data from SSD to memory. For PIM and ISC, we moved all data to
+                                                                                                                   memory and triggered bitwise operations in memory and FPGA. For
+   5.2                           Latency of Bitwise Operation                                                      ParaBit, we processed data in SSD and moved results to memory.
+  We implemented six schemes: Ambit based PIM (denoted as PIM),
+  ISC (denoted as ISC), PIM with two 8MB operands (denoted as PIM                                                  5.3.1 Image Segmentation. In the evaluation, the configuration is
+  w/ 8MB), ISC with two 8MB operands (denoted as ISC w/ 8MB) and                                                   the same as that in Section 3. In the discussion, we represent the
+  ParaBit with and without pre-computation reallocation (denoted as                                                color recognition result at pixel m as Re(m) = (C1a , C1b , C1c , C1d )
+  PIM and ParaBit-ReAlloc), respectively. Figure 13 compares the                                                   AND (C2a , C2b , C2c , C2d ) AND (C3a , C3b , C3c , C3d ), where a, b, c
+  latencies of bitwise operations in different schemes.                                                            and d indicate four types of color, CX a , CX b , CX c and CX d indicate
+     In Figure 13(a), the latencies of performing one bitwise operation                                            whether the value of X channel falls into the recognized color space.
+  are presented. For PIM, the operation completes in ns level. The XNOR                                            To exploit the parallelism of bitwise operations, multiple pixels and
+  and XOR operations are the most time-consuming ones, because                                                     images can be grouped and computed at once.
+  these operations are logical combinations of simpler AND, OR and NOT                                                Figure 14(a) summarizes the results, which include the total
+  operations. For ISC, bitwise operation is also performed at ns level                                             execution time and its breakdown. We need 140GB space cost to
+  while only one process cycle is required. For ParaBit, since there is                                            store 200,000 images. After performing AND operations among three
+  no pre-computation reallocation, the XNOR and XOR operations take                                                channels, we reduce the output size to one third of the original
+  100 µs to sense the result, which accounts for the overall latency.                                              size. As a result, comparing to PIM and ISC, ParaBit (with and with-
+  For ParaBit-ReAlloc, the reallocation time before computation                                                    out pre-computation allocation) can significantly reduce the data
+  dominates the overall latency of bitwise operation. Note that, NOT                                               movement cost (Ope-Move-PIM/ISC indicates the time cost of mov-
+  operation can be performed without operand reallocation, but in                                                  ing operands from SSD to memory in PIM and ISC) to 33.3% and
+  ParaBit-ReAlloc, operand reallocation time cost is considered.                                                   35.0%, respectively. For the time cost of performing AND operation,
+                 1 6 0 0
+                                      P IM       IS C       P a r a B it     P a r a B it-R e A llo c
+                                                                                                                   ParaBit-ReAlloc reallocates operands before performing each
+                  1 4 0 0                                                                                          bitwise operation, increasing AND operation time cost by 11.8 and
+                     2 0 0
+ L a te n c y ( u s )
+
+
+
+
+                      1 5 0
+                                                                                                                   24.4 times over PIM and ISC, respectively. For ParaBit-ReAlloc,
+                       1 0 0
+                          5 0
+                                                                                                                   the process of performing AND operation and results movement
+                         0 .5
+                                                                                                                   are pipelined (denoted as ParaBit-ReAlloc+Res-Move), thus it
+                          0 .0
+                    A N D     O R     X N O R  N A N D   N O R    X O R   N O T -L N O T -M
+                                                                                                                   can further reduce the total execution time. Comparing to PIM
+        (a) The latencies of bitwise operation in PIM, ISC, ParaBit and ParaBit-ReAllocation.                      and ISC, ParaBit-ReAlloc+Res-Move reduces the total execution
+               1 8 0 0                P IM w / 8 M B        IS C w / 8 M B
+                                                                                                                   time to 37.3% and 39.8%, respectively. Furthermore, to reduce bit-
+                1 5 0 0              P a r a B it w / 8 M B      P a r a B it-R e A llo c                          wise time cost in ParaBit architecture, we pre-allocate operands
+L a te n c y ( u s )
+
+
+
+
+                       1 6 0
+                                                                                                                   for the first bitwise operation, and then the result is reallocated
+                          8 0
+                                                                                                        .8
+
+
+
+
+                                                                                                                   with another operand to accomplish the second bitwise operation.
+                                                                                                        2 5
+
+
+
+
+                            1                                                                                      Therefore, ParaBit reduces AND operation cost by 51.7% comparing
+             0
+                  A N D     O R     X N O R N A N D  N O R    X O R  N O T -L N O T -M                             to ParaBit-ReAlloc. To summarize, the total execution time of
+      (b) The latencies of bitwise operation in PIM w/ 8MB, ISC w/ 8MB, ParaBit w/ 8MB                             ParaBit+Res-Move is reduced to 32.3% and 34.4% of PIM and ISC.
+      and ParaBit-ReAllocation.                                                                                    Also, when total data volume fits in memory, such as image seg-
+            Figure 13: The latencies of bitwise operation.                                                         mentation with 10,000 images, ParaBit and ParaBit-ReAlloc still
+       To demonstrate the efficiency of ParaBit, we extended the operand                                           outperform PIM while data movement time cost is largely reduced.
+   size to 8MB, the maximum size in ParaBit in the evaluated SSD, and
+   summarized its results in Figure 13(b) as well. For large operands,                                             5.3.2 Bitmap Indices. Bitmap index is a program designed as a
+   comparing to other schemes, ISC w/ 8MB achieves the best per-                                                   analytic method for specific databases [8]. We assume to count the
+   formance while five bitwise operations are computed in a LUT                                                    number of users who were active every day for the past m months.
+   simultaneously and there are hundreds of thousands of LUTs. PIM                                                 Thus, two types of operations are required: the AND operation and
+   partitions each pair of operands to 16KB-sized sub-operands and                                                 the bitcount function. The former can be performed by either
+   sequentialize the computation. Therefore, PIM w/ 8MB is always                                                  PIM, ISC or ParaBit while the latter is done by the processor. In
+   slower than ParaBit w/ 8MB but faster than ParaBit-ReAlloc.                                                     the discussion, we represent the computation result of user y as
+   For example, NOT-MSB in ParaBit-ReAlloc is 25.8 × slower than                                                   Res(y) = (V1,y ) AND (V2,y ) AND . . . AND (Vx,y ) . . . , where x indicates the
+   that of PIM w/ 8MB. Such a latency gap can be filled by increasing                                              numbers of days, Vx,y indicates whether user y at day x is active.
+   the parallelism of SSDs. While the size of each operand in ParaBit                                              We compute the results of multiple users simultaneously to fully
+   is larger than 206.4MB, it can outperform PIM. For location-free                                                exploit the parallelism of bitwise operation. In the evaluation, we
+   ParaBit, since the access latency on low-latency NVM cells is at ns                                             set the number of users to 800 millions, and varied m from 12 to 1.
+
+
+
+
+                                                                                                              67
+MICRO ’21, October 18–22, 2021, Virtual Event, Greece                                                                                                                                                                                          Congming Gao, et al.
+
+
+                                O p e -M o v e -P IM        B itw is e in P IM        O p e -M o v e -IS C                           B itw is e in IS C          P a r a B it-R e A llo c + R e s -M o v e                        P a r a B it + R e s -M o v e
+                          5 0                                                                               2 5                                                                                        1 2 0
+                          4 0                                                                               2 0                                                                                         1 0 0
+
+
+
+
+                                                                                    E x e c u tio n T im e ( s )
+
+
+
+
+                                                                                                                                                                                  E x e c u tio n T im e ( s )
+ E x e c u tio n T im e ( s )
+
+
+
+
+                          3 0                                                                               1 5                                                                                            8 0
+                                                                                                                                                                                                            6 0
+                          2 0                                                                               1 0
+                                                                                                                                                                                                             4 0
+                          1 0                                                                                      5                                                                                          2 0
+                                 0                                                                                 0                                                                                             0
+                                     2 0 0 K      1 0 0 K       5 0 K       1 0 K                                      1 2 -M o n th 6 -M o n th   3 -M o n th      1 -M o n th                                      1 0 0 K   5 0 K        2 5 K          5 K
+            5 0 (a) Image segmentation.
+             4 0 Figure 14: Execution time breakdown of PIM, ISC and ParaBit architectures in three case studies.
+                                                                                        (b) Bitmap indices.                                                    (c) Image encryption.
+
+
+
+              3 0 summarizes the evaluation results. From the figure,
+                                  O p e -M o v e -P IM B itw is e in P IM    O p e -M o v e -IS C B itw is e in IS C P a r a B it-R e A llo c + R e s -M o v e   P a r a B it + R e s -M o v e
+
+
+PIM and ISC2 spend0
+   Figure 14(b)                                                                                           a number of applications that contain frequent bitwise operation,
+                          most of their execution time on moving data                                     making them particularly suitable for ParaBit acceleration.
+
+               1 0 effectively reduces the data movement overhead by
+from SSD to DRAM and FPGA and less than 2% time on computa-
+
+                    0 the computation results back to DRAM. When
+tion. ParaBit                                                                                                • Deduplication Application. Modern deduplication applications
+
+                      2 0 of0 Koperands 1 0 0 reaches
+                                                  K       5 0 K             1 0 K
+transferring only                                                                                               widely adopt XOR operation to differentiate two pages [9, 29].
+m=12, the amount                                         33.99GB.         Comparing           to                Adopting ParaBit not only frees the system from allocating a
+PIM and ISC, ParaBit and ParaBit-ReAlloc reduce data move-                                                                                              dedicated processor for deduplication computation, but also
+ment cost to around 0.3% as only 800 millions bits of results are                                                                                       eliminates the data movement overhead. The latter may occupy
+moved to DRAM. However, when comparing the AND operation                                                                                                80% or more of the system offchip memory bandwidth [54].
+performance, PIM, ISC, ParaBit-ReAlloc and ParaBit take 353ms,                                                                                        • Binary Neural Network. Modern CNNs demand a large number
+41ms, 6137ms and 3179ms, respectively. Therefore, performing bit-                                                                                       of weights, e.g., 150GB in ImageNet [44]. While binary weight
+wise operations in ParaBit and ParaBit-ReAlloc dominates the                                                                                            based CNN algorithms [34, 52] achieve 32× space reduction,
+total execution time. To summarize, the total execution time of                                                                                         i.e., saving one-bit instead of 32-bit weight parameters, the
+ParaBit-ReAlloc+Res-Move was reduced to 30.8% and 32.8% of                                                                                              required storage may still be more than the capacity of the
+PIM and ISC while ParaBit+Res-Move reduces total execution time                                                                                         memory of many systems. ParaBit acceleration is suitable for
+to 15.9% and 17.0%.                                                                                                                                     binary weighted neural networks due to their predominant
+                                                                                                                                                        bitwise operations involved in the computation.
+                                                                                                                                                      • Fast Data Scanning. Data-intensive applications often involve
+5.3.3 Image Encryption. XOR operation is widely applied in image
+                                                                                                                                                        frequent data scanning processing [11, 28]. Given the huge
+encryption[20] and image feature extraction [57]. Take image en-
+                                                                                                                                                        size of database system [40], by leveraging XOR operation in
+cryption as an example, where XOR operation is used to encrypt
+                                                                                                                                                        scanning process, ParaBit can improve the scanning efficiency
+or decrypt image data. The number of original images varies from
+                                                                                                                                                        while the operations are performed inside SSDs.
+100,000 to 5,000 and the resolution of each image is set to 800×600,
+each channel requires 8 bits. At most, we need 140GB space cost to                                                                                    The cost to prepare data for ParaBit operations also has a large
+store 100,000 images. In the discussion, the encryption process can                                                                                impact on the overall application performance. For example, it is
+be presented as Cipher(x) = Ori(x) XOR Key(x), where x indicates the                                                                               usually not beneficial to adopt ParaBit to accelerate dynamically
+pixel’s location, Cipher(x) indicates the encrypted pixel and Key(x)                                                                               generated data as it would require writing the dynamic data into
+indicates the pixel of key image. By adopting ParaBit, images can                                                                                  flash before operation, making the data preparation cost too high.
+be encrypted inside SSD without data movement to memory.                                                                                           Instead, adopting PIM or pipelined based PIM might achieve better
+    Figure 14(c) summarizes the results. Take 100,000 images as                                                                                    performance improvement. In summary, ParaBit is more suitable
+an example. For PIM and ISC, the data movement time cost still                                                                                     for applications that apply bitwise operations on in-storage static
+dominates the total execution time while XOR operations take less                                                                                  data, e.g., files that exist in SSDs before deduplication.
+than 3.5% and 0.21%, respectively. To summarize, comparing to
+PIM and ISC, ParaBit-ReAlloc reduces the execution time cost
+to 23.3% and 25.3%, respectively. Since only one XOR operation is                                                                                  5.4       Endurance Impact
+performed to encrypt an image, ParaBit and ParaBit-ReAlloc                                                                                         The pre-computation allocation in ParaBit tends to trigger more
+implement the same process: reading original image and writing                                                                                     GCs, shortening the SSD lifetime. We conducted the experiment to
+it to the same cells with the accompany of key image, thus two                                                                                     evaluate this impact. For bitmap, image segmentation and image
+ParaBit schemes achieve the same result.                                                                                                           encryption, when the tracking duration is set to 12 months and the
+                                                                                                                                                   numbers of images are set to 200,000 and 100,000, their reallocated
+5.3.4 Overall Impact on Application Performance. From the preced-                                                                                  operands’ sizes reach 67.79GB, 186.67GB and 140GB, respectively.
+ing case studies, we find that the overall performance impact of                                                                                   We set the maximal value of MLC based SSDs’ Terabytes Written
+ParaBit on modern applications depends on two factors: one is the                                                                                  (TBW) to 600 [46], ParaBit reduces the TBW to 200.67, 257.51 and
+amount of bitwise operations while the other is the data prepara-                                                                                  300 assuming the SSD is dedicated to these applications exclusively.
+tion cost. Clearly, the more bitwise operations the application has,                                                                               However, a more applicable usage is to employ the SSD as both
+the better performance improvement it may achieve. Given mod-                                                                                      storage and computing medium, the TBW value would be larger
+ern applications becoming increasingly data intensive, there are                                                                                   than above values.
+
+
+
+
+                                                                                                                                             68
+         ParaBit: Processing Parallel Bitwise Operations in NAND Flash Memory based SSDs                                                                                                                                        MICRO ’21, October 18–22, 2021, Virtual Event, Greece
+
+
+                                                                                                                                                                                                       P a r a B it               P a r a B it-R e A llo c                  P a r a B it-L o c fr e e
+         5.5                    Performance of Location-Free ParaBit                                                                                                                1 8 0 0
+
+
+
+
+                                                                                                                                                             E n e r g y ( n J/ K B )
+        To evaluate the efficiency of location-free ParaBit, we compared                                                                                                             1 6 0 0 W r ite
+                                                                                                                                                                                          8 0
+                                                                                                                                                                                           4 0 R e a d
+        the performance of three types of ParaBit schemes and summarized
+                                                                                                                                                                                              0
+        the results in Figure 15.
+           The left part of Figure 15 compares the latencies when per-                                                                                                                                  A N D       O R              X N O R       N A N D         N O R         X O R                         N O T -L N O T -M
+        forming bitwise operations on two 8MB operands. As a result,                                                                                                       Figure 16: Energy consumption of ParaBit schemes.
+        ParaBit-ReAlloc takes the longest latency due to high operand                                                                                                 breaks even with PIM when the data can be compressed to 30.1% or
+        reallocation cost. By adopting pre-computation allocation, ParaBit                                                                                            lower. For bitmap, the total execution time taken by ParaBit-LocFree
+        achieves the smallest latency. As a tradeoff, ParaBit-LocFree re-                                                                                             is less than computation time cost of PIM, thus it always outper-
+        duces the time spent in operand reallocation as more sensing oper-                                                                                            forms PIM while there still exists data movement overhead for
+        ations are employed comparing to ParaBit with pre-computation                                                                                                 compression based PIM.
+        allocation. But if there are multiple bitwise operations, ParaBit
+        with pre-computation allocation only works for the first bitwise op-                                                                                          5.8                         Error Tolerance
+        eration, thus suffers from reallocation overhead during performing                                                                                            To alleviate the impact from bit errors, ECC module is triggered
+        following bitwise operations.                                                                                                                                 during operand reallocation, thus only the impact from P/E cycle is
+                                           P a r a B it                 P a r a B it-R e A llo c                        P a r a B it-L o c F r e e                    counted. In the evaluation, customer grade Intel MLC flash chips
+             1 6 0 0                                                                                                 3 0
+              1 4 0 0                                                                                                 2 0
+                                                                                                                                                                      with cache read are evaluated [23]. When the number of P/E cycles
+                 2 0 0                                                                                                 1 0
+                                                                                                  E x e . T im e ( s )
+
+
+
+
+                                                                                                                                                                      is 5K, the average and maximal numbers of bit errors per WL after
+L a te n c y ( u s )
+
+
+
+
+                  1 0 0
+                                                                                                                   0 .3
+                                                                                                                                                                      seventh ( for XOR operation) sensings are 0.945 and 5 while the page
+                       0 .8                                                                                         0 .2
+                        0 .4                                                                                         0 .1
+                                                                                                                                                                      size is 8KB, as shown in the left of Figure 17. Such a good reliability
+                         0 .0                                                                                         0 .0
+                                                                                                                              e g       p         n c
+                                                                                           -L                        g e - S B i t m am a g e - E
+                                                                                                                                                                      comes from two aspects: First, MLC flash cells are engineered with
+                                      D   O R         O R         N D         R       R
+                                                                                  X O N O T O T -
+                                                                                                  M
+                                A N             X N         N A         N O
+                                                                                              N                 Im a                 I
+                                                                                                                                                                      large state margin so as to tolerate significant voltage state shifts;
+         Figure 15: Left: the latencies of bitwise operation; Right: to-                                                                                              Second, voltage calibration read that can minimize the number of
+         tal execution time.                                                                                                                                          bit errors is adopted to optimize the reliability of flash memory
+            The right part of Figure 15 summaries the execution time for                                                                                              [7, 17]. In the right part of Figure 17, we evaluate the percentages
+         three case studies. We store all data in LSB bits of MLCs. For Image                                                                                         of bit errors at application level. In worst case, the percentage of
+         Segmentation, since result movement overhead is the dominant                                                                                                 bit errors only is 0.00149% for XOR-based image encryption.
+                                                                                                                                                                                           1 .5        F ir s t S e n s in g    A fte r S e v e n S e n s in g s ( A v e r a g e )                                      x 1 0 -3
+
+
+
+
+                                                                                                                                                                                                                                                                                                                            T h e P e r c e n t. o f E r r o r s ( % )
+                                                                                                                                                                                                                                                                                                                            2 .0
+         factor, ParaBit-LocFree and ParaBit achieve the similar perfor-
+                                                                                                                                                                                                      F ir s t S e n s in g    A fte r S e v e n S e n s in g s ( M a x )
+                                                                                                                                                                                           1 .0
+                                                                                                                                                                A v e r a g e B it E r r o r s
+
+
+
+
+                                                                                                                                                                                                                                                                                     7
+
+
+
+
+                                                                                                                                                                                                                                                                                             M a x B it E r r o r s
+                                                                                                                                                                                                                                                                                                                           1 .5
+         mance. For Bitmap, while the size of moved data is significantly
+                                                                                                                                                                                           0 .5
+         reduced, the performance of ParaBit depends mainly on the effi-                                                                                                                                                                                                             5
+                                                                                                                                                                                           0 .0                                                                                                                            1 .0
+                                                                                                                                                                                                                                                                                         3
+         ciency of bitwise operations. Therefore, ParaBit-LocFree has the
+                                                                                                                                                                                       - 0 .5                                                                                                                              0 .5
+                                                                                                                                                                                                                                                                                         1
+         smallest execution time while there is no operand reallocation —
+                                                                                                                                                                                       - 1 .0                                                                                g p       c 0 .0
+                                                                                                                                                                                                  0     0 .5 K 1 K 1 .5 K 2 K 2 .5 K 3 K 3 .5 K 4 K 4 .5 K 5 K          -S e a E n
+                                                                                                                                                                                                                                                                    g e B i t ma g e -
+         ParaBit-LocFree reduces the execution time to 5.23% and 10.1%
+                                                                                                                                                                                                                           P / E C y c le s                       a
+                                                                                                                                                                                                                                                               Im         Im
+         of ParaBit-ReAlloc and ParaBit, respectively. For Image Encryp-
+         tion, ParaBit-LocFree performs XOR operation without operand                                                                                                 Figure 17: The number of bit errors with the increase of P/E
+         reallocation, thus reducing the execution time cost to 57.1% of                                                                                              cycles.
+         ParaBit-ReAlloc and ParaBit.
+                                                                                                                                                                      6                          CONCLUSION
+         5.6                    Energy Consumption of ParaBit                                                                                                         In this work, we proposed ParaBit, a processing-in-flash architec-
+        We next evaluate the read/write energy consumption in ParaBit                                                                                                 ture, to perform massive parallel bitwise operations in flash mem-
+        and summarize the results in Figure 16. We use the NAND system                                                                                                ory. ParaBit can be implemented within commodity SSDs with-
+        power calculator from Micron [38] to compare the per read/write                                                                                               out (or with little) extra hardware, which can process data inside
+        operation energy consumption in the baseline and ParaBit schemes.                                                                                             SSDs and dramatically reduces the amount of data moved from
+        We normalize the results to the read and write operations of MSB                                                                                              SSDs to DRAM or processor. ParaBit exhibits good scalability, good
+        pages, denoted as dashed lines, respectively.                                                                                                                 cost-effectiveness, and great potentials for modern data-intensive
+           In the figure, while ParaBit-ReAlloc is the scheme that con-                                                                                               applications.
+        sumes the most energy, it consumes up to 2.65% more energy than
+        that of baseline write operation. ParaBit achieves the lowest en-                                                                                             ACKNOWLEDGMENTS
+        ergy consumption among all ParaBit variants — its energy con-                                                                                                We sincerely thank anonymous reviewers for their constructive
+        sumption is mostly comparable to that of the baseline MSB read. In                                                                                           feedback. This work is partially supported by the National Key Re-
+        the worst case, it is about 2× of that of the baseline MSB read.                                                                                             search and Development Program of China (No. 2018YFB1003301),
+                                                                                                                                                                     the National Natural Science Foundation of China (No. 61832011,
+         5.7                    Compression in ParaBit                                                                                                               62022051, 61772300, 61877035), Zhejiang Lab (No. 2020KC0AB03),
+         By default, PIM and ISC could have data stored in compressed for-                                                                                           the National Science Foundation (No. 2011146, 1738783, 1910413,
+         mat in storage while ParaBit stores the data in uncompressed format.                                                                                        1718080) and the China Postdoctoral Science Foundation (No. 2020M
+         For image segmentation with 200,000 images, ParaBit-LocFree                                                                                                 680568, 2021T140376).
+
+
+
+
+                                                                                                                                                        69
+MICRO ’21, October 18–22, 2021, Virtual Event, Greece                                                                                                         Congming Gao, et al.
+
+
+REFERENCES                                                                                     [32] Seungjae Lee, Jin-yub Lee, Il-han Park, and et al. 2016. 7.5 A 128Gb 2b/cell NAND
+ [1] Nitin Agrawal, Vijayan Prabhakaran, Ted Wobber, John D Davis, Mark S Man-                      flash memory in 14nm technology with tPROG= 640 µ s and 800MB/s I/O rate. In
+     asse, and Rina Panigrahy. 2008. Design tradeoffs for SSD performance.. In ATC.                 ISSCC. IEEE.
+     USENIX.                                                                                   [33] Shuangchen Li, Cong Xu, Qiaosha Zou, Jishen Zhao, Yu Lu, and Yuan Xie. 2016.
+ [2] Junwhan Ahn, Sungpack Hong, Sungjoo Yoo, and et al. 2015. A scalable                           Pinatubo: A processing-in-memory architecture for bulk bitwise operations in
+     processing-in-memory accelerator for parallel graph processing. In ISCA. ACM.                  emerging non-volatile memories. In DAC. ACM.
+ [3] Berkin Akin, Franz Franchetti, and James C Hoe. 2015. Data reorganization in              [34] Xiaofan Lin, Cong Zhao, and Wei Pan. 2017. Towards accurate binary convolu-
+     memory using 3D-stacked DRAM. In CAN. ACM.                                                     tional neural network. arXiv preprint arXiv:1711.11294.
+ [4] Hadi Asghari-Moghaddam, Young Hoon Son, Jung Ho Ahn, and Nam Sung Kim.                    [35] Kevin Marks. 2013. An nvm express tutorial. In Flash Memory Summit.
+     2016. Chameleon: Versatile and practical near-DRAM acceleration architecture              [36] Sally A McKee. 2004. Reflections on the memory wall. In CF.
+     for large memory systems. In MICRO. IEEE.                                                 [37] Rino Micheloni, Luca Crippa, and Alessia Marelli. 2010. Inside NAND flash
+ [5] Julien Borghetti, Gregory S Snider, Philip J Kuekes, J Joshua Yang, Duncan R                   memories. Springer Science & Business Media.
+     Stewart, and R Stanley Williams. 2010. ‘Memristive’switches enable ‘stateful’logic        [38] Micron. [n.d.]. Parallel NAND System Power Calculator. https://www.micron.
+     operations via material implication. In Nature. Nature Publishing Group.                       com/support/tools-and-utilities/nand-system-power-calculator.
+ [6] James Bruce, Tucker Balch, and Manuela Veloso. 2000. Fast and inexpensive color           [39] Micron 2018. NAND MLC Flash Memory Datasheet. Micron.
+     image segmentation for interactive robots. In IROS. IEEE.                                 [40] Kimberly Mlitz. [n.d.]. Data center storage capacity worldwide from 2016
+ [7] Yu Cai, Saugata Ghose, Erich F Haratsch, Yixin Luo, and Onur Mutlu. 2017. Error                to 2021. https://www.statista.com/statistics/638593/worldwide-data-center-
+     characterization, mitigation, and recovery in flash-memory-based solid-state                   storage-capacity-cloud-vs-traditional//.
+     drives. In Proceedings of the IEEE. IEEE.                                                 [41] Onur Mutlu, Saugata Ghose, Juan Gómez-Luna, and Rachata Ausavarung-
+ [8] Chee-Yong Chan and Yannis E Ioannidis. 1998. Bitmap index design and evalua-                   nirun. 2020. A Modern Primer on Processing in Memory. In arXiv preprint
+     tion. In SIGMOD. ACM.                                                                          arXiv:2012.03112.
+ [9] Feng Chen, Tian Luo, and Xiaodong Zhang. 2011. CAFTL: A Content-Aware                     [42] Jisung Park, Myungsuk Kim, Myoungjun Chun, Lois Orosa, Jihong Kim, and Onur
+     Flash Translation Layer Enhancing the Lifespan of Flash Memory based Solid                     Mutlu. 2020. Reducing Solid State Drive Read Latency by Optimizing Read-Retry.
+     State Drives. Fast.                                                                            In ASPLOS. ACM.
+[10] Ping Chi, Shuangchen Li, Cong Xu, Tao Zhang, Jishen Zhao, Yongpan Liu, Yu                 [43] Zhenyuan Ruan, Tong He, and Jason Cong. 2019. INSIDER: Designing In-Storage
+     Wang, and Yuan Xie. 2016. Prime: A novel processing-in-memory architecture                     Computing System for Emerging High-Performance Drive. In ATC. USENIX.
+     for neural network computation in reram-based main memory. In ISCA. ACM.                  [44] Olga Russakovsky, Jia Deng, Hao Su, and et al. 2015. Imagenet large scale visual
+[11] Jaeyoung Do, Yang-Suk Kee, Jignesh M Patel, Chanik Park, Kwanghyun Park,                       recognition challenge. In IJCV. Springer.
+     and David J DeWitt. 2013. Query processing on smart ssds: Opportunities and               [45] Arthur Sainio. 2016. NVDIMM: changes are here so what’s next. In Memory
+     challenges. In SIGMOD. ACM.                                                                    Computing Summit.
+[12] Charles Eckert, Xiaowei Wang, Jingcheng Wang, Arun Subramaniyan, Ravi Iyer,               [46] Samsung. [n.d.]. Samsung 970 Pro. https://www.samsung.com/semiconductor/
+     Dennis Sylvester, David Blaaauw, and Reetuparna Das. 2018. Neural cache:                       minisite/ssd/product/consumer/970pro/.
+     Bit-serial in-cache acceleration of deep neural networks. In ISCA. IEEE.                  [47] Abu Sebastian, Manuel Le Gallo, Riduan Khaddam-Aljameh, and Evangelos
+[13] ENC. [n.d.]. Cosmos OpenSSD Platform. http://www.openssd-project.org/wiki/                     Eleftheriou. 2020. Memory devices and applications for in-memory computing.
+     Cosmos_OpenSSD_Platform.                                                                       In Nature nanotechnology. Nature Publishing Group.
+[14] Chiou-Shann Fuh, Shun-Wen Cho, and Kai Essig. 2000. Hierarchical color image              [48] Sudharsan Seshadri, Mark Gahagan, Sundaram Bhaskaran, and et al. 2014. Willow:
+     region segmentation for content-based image retrieval system. In TIP. IEEE.                    A User-Programmable SSD. In OSDI. USENIX.
+[15] Congming Gao, Liang Shi, Chun Jason Xue, Cheng Ji, Jun Yang, and Youtao                   [49] Vivek Seshadri, Donghyuk Lee, Thomas Mullins, and et al. 2017. Ambit: In-
+     Zhang. 2019. Parallel all the time: Plane level parallelism exploration for high               memory accelerator for bulk bitwise operations using commodity DRAM tech-
+     performance SSDs. In MSST. IEEE.                                                               nology. In MICRO. IEEE.
+[16] Congming Gao, Liang Shi, Mengying Zhao, Chun Jason Xue, Kaijie Wu, and                    [50] Yong Ho Song, Sanghyuk Jung, Sang-Won Lee, and Jin-Soo Kim. 2014. Cosmos
+     Edwin H-M Sha. 2014. Exploiting parallelism in I/O scheduling for access conflict              openSSD: A PCIe-based open source SSD platform. In Flash Memory Summit.
+     minimization in flash-based solid state drives. In MSST. IEEE.                            [51] Synopsys. [n.d.]. H-spice. https://www.synopsys.com/.
+[17] Congming Gao, Min Ye, Qiao Li, Chun Jason Xue, Youtao Zhang, Liang Shi, and               [52] Wei Tang, Gang Hua, and Liang Wang. 2017. How to train a compact binary
+     Jun Yang. 2019. Constructing large, durable and fast SSD system via reprogram-                 neural network with high accuracy? AAAI.
+     ming 3D TLC flash memory. In MICRO. IEEE.                                                 [53] Hossein Valavi, Peter J Ramadge, Eric Nestler, and Naveen Verma. 2019. A 64-
+[18] Fei Gao, Georgios Tziantzioulis, and David Wentzlaff. 2019. Computedram:                       tile 2.4-Mb in-memory-computing CNN accelerator employing charge-domain
+     In-memory compute using off-the-shelf drams. In MICRO. IEEE.                                   compute. In JSSC. IEEE.
+[19] Saransh Gupta, Mohsen Imani, and Tajana Rosing. 2018. Felix: Fast and energy-             [54] Grant Wallace, Fred Douglis, Hangwei Qian, and et al. 2012. Characteristics of
+     efficient logic in memory. In ICCAD. IEEE.                                                     backup workloads in production systems.. In FAST. USENIX.
+[20] JongWook Han, Choon-Sik Park, Dae-Hyun Ryu, and Eun-Soo Kim. 1999. Optical                [55] Zhuo-Rui Wang, Yu-Ting Su, Yi Li, Ya-Xiong Zhou, Tian-Jian Chu, Kuan-Chang
+     image encryption based on XOR operations. In Optical Engineering. International                Chang, Ting-Chang Chang, Tsung-Ming Tsai, Simon M Sze, and Xiang-Shui
+     Society for Optics and Photonics.                                                              Miao. 2016. Functionally complete Boolean logic in 1T1R resistive random access
+[21] Yang Hu, Hong Jiang, Dan Feng, and et al. 2012. Exploring and exploiting the                   memory. In EDL. IEEE.
+     multilevel parallelism inside SSDs for improved performance and endurance. In             [56] Xin Xin, Youtao Zhang, and Jun Yang. 2020. ELP2IM: Efficient and Low Power
+     TC. IEEE.                                                                                      Bitwise Operation Processing in DRAM. In HPCA. IEEE.
+[22] Mohsen Imani, Saransh Gupta, Yeseong Kim, and Tajana Rosing. 2019. Floatpim:              [57] Ching-Nung Yang and Dao-Shun Wang. 2013. Property analysis of XOR-based
+     In-memory acceleration of deep neural network training with high precision. In                 visual cryptography. In TCSVT. IEEE.
+     ISCA. IEEE.                                                                               [58] He Zhang, Wang Kang, Bi Wu, Peng Ouyang, Erya Deng, Youguang Zhang, and
+[23] Intel 2015. Intel 64M25 Compute NAND Flash Memory Datasheet. Intel.                            Weisheng Zhao. 2019. Spintronic processing unit within voltage-gated spin hall
+[24] Woopyo Jeong, Jae-woo Im, Doo-Hyun Kim, and et al. 2015. A 128 Gb 3b/cell                      effect MRAMs. In TN. IEEE.
+     V-NAND flash memory with 1 Gb/s I/O rate. In JSSC. IEEE.                                  [59] Li Zhang, Shen gang Hao, Jun Zheng, Yu an Tan, Quan xin Zhang, and Yuan
+[25] Young Tack Jin, Sungjoon Ahn, and Sungjin Lee. 2018. Performance analysis of                   zhang Li. 2015. Descrambling data on solid-state disks by reverse-engineering
+     nvme ssd-based all-flash array systems. In ISPASS. IEEE.                                       the firmware. In Digital Investigation.
+[26] Dongku Kang, Woopyo Jeong, Chulbum Kim, and et al. 2016. 256 Gb 3 b/cell                  [60] Kai Zhao, Wenzhe Zhao, Hongbin Sun, and et al. 2013. LDPC-in-SSD: Making
+     V-NAND flash memory with 48 stacked WL layers. JSSC.                                           advanced error correction codes work effectively in solid state drives. In FAST.
+[27] Hyukjoong Kim, Dongkun Shin, Yun Ho Jeong, and Kyung Ho Kim. 2017. SHRD:                       USENIX.
+     Improving Spatial Locality in Flash Storage Accesses by Sequentializing in Host
+     and Randomizing in Device. In FAST. USENIX, 271–284.
+[28] Sungchan Kim, Hyunok Oh, Chanik Park, and et al. 2011. Fast, energy efficient
+     scan inside flash memory SSDs. ADMS.
+[29] Ricardo Koller and Raju Rangaswami. 2010. I/O deduplication: Utilizing content
+     similarity to improve I/O performance. In TOS. ACM.
+[30] Gunjae Koo, Kiran Kumar Matam, I Te, and et al. 2017. Summarizer: trading
+     communication with computing near storage. In MICRO. IEEE.
+[31] Joo Hwan Lee, Hui Zhang, Veronica Lagrange, and et al. 2020. SmartSSD: FPGA
+     Accelerated Near-Storage Data Analytics on SSD. CAL.
+
+
+
+
+                                                                                          70
+

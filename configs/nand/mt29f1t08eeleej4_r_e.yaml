@@ -1,0 +1,51 @@
+# Micron MT29F1T08EELEEJ4-R:E — target part for the later BABOL physical experiment.
+#
+# RULE: this file contains ONLY publicly documented facts. Everything else is
+# `unknown` and must be swept as a sensitivity variable, never guessed.
+# The LLM-on-the-Palm calibration (Gate 2) does NOT use this part; it uses the
+# paper's Z-NAND assumptions (references/llm_on_the_palm_parameters.yaml).
+#
+# Public sources (fetched 2026-08-30):
+#   [MIC] micron.com TLC NAND part catalog entry for MT29F1T08EELEEJ4-R-E
+#         (page exists; spec table not publicly populated)
+#   [DIST] Mouser/distributor listings for sibling orderable parts
+#          (MT29F1T08EELEEJ4-QJ:E: "NAND Flash TLC 1T 128GX8 VBGA DDP", 132-VBGA)
+#   [TASK] Facts supplied in the project brief (treated as user-provided facts)
+
+part_number: "MT29F1T08EELEEJ4-R:E"
+vendor: "Micron"                    # [MIC]
+technology: "3D NAND, TLC (3 bit/cell)"  # [MIC][DIST]
+density_bits: 1.0995e12             # 1 Tbit package (128 GB x8 org) [DIST]
+organization: "x8"                  # [DIST]
+package: "132-ball VBGA, dual-die package (DDP: 2 x 512Gb dies)"  # [DIST "DDP"]; die split derived
+                                    # from DDP naming — MODEL, not datasheet-verified
+lifecycle: "EOL"                    # [TASK]
+
+# ---- UNKNOWN until datasheet/BABOL characterization; sweep ranges given ----
+unknowns:
+  micron_generation: unknown        # (e.g. B27B/B37R/B47R class; NOT publicly stated for this P/N)
+  layers_3d: unknown
+  page_size_bytes: unknown          # sweep: [4096, 8192, 16384] + spare
+  spare_bytes_per_page: unknown
+  block_size_pages: unknown         # sweep basis: [64, 128, 256, 352, 512]
+  planes_per_die: unknown           # sweep: [2, 4, 6, 8]
+  tR_us_tlc: unknown                # sweep: [40, 50, 60, 75, 90] (typical TLC class range; MODEL)
+  tR_us_slc_mode: unknown           # sweep: [15, 25, 35] if SLC mode exists on this part (HYPOTHESIS)
+  tPROG_us: unknown
+  onfi_version: unknown
+  io_speed_MTps: unknown            # sweep: [533, 800, 1200, 1600, 2400]
+  vcc_V: unknown                    # (3D NAND core commonly 2.5V/3.3V; io 1.2/1.8V — verify)
+  icc_read_mA: unknown
+  ecc_requirement_bits: unknown     # TLC-class parts typically require multi-bit ECC (LDPC/BCH);
+                                    # exact requirement unknown — sweep ECC overhead separately
+  read_retry_options: unknown       # count + register interface undocumented publicly
+  cache_registers: unknown          # data register + cache register presence per plane (likely; verify)
+  multi_plane_read: unknown
+  vendor_test_modes: unknown        # target of BABOL exploration
+  internal_latch_ops: unknown       # (e.g. Flash-Cosmos/MCFlash-style multi-wordline sensing) — HYPOTHESIS
+
+babol_notes: >
+  BABOL-style controller experiments will characterize: actual geometry (via parameter
+  page / READ ID), timings, read-retry register space, latch behavior under command
+  sequences, multi-wordline sensing feasibility, and any vendor-specific opcodes.
+  See BABOL_TEST_SPEC.md (final deliverable).

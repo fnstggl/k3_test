@@ -1,0 +1,334 @@
+{
+ "provenance": {
+  "git": "8f1f40b478b8047ea78c82473f6579697dfea89e",
+  "ts": "2026-08-31T03:34:01Z"
+ },
+ "nand_builds": [
+  {
+   "build": "A: 5.5TB slc-mode-TLC 16x8x6, B=1",
+   "tok_s": 8.0,
+   "tpot_ms": 125,
+   "note": "commodity 1Tb TLC dies in SLC mode; single-stream",
+   "J_per_token": {
+    "central": 10.4,
+    "low": 5.8
+   },
+   "low": {
+    "capex_usd": 1630,
+    "wall_W": 98,
+    "usd_per_Mtok_3y": 2.49
+   },
+   "central": {
+    "capex_usd": 2851,
+    "wall_W": 98,
+    "usd_per_Mtok_3y": 4.11
+   },
+   "high": {
+    "capex_usd": 3582,
+    "wall_W": 98,
+    "usd_per_Mtok_3y": 5.07
+   }
+  },
+  {
+   "build": "B: 22TB slc-mode-TLC 64x8x6, B=4",
+   "tok_s": 50.7,
+   "tpot_ms": 79,
+   "note": "4 concurrent streams; 3072 planes",
+   "J_per_token": {
+    "central": 5.0,
+    "low": 2.9
+   },
+   "low": {
+    "capex_usd": 3450,
+    "wall_W": 268,
+    "usd_per_Mtok_3y": 0.87
+   },
+   "central": {
+    "capex_usd": 8312,
+    "wall_W": 268,
+    "usd_per_Mtok_3y": 1.88
+   },
+   "high": {
+    "capex_usd": 11224,
+    "wall_W": 268,
+    "usd_per_Mtok_3y": 2.49
+   }
+  },
+  {
+   "build": "C: 2TB SLC-Z 32x8x8, B=1",
+   "tok_s": 8.7,
+   "tpot_ms": 115,
+   "note": "Z-NAND-class dies (niche part; price extra-uncertain)",
+   "J_per_token": {
+    "central": 8.2,
+    "low": 4.6
+   },
+   "low": {
+    "capex_usd": 1340,
+    "wall_W": 86,
+    "usd_per_Mtok_3y": 1.9
+   },
+   "central": {
+    "capex_usd": 1784,
+    "wall_W": 86,
+    "usd_per_Mtok_3y": 2.44
+   },
+   "high": {
+    "capex_usd": 2050,
+    "wall_W": 86,
+    "usd_per_Mtok_3y": 2.77
+   }
+  }
+ ],
+ "gpu_reference": [
+  {
+   "batch": 1,
+   "eff": 0.6,
+   "dense_fp8": false,
+   "bytes_per_step_GB": 137.0,
+   "user_tok_s": 280.4,
+   "node_tok_s": 280.4,
+   "low": {
+    "J_per_token": 35.67,
+    "usd_per_Mtok_capex3y": 17.96,
+    "usd_per_Mtok_rental": 31.7
+   },
+   "central": {
+    "J_per_token": 42.8,
+    "usd_per_Mtok_capex3y": 21.92,
+    "usd_per_Mtok_rental": 47.55
+   },
+   "high": {
+    "J_per_token": 49.93,
+    "usd_per_Mtok_capex3y": 25.89,
+    "usd_per_Mtok_rental": 63.41
+   }
+  },
+  {
+   "batch": 8,
+   "eff": 0.6,
+   "dense_fp8": false,
+   "bytes_per_step_GB": 305.3,
+   "user_tok_s": 125.8,
+   "node_tok_s": 1006.2,
+   "low": {
+    "J_per_token": 9.94,
+    "usd_per_Mtok_capex3y": 5.0,
+    "usd_per_Mtok_rental": 8.83
+   },
+   "central": {
+    "J_per_token": 11.93,
+    "usd_per_Mtok_capex3y": 6.11,
+    "usd_per_Mtok_rental": 13.25
+   },
+   "high": {
+    "J_per_token": 13.91,
+    "usd_per_Mtok_capex3y": 7.21,
+    "usd_per_Mtok_rental": 17.67
+   }
+  },
+  {
+   "batch": 64,
+   "eff": 0.6,
+   "dense_fp8": false,
+   "bytes_per_step_GB": 1101.0,
+   "user_tok_s": 34.9,
+   "node_tok_s": 2232.1,
+   "low": {
+    "J_per_token": 4.48,
+    "usd_per_Mtok_capex3y": 2.26,
+    "usd_per_Mtok_rental": 3.98
+   },
+   "central": {
+    "J_per_token": 5.38,
+    "usd_per_Mtok_capex3y": 2.75,
+    "usd_per_Mtok_rental": 5.97
+   },
+   "high": {
+    "J_per_token": 6.27,
+    "usd_per_Mtok_capex3y": 3.25,
+    "usd_per_Mtok_rental": 7.96
+   }
+  },
+  {
+   "batch": 256,
+   "eff": 0.6,
+   "dense_fp8": false,
+   "bytes_per_step_GB": 1543.2,
+   "user_tok_s": 24.9,
+   "node_tok_s": 6370.0,
+   "low": {
+    "J_per_token": 1.57,
+    "usd_per_Mtok_capex3y": 0.79,
+    "usd_per_Mtok_rental": 1.4
+   },
+   "central": {
+    "J_per_token": 1.88,
+    "usd_per_Mtok_capex3y": 0.96,
+    "usd_per_Mtok_rental": 2.09
+   },
+   "high": {
+    "J_per_token": 2.2,
+    "usd_per_Mtok_capex3y": 1.14,
+    "usd_per_Mtok_rental": 2.79
+   }
+  }
+ ],
+ "gpu_roofline_b256": {
+  "batch": 256,
+  "eff": 1.0,
+  "dense_fp8": false,
+  "bytes_per_step_GB": 1543.2,
+  "user_tok_s": 41.5,
+  "node_tok_s": 10616.7,
+  "low": {
+   "J_per_token": 0.94,
+   "usd_per_Mtok_capex3y": 0.47,
+   "usd_per_Mtok_rental": 0.84
+  },
+  "central": {
+   "J_per_token": 1.13,
+   "usd_per_Mtok_capex3y": 0.58,
+   "usd_per_Mtok_rental": 1.26
+  },
+  "high": {
+   "J_per_token": 1.32,
+   "usd_per_Mtok_capex3y": 0.68,
+   "usd_per_Mtok_rental": 1.67
+  }
+ },
+ "gpu_poor_b64": {
+  "batch": 64,
+  "eff": 0.4,
+  "dense_fp8": false,
+  "bytes_per_step_GB": 1101.0,
+  "user_tok_s": 23.3,
+  "node_tok_s": 1488.0,
+  "low": {
+   "J_per_token": 6.72,
+   "usd_per_Mtok_capex3y": 3.38,
+   "usd_per_Mtok_rental": 5.97
+  },
+  "central": {
+   "J_per_token": 8.06,
+   "usd_per_Mtok_capex3y": 4.13,
+   "usd_per_Mtok_rental": 8.96
+  },
+  "high": {
+   "J_per_token": 9.41,
+   "usd_per_Mtok_capex3y": 4.88,
+   "usd_per_Mtok_rental": 11.95
+  }
+ },
+ "threshold_matrix": [
+  {
+   "nand": "A: 5.5TB slc-mode-TLC 16x8x6, B=1",
+   "gpu_batch": 1,
+   "nand_user_tok_s": 8.0,
+   "gpu_user_tok_s": 280.4,
+   "J_ratio_gpu_over_nand": 4.1,
+   "usd_ratio_capex_gpu_over_nand": 5.3,
+   "usd_ratio_rental_gpu_over_nand": 11.6
+  },
+  {
+   "nand": "A: 5.5TB slc-mode-TLC 16x8x6, B=1",
+   "gpu_batch": 8,
+   "nand_user_tok_s": 8.0,
+   "gpu_user_tok_s": 125.8,
+   "J_ratio_gpu_over_nand": 1.1,
+   "usd_ratio_capex_gpu_over_nand": 1.5,
+   "usd_ratio_rental_gpu_over_nand": 3.2
+  },
+  {
+   "nand": "A: 5.5TB slc-mode-TLC 16x8x6, B=1",
+   "gpu_batch": 64,
+   "nand_user_tok_s": 8.0,
+   "gpu_user_tok_s": 34.9,
+   "J_ratio_gpu_over_nand": 0.5,
+   "usd_ratio_capex_gpu_over_nand": 0.7,
+   "usd_ratio_rental_gpu_over_nand": 1.5
+  },
+  {
+   "nand": "A: 5.5TB slc-mode-TLC 16x8x6, B=1",
+   "gpu_batch": 256,
+   "nand_user_tok_s": 8.0,
+   "gpu_user_tok_s": 24.9,
+   "J_ratio_gpu_over_nand": 0.2,
+   "usd_ratio_capex_gpu_over_nand": 0.2,
+   "usd_ratio_rental_gpu_over_nand": 0.5
+  },
+  {
+   "nand": "B: 22TB slc-mode-TLC 64x8x6, B=4",
+   "gpu_batch": 1,
+   "nand_user_tok_s": 50.7,
+   "gpu_user_tok_s": 280.4,
+   "J_ratio_gpu_over_nand": 8.6,
+   "usd_ratio_capex_gpu_over_nand": 11.7,
+   "usd_ratio_rental_gpu_over_nand": 25.3
+  },
+  {
+   "nand": "B: 22TB slc-mode-TLC 64x8x6, B=4",
+   "gpu_batch": 8,
+   "nand_user_tok_s": 50.7,
+   "gpu_user_tok_s": 125.8,
+   "J_ratio_gpu_over_nand": 2.4,
+   "usd_ratio_capex_gpu_over_nand": 3.3,
+   "usd_ratio_rental_gpu_over_nand": 7.0
+  },
+  {
+   "nand": "B: 22TB slc-mode-TLC 64x8x6, B=4",
+   "gpu_batch": 64,
+   "nand_user_tok_s": 50.7,
+   "gpu_user_tok_s": 34.9,
+   "J_ratio_gpu_over_nand": 1.1,
+   "usd_ratio_capex_gpu_over_nand": 1.5,
+   "usd_ratio_rental_gpu_over_nand": 3.2
+  },
+  {
+   "nand": "B: 22TB slc-mode-TLC 64x8x6, B=4",
+   "gpu_batch": 256,
+   "nand_user_tok_s": 50.7,
+   "gpu_user_tok_s": 24.9,
+   "J_ratio_gpu_over_nand": 0.4,
+   "usd_ratio_capex_gpu_over_nand": 0.5,
+   "usd_ratio_rental_gpu_over_nand": 1.1
+  },
+  {
+   "nand": "C: 2TB SLC-Z 32x8x8, B=1",
+   "gpu_batch": 1,
+   "nand_user_tok_s": 8.7,
+   "gpu_user_tok_s": 280.4,
+   "J_ratio_gpu_over_nand": 5.2,
+   "usd_ratio_capex_gpu_over_nand": 9.0,
+   "usd_ratio_rental_gpu_over_nand": 19.5
+  },
+  {
+   "nand": "C: 2TB SLC-Z 32x8x8, B=1",
+   "gpu_batch": 8,
+   "nand_user_tok_s": 8.7,
+   "gpu_user_tok_s": 125.8,
+   "J_ratio_gpu_over_nand": 1.5,
+   "usd_ratio_capex_gpu_over_nand": 2.5,
+   "usd_ratio_rental_gpu_over_nand": 5.4
+  },
+  {
+   "nand": "C: 2TB SLC-Z 32x8x8, B=1",
+   "gpu_batch": 64,
+   "nand_user_tok_s": 8.7,
+   "gpu_user_tok_s": 34.9,
+   "J_ratio_gpu_over_nand": 0.7,
+   "usd_ratio_capex_gpu_over_nand": 1.1,
+   "usd_ratio_rental_gpu_over_nand": 2.4
+  },
+  {
+   "nand": "C: 2TB SLC-Z 32x8x8, B=1",
+   "gpu_batch": 256,
+   "nand_user_tok_s": 8.7,
+   "gpu_user_tok_s": 24.9,
+   "J_ratio_gpu_over_nand": 0.2,
+   "usd_ratio_capex_gpu_over_nand": 0.4,
+   "usd_ratio_rental_gpu_over_nand": 0.9
+  }
+ ],
+ "api_price_anchor_usd_per_Mtok_out": 15.0
+}
