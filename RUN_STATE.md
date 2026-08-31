@@ -8,7 +8,7 @@ NAND-internal primitive set required. Falsification-driven; outputs feed a later
 real-NAND experiment on Micron MT29F1T08EELEEJ4-R:E.
 
 # Current Gate
-Gate 7 — fallback RTL: minimal MXFP4/MXFP8 reducer (rtl/k3_nand_reducer.sv).
+Gate 8 — FEMU guest run + PIM command integration (reports/06_femu.md).
 
 # Gate Status
 - Gate 0 (env + sources): PASSED (commit gate0-source-audit)
@@ -18,7 +18,7 @@ Gate 7 — fallback RTL: minimal MXFP4/MXFP8 reducer (rtl/k3_nand_reducer.sv).
 - Gate 4 (primitive search): PASSED (commit gate4-minimum-primitive)
 - Gate 5 (design-space sweep): PASSED (commit gate5-design-space)
 - Gate 6 (power/economics): PASSED (commit gate6-economics)
-- Gate 7 (fallback RTL): NOT STARTED
+- Gate 7 (fallback RTL): PASSED (commit gate7-rtl-fallback)
 - Gate 8 (FEMU): NOT STARTED
 - Final deliverables: NOT STARTED
 
@@ -58,6 +58,11 @@ See references/llm_on_the_palm_parameters.yaml (with page citations) once writte
 - Analytic transparent Python simulator first (Gate 1); MQSim/DRAMsim3/FEMU as cross-checks.
 
 # Experiments Completed
+- rtl/ @ gate7: k3_nand_reducer.sv (multiplier-free shift-add MX reducer, 8 retained rows);
+  Verilator bit-exact vs golden over 40M element pairs (random suite caught+fixed a real
+  e=15 shift bug); yosys+sky130: full lane 3362 cells/28038um2, element path 423 cells/
+  3372um2/AIG209; 4-lane/plane ~0.002mm2 @2x-nm class ~0.03% of die => TINY confirmed;
+  system assumption (4 lanes @400MHz) validated. results/rtl/synthesis_summary.json.
 - economics.py @ gate6: >10x claim FALSIFIED for throughput serving (GPU 8xB300 at B=256:
   1.9 J/tok, $0.96/Mtok beats NAND best 5.0 J/tok, $1.88/Mtok — GPU ~2-2.5x better; robust
   across sensitivity range). >10x HOLDS ONLY vs low-batch GPU (B<=8): x12-25 on $/tok. Root

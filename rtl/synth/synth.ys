@@ -1,0 +1,7 @@
+read_verilog -sv ../k3_nand_reducer.sv
+synth -top k3_nand_reducer
+dfflibmap -liberty sky130_hd_tt.lib
+abc -liberty sky130_hd_tt.lib -D 2500
+clean
+tee -o stat.txt stat -liberty sky130_hd_tt.lib
+write_verilog -noattr netlist_sky130.v

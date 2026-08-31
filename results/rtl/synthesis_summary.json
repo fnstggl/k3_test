@@ -1,0 +1,45 @@
+{
+ "provenance": {
+  "git": "4151161cf6a1f2f01db054b57b3c978af68ad644",
+  "ts": "2026-08-31T00:20:05Z",
+  "yosys": "0.33",
+  "verilator": "Verilator 5.020 2024-01-01 rev (Debian 5.020-1)",
+  "liberty": "sky130_fd_sc_hd tt_025C_1v80 (via OpenROAD-flow-scripts)"
+ },
+ "equivalence": {
+  "blocks_tested": 1250000,
+  "element_pairs": 40000000,
+  "seeds": [
+   1,
+   2,
+   3,
+   "50k initial"
+  ],
+  "result": "bit-exact vs golden_model.py",
+  "bug_found_by_random_test": "22-bit shift truncation at E4M3 e=15 (fixed)"
+ },
+ "numerical_fidelity": {
+  "max_rel_err_vs_exact_400k_blocks": 0.0065,
+  "note": "truncating FP32 accumulate over 50k blocks/row; real K3 rows are 112-224 blocks -> ~1e-5 class; MXFP4 quantization noise ~1e-2 dominates"
+ },
+ "full_lane": {
+  "cells": 3362,
+  "dffs": 336,
+  "area_um2_sky130hd": 28038,
+  "aig_depth": 1156,
+  "note": "depth dominated by once-per-32-cycle FP32 convert+add; multi-cycle allowed"
+ },
+ "element_path": {
+  "cells": 423,
+  "area_um2_sky130hd": 3372,
+  "aig_depth": 209,
+  "note": "per-cycle path: E2M1 decode + 4-term shift-add + <<15 + 30b accumulate"
+ },
+ "per_plane_4lane_estimate": {
+  "cells": "~4600-5600 (4 element paths + shared FP32 commit + 8x32b rows)",
+  "area_um2_sky130hd": "~40000",
+  "area_mm2_scaled_2xnm_class": "~0.002 (order-of-magnitude scaling only)",
+  "per_die_8planes_pct_of_50mm2": "~0.03%"
+ },
+ "caveat": "Sky130/open-PDK numbers are NOT predictions of a NAND vendor's periphery process; purpose is tiny-vs-non-tiny + scaling, per project rules."
+}

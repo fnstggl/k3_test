@@ -4,3 +4,8 @@ __pycache__/
 third_party/*/
 !third_party/LOCK.md
 results/**/raw_large/
+rtl/obj_dir/
+rtl/synth/sky130_hd_tt.lib
+rtl/synth/netlist_sky130.v
+rtl/synth/*.log
+rtl/synth/el.log

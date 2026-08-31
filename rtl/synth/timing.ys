@@ -1,0 +1,3 @@
+read_liberty -lib sky130_hd_tt.lib
+read_verilog netlist_sky130.v
+ltp -noff
