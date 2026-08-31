@@ -8,7 +8,7 @@ NAND-internal primitive set required. Falsification-driven; outputs feed a later
 real-NAND experiment on Micron MT29F1T08EELEEJ4-R:E.
 
 # Current Gate
-Gate 5 — NAND design-space sweep (experiments/sweep.py).
+Gate 6 — power + economics vs GPU deployment (reports/04_power_cost_go_no_go.md).
 
 # Gate Status
 - Gate 0 (env + sources): PASSED (commit gate0-source-audit)
@@ -16,7 +16,7 @@ Gate 5 — NAND design-space sweep (experiments/sweep.py).
 - Gate 2 (Palm reproduction): PASSED (commit gate2-palm-calibrated)
 - Gate 3 (K3 workload): PASSED (commit gate3-k3-workload)
 - Gate 4 (primitive search): PASSED (commit gate4-minimum-primitive)
-- Gate 5 (design-space sweep): NOT STARTED
+- Gate 5 (design-space sweep): PASSED (commit gate5-design-space)
 - Gate 6 (power/economics): NOT STARTED
 - Gate 7 (fallback RTL): NOT STARTED
 - Gate 8 (FEMU): NOT STARTED
@@ -58,6 +58,11 @@ See references/llm_on_the_palm_parameters.yaml (with page citations) once writte
 - Analytic transparent Python simulator first (Gate 1); MQSim/DRAMsim3/FEMU as cross-checks.
 
 # Experiments Completed
+- sweep.py @ gate5: 14568 points; closed-form vs simulator gap 4.2%. Bottleneck = array sense
+  BW (planes x page/tR) once lanes >= 4-8; arithmetic cheap; channel binds only at B>=16.
+  Practical frontier: SLC-mode-on-commodity-TLC 16x8x6 (768 planes, 5.5TB raw) = 8 tok/s
+  @125ms B=1; 22TB 64ch variant 50 tok/s @79ms B=4, ~5 J/token. Native TLC/QLC never reach
+  useful latency. Batch sweet spot B=4-8 (MoE expert-union caps amortization). CSV+plots+summary.
 - primitive_search.py @ gate4: stock (A0/A1) caps at 0.50 tok/s SLC / 0.136 TLC with 137GB/token
   exported; hypothetical count-primitive (A2) 25-2500x WORSE than export under MX 32-block scales;
   minimum in-NAND set = C_ADD/D_ACC (SIMD lateral shift+add @<=175ns/pass + 8x32b retained
