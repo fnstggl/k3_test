@@ -1,0 +1,119 @@
+# NAND capability registry — Gate 9A, built from PRIMARY sources.
+# Every entry: evidence L1/L2/L3, modification class F0/F1/F2/F3, source citation.
+#   L1 measured on exact MT29F1T08EELEEJ4 family | L2 measured on other commercial
+#   3D NAND | L3 proposed/simulated/patent/hypothesis
+#   F0 commodity firmware only | F1 existing HW, needs command/test-mode exposure
+#   F2 tiny peripheral mod | F3 substantial array/cell redesign
+# NOTHING here is invented; unknowns are marked. Numbers feed sim/sense.py + Gate 9 search.
+
+meta:
+  target_part: "Micron MT29F1T08EELEEJ4-R:E (3D TLC, 1Tb, x8, 132-VBGA DDP)"
+  note: >
+    No audited paper tested the exact Micron part or its family by name, so the
+    STRONGEST honest evidence for every array-physics capability below is L2
+    (measured on other commercial 3D NAND). For our part, all remain HYPOTHESIS
+    until BABOL (BABOL_TEST_SPEC.md). tR/energy on our part are unknown (sweep).
+
+conventional_read:
+  primitive: ordinary_page_read
+  exact_operation: "sense one WL/page -> latch (per-bitline threshold compare)"
+  operand_location: one WL, one plane
+  result_location: sense latch -> cache latch -> IO
+  n_operands: 1
+  latch_persist: "cache register can hold next-page while current drains (standard)"
+  wordlines_participating: 1
+  bitlines_communicate: false
+  runtime_data_participation: false
+  tR_us:
+    slc_mode_measured_flashcosmos: 22.5   # L2, FACT (Flash-Cosmos Table 1, 48-layer TLC)
+    znand_slc_class: 3.0                   # L2 (LLM-on-Palm ref [10], Z-NAND ISSCC'18)
+    tlc_our_part: unknown                  # sweep 40-90 us
+  energy: "absolute pJ/bit not published in Flash-Cosmos; AiF gives ~18.3 pJ/bit regular (see cr_read)"
+  evidence: L2
+  mod_class: F0
+  source: "Flash-Cosmos MICRO'22 Table 1; standard ONFI"
+
+multi_wordline_sensing_intra_block:
+  primitive: MWS_AND
+  exact_operation: "activate N WLs of one block at VREF (rest VPASS); per-bitline result = AND of the N cells on that bitline (NAND string). Inverse-read gives NAND."
+  operand_location: "N pages on distinct WLs of the SAME block; operand bit i on the same bitline/string"
+  result_location: sense latch (per bitline)
+  n_operands_measured: "1..48 WLs (=full string)"          # L2, MEASURED
+  latency_vs_tR: "<=8 WLs: <1% over tR; 48 WLs: +3.3% over tR"  # L2 Fig 12
+  bitlines_communicate: false        # result is still per-bitline; NO cross-bitline sum
+  wordlines_participating: "up to 48"
+  runtime_data_participation: false  # both operands are STORED pages
+  reliability: "zero bit errors over >1e11 cells WITH Enhanced-SLC programming + randomization bypassed"
+  required_mode: "SLC + ESP + no data randomization"
+  required_control_access: "proprietary vendor TEST-MODE commands (NOT standard ONFI)"
+  tested_devices: "160 x 48-layer 3D TLC chips (vendor undisclosed; NOT confirmed Micron)"
+  evidence: L2
+  mod_class: F1        # HW exists; needs test-mode/command exposure
+  source: "Flash-Cosmos MICRO'22 Sec 4.1/5.2 Fig 12"
+  k3_relevance: "gives AND/OR along the string (vertical); does NOT provide the cross-bitline popcount K3 GEMV needs. Useful only for exact bitplane products, not the reduction."
+
+multi_wordline_sensing_inter_block:
+  primitive: MWS_OR
+  exact_operation: "activate WLs across M blocks; per-bitline OR across blocks of the intra-block AND"
+  n_operands_measured: "1..32 blocks (x48 WLs)"
+  latency_vs_tR: "4 blocks fits +3.3% tR; 32 blocks +36.3% tR"   # L2 Fig 13
+  power_vs_read: "+34% at 2 blocks, ~+80% at 4 blocks; energy -53% vs 4 serial reads"  # L2 Fig 14
+  recommended_limit: "<=4 simultaneous blocks (stay under erase power)"
+  bitlines_communicate: false
+  evidence: L2
+  mod_class: F1
+  source: "Flash-Cosmos MICRO'22 Sec 4.1/5.2 Fig 13-14"
+
+latch_xor:
+  primitive: latch_XOR
+  exact_operation: "2-operand XOR between data in on-chip latches (existing feature for randomization/program-verify); XNOR via inverse-read of one operand"
+  n_operands: 2
+  runtime_data_participation: "possible if one operand is a loaded latch (activation) — NOT characterized"
+  evidence: L2      # feature exists on the 160 chips per Flash-Cosmos Sec 6.1
+  mod_class: F1     # command interface to invoke it is proposed
+  source: "Flash-Cosmos Sec 6.1 Eq.2 footnote 13; Samsung JSSC latch refs [87,88]"
+  k3_relevance: "XOR is not addition; alone cannot reduce. Could form carry-save if paired with a carry primitive (none exists in stock)."
+
+enhanced_slc_programming:
+  primitive: ESP
+  exact_operation: "extra ISPP steps raise/tighten VTH margin for zero-error compute reads"
+  cost_program_time: "tESP >= 1.9x tPROG for zero error (200us->400us SLC); +60% gives 10x RBER cut"
+  cost_capacity: "SLC mode = 2x cells vs storing same data in TLC"
+  cost_write_bw: "4.7 GB/s vs 6.4 GB/s regular SLC (SSD-level, simulated)"
+  reliability: "RBER < 2.07e-12 over 4.83e11 bits; NOT proven to JEDEC UBER 1e-15"
+  enabling_knob: "ISPP tuning via standard ONFI SET FEATURE"
+  evidence: L2
+  mod_class: F0    # SET FEATURE is commodity; ESP recipe is firmware
+  source: "Flash-Cosmos Sec 4.2/5.2 Fig 10-11; Sec 8.3"
+
+charge_recycling_read:
+  primitive: cr_read
+  exact_operation: "consecutive same-block WL reads reuse WL/BL charge (skip full precharge/discharge): first WL full read, subsequent WLs recycle -> lower tR + energy"
+  status: PENDING_AUDIT   # AiF agent filling exact numbers; placeholders below are the paper's claimed anchors to be verified
+  tR_reduction_claimed: "~28us -> ~9.7us (~64%); ~2.8x effective read BW"
+  energy_claimed: "18.278 pJ/bit -> 5.098 pJ/bit (~72%)"
+  conditions: "consecutive WLs, same block; first-read startup + last-read discharge overhead; random access loses benefit"
+  validation_basis: "circuit sim calibrated to real NAND + fabricated CTF array (to confirm)"
+  evidence: L3       # to be refined by audit (likely L2/L3 boundary)
+  mod_class: F1      # 'minor flash control changes' claimed; verify per part
+  source: "AiF ISCA'25 (audit in progress)"
+  k3_relevance: "DIRECTLY applies to weight streaming (contiguous page reads within a block) — biggest physically-grounded tR/energy lever for the sense-bound baseline."
+
+program_verify_failbit_count:
+  primitive: exposed_failbit_count
+  exact_operation: "program-verify circuitry counts bitlines mismatching a verify target = a POPCOUNT across bitlines. Exposing it on-demand, maskable to 32-lane K3 blocks, would give the missing cross-bitline reduction."
+  status: HYPOTHESIS
+  evidence: L3       # counter exists in silicon (for PV); on-demand masked read undocumented
+  mod_class: F1      # if a vendor command exposes it; F2 if masking logic must be added
+  source: "generic NAND program-verify architecture; no public on-demand-count command"
+  k3_relevance: "THE candidate cross-bitline primitive. Gate 4 showed even if it exists, at MXFP4 densities it loses to conventional dense sensing unless it covers many blocks per op — quantified in Gate 9 search."
+
+source_line_current_sum:
+  primitive: analog_SL_popcount
+  exact_operation: "total source-line current ~ number of conducting cells on activated WLs = analog popcount"
+  status: HYPOTHESIS
+  exact: false       # analog; exact only with multi-pass/residue digitization
+  evidence: L3
+  mod_class: F3      # needs ADC/current sense = array/periphery redesign
+  source: "analog-flash-compute literature (CrossBit/Ares class); not on commodity parts"
+  k3_relevance: "non-exact as-is; qualifying only with digital residue correction (modeled as separate NON-QUALIFYING branch unless corrected)."

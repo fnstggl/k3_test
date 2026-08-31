@@ -1,0 +1,1433 @@
+                                          Flash-Cosmos: In-Flash Bulk Bitwise Operations Using
+                                         Inherent Computation Capability of NAND Flash Memory
+                                                        Jisung Park§∇ Roknoddin Azizi§ Geraldo F. Oliveira§ Mohammad Sadrosadati§
+                                                        Rakesh Nadig§ David Novo† Juan Gómez-Luna§ Myungsuk Kim‡ Onur Mutlu§
+
+                                           § ETH Zürich         ∇ POSTECH            † LIRMM, Univ. Montpellier, CNRS                         ‡ Kyungpook National University
+
+
+                                            Bulk bitwise operations, i.e., bitwise operations on large bit       databases and web search, prior works (e.g., [1-9]) propose
+arXiv:2209.05566v1 [cs.AR] 12 Sep 2022
+
+
+
+
+                                         vectors, are prevalent in a wide range of important applica-            various techniques that heavily use bulk bitwise operations
+                                         tion domains, including databases, graph processing, genome             to accelerate queries. Bulk bitwise operations are also preva-
+                                         analysis, cryptography, and hyper-dimensional computing. In             lent in various other important application domains, includ-
+                                         conventional systems, the performance and energy efficiency             ing databases and web search [1-13], data analytics [7, 14-17],
+                                         of bulk bitwise operations are bottlenecked by data movement            graph processing [9, 18-21], genome analysis [22-29], cryptog-
+                                         between the compute units (e.g., CPUs and GPUs) and the                 raphy [30-32], set operations [7, 19], and hyper-dimensional
+                                         memory hierarchy. In-flash processing (i.e., processing data            computing [33-36].
+                                         inside NAND flash chips) has a high potential to accelerate                In conventional systems, the performance and energy ef-
+                                         bulk bitwise operations by fundamentally reducing data move-            ficiency of bulk bitwise operations are bottlenecked by data
+                                         ment through the entire memory hierarchy, especially when the           movement between the compute units (e.g., CPUs or GPUs) and
+                                         processed data does not fit into main memory.                           the memory hierarchy [7, 8, 20, 21, 37-39]. To perform a bulk
+                                            We identify two key limitations of the state-of-the-art in-          bitwise operation, a conventional system must first move every
+                                         flash processing technique for bulk bitwise operations; (i) it          operand to the compute unit and eventually write the results
+                                         falls short of maximally exploiting the bit-level parallelism of        back into the memory hierarchy. Due to the simple nature of bit-
+                                         bulk bitwise operations that could be enabled by leveraging             wise operations, such data movement dominates the execution
+                                         the unique cell-array architecture and operating principles of          time and energy consumption in bulk bitwise operations.
+                                         NAND flash memory; (ii) it is unreliable because it is not de-             Processing data inside NAND flash chips, i.e., in-flash pro-
+                                         signed to take into account the highly error-prone nature of            cessing (IFP), can fundamentally reduce the data movement that
+                                         NAND flash memory.                                                      bottlenecks the execution of bulk bitwise operations. IFP is an
+                                            We propose Flash-Cosmos (Flash Computation with One-                 instance of near-data processing (NDP), a computing paradigm
+                                         Shot Multi-Operand Sensing), a new in-flash processing tech-            that moves computation closer to where the data resides (e.g., [7-
+                                         nique that significantly increases the performance and energy           9, 20, 21, 37, 40-54]). When processing large amounts of data
+                                         efficiency of bulk bitwise operations while providing high re-          that do not fit in main memory, IFP significantly reduces data
+                                         liability. Flash-Cosmos introduces two key mechanisms that              movement across the entire memory hierarchy by performing
+                                         can be easily supported in modern NAND flash chips: (i) Multi-          computation within the underlying storage media (i.e., NAND
+                                         Wordline Sensing (MWS), which enables bulk bitwise oper-                flash chips) and transferring only the result (when needed, to
+                                         ations on a large number of operands (tens of operands)                 main memory and CPUs/GPUs). As we discuss in Section 3,
+                                         with a single sensing operation, and (ii) Enhanced SLC-mode             IFP can significantly outperform in-storage processing (ISP) ap-
+                                         Programming (ESP), which enables reliable computation in-               proaches that leverage hardware accelerators inside the NAND
+                                         side NAND flash memory. We demonstrate the feasibility of               flash-based solid-state drive (SSD) (e.g., [49-52, 55, 56]), by
+                                         performing bulk bitwise operations with high reliability in             reducing data movement to/from NAND flash chips.
+                                         Flash-Cosmos by testing 160 real 3D NAND flash chips. Our                  To our knowledge, only one recent work, ParaBit [21], pro-
+                                         evaluation shows that Flash-Cosmos improves average per-                poses an in-flash processing technique for bulk bitwise oper-
+                                         formance and energy efficiency by 3.5×/32× and 3.3×/95×,                ations.1 We identify that ParaBit has two major limitations.
+                                         respectively, over the state-of-the-art in-flash/outside-storage        First, ParaBit falls greatly short of exploiting the full potential
+                                         processing techniques across three real-world applications.             of NAND flash memory to significantly improve the perfor-
+
+                                                                                                                    1 There are many prior works (e.g., [57-63]) that leverage analog current
+                                         1. Introduction                                                         sensing to perform accumulative computation (e.g., multiply-accumulate opera-
+                                         Many data-intensive applications rely on bulk bitwise opera-            tion) inside NAND flash chips. However, these proposals 1) use NAND flash
+                                                                                                                 memory solely as an accelerator but not as a storage medium, and 2) require
+                                         tions, i.e., bitwise operations on large bit vectors. As such, it       significant changes (e.g., adding a precise analog-to-digital converter to each
+                                         is important for modern computing systems to support high-              bitline) to commodity NAND flash chips, which increases cost. See Section 9
+                                         performance and energy-efficient bulk bitwise operations. In            for more detail.
+
+
+                                                                                                             1
+mance and energy efficiency of bulk bitwise operations. To                           ESP effectively avoids raw bit errors in stored data via more
+perform bulk bitwise operations for more than two operands                        precise programming-voltage control. A flash cell stores bit
+(e.g., A • B • C), which frequently happens in many data-intensive                data as a function of the level of its threshold-voltage (VTH ).
+applications such as data analytics [7, 14-17], databases [10-13]                 Reading a cell incurs an error if the cell’s VTH level moves
+and graph processing [9, 19-21], ParaBit must serially perform                    to another VTH range that corresponds to a different bit value
+multiple two-operand bitwise operations (e.g., (A • B) • C). Doing                than the stored value, due to various reasons [67], such as pro-
+so requires multiple long-latency sensing operations in series,                   gram interference [68-70], data retention loss [71-74], read
+which become a new performance and energy efficiency bot-                         disturbance [75, 76], and cell-to-cell interference [69]. ESP
+tleneck. In this work, we observe that NAND flash memory                          maximizes the margin between different VTH ranges by care-
+has inherent capability to perform bitwise operations on a large                  fully leveraging two existing approaches. First, to store data
+number (e.g., tens) of operands at once (i.e., with a single sens-                for in-flash processing, it uses the single-level cell (SLC)-mode
+ing operation) due to its unique cell-array structures that are                   programming scheme [77, 78]. Doing so guarantees a large
+similar to digital logic circuits for NAND and NOR gates.                         VTH margin by forming only two VTH ranges (for encoding ‘1’
+   Second, ParaBit is applicable only to highly error-tolerant                    and ‘0’) within the fixed VTH window. Second, ESP enhances
+applications because it is not designed to take into account the                  the SLC-mode programming scheme by using (i) a higher pro-
+highly error-prone nature of NAND flash memory. To ensure                         gramming voltage to increase the distance between the two VTH
+data reliability, modern NAND flash-based SSDs commonly                           ranges and (ii) more programming steps to narrow the high VTH
+use (i) error-correcting codes (ECC) and (ii) data randomiza-                     range. While many prior works also leverage precise program-
+tion [64-67]. Unfortunately, ParaBit cannot leverage any of                       ming to enhance the reliability of NAND flash memory [79-84],
+the widely-used ECC and data-randomization techniques, as it                      we aim to achieve zero bit errors in computation results and
+performs bitwise operations while sensing the cells that store                    demonstrate that doing so is possible in modern NAND flash
+the data. Performing bitwise AND and OR operations on ECC-                        memory by combining the two approaches that comprise ESP.
+encoded or randomized data using ParaBit can lead to incorrect                       In this paper, we enhance our basic MWS mechanism in two
+results during ECC decoding and/or de-randomization. Al-                          ways to make it more general purpose. First, we support bitwise
+though storing a smaller number of bits in a cell would reduce                    NAND/NOR/XOR/XNOR by using MWS along with (i) the inverse
+the raw bit error rate (RBER) of NAND flash memory, our                           sensing mechanism [85, 86] and (ii) internal XOR logic [87, 88],
+characterization using 160 real 3D NAND flash chips shows                         both of which are already supported in most NAND flash chips.
+that even storing a single bit per cell cannot provide sufficiently-              Second, we relax the data location constraints of the basic MWS
+low RBER for ParaBit to be adopted across a wide range of                         mechanism (e.g., bitwise OR/NOR operations are possible only
+applications.                                                                     for wordlines in different NAND strings) by (i) storing each
+   Our goal is to improve both the performance and energy effi-                   operand’s inverse data and (ii) leveraging De Morgan’s laws.
+ciency of in-flash bulk bitwise operations while ensuring high re-                For example, if the user stores the inverse of A, B, and C (i.e., A,
+liability (i.e., zero bit errors) in computation results. To this end,            B, and C) in the same NAND string, Flash-Cosmos can perform
+we propose Flash-Cosmos (Flash Computation with One-Shot                          bitwise OR of three wordlines by performing bitwise NAND of A,
+Multi-Operand Sensing), a novel in-flash processing technique                     B, and C because (A OR B OR C)=NOT (A AND B AND C).
+for bulk bitwise operations that achieves our goal by exploiting
+                                                                                     Flash-Cosmos requires only small changes to the control
+two key ideas: (i) Multi-Wordline Sensing (MWS), which en-
+                                                                                  logic of a NAND flash chip, but no changes to its cell array and
+ables in-flash bulk bitwise operations on multiple (e.g., tens)
+                                                                                  sensing circuitry. For efficient post-fabrication tests and opti-
+operands with a single sensing operation, and (ii) Enhanced
+                                                                                  mizations, most modern NAND flash chips are already capable
+SLC-mode Programming (ESP), which effectively achieves zero
+                                                                                  of (i) simultaneously sensing multiple wordlines [89] and (ii) ad-
+bit errors in the results of in-flash bulk bitwise operations.
+                                                                                  justing programming step and voltage at fine granularity [67, 79,
+   MWS leverages the two fundamental cell-array structures
+                                                                                  81, 90]. Hence, integrating Flash-Cosmos into existing NAND
+of NAND flash memory to perform in-flash bulk bitwise op-
+                                                                                  flash chips requires changes only to the command latching cir-
+erations on a large number of operands with a single sensing
+                                                                                  cuitry and the firmware of the microcontroller in the flash chip
+operation: (i) a number of flash cells (e.g., 24–176 cells) are
+                                                                                  (see Section 6).
+serially connected to form a NAND string (similar to digital
+NAND logic); (ii) thousands of NAND strings are connected to                         We evaluate Flash-Cosmos in two ways. First, we vali-
+the same bitline (similar to digital NOR logic). Under these cell-                date Flash-Cosmos using 160 real 48-layer 3D NAND flash
+array structures, simultaneously sensing multiple wordlines2                      chips. Our results show that Flash-Cosmos enables commod-
+automatically results in (i) bitwise AND of all the sensed word-                  ity NAND flash chips to perform bitwise AND/OR/NAND/NOR of
+lines if they are in the same NAND string or (ii) bitwise OR of                   up to 48 operands via a single sensing operation (25 µs). In
+all the wordlines if they are in different NAND strings.                          our validation of computation results across more than 1011
+                                                                                  flash cells, we observe zero bit errors. Second, we compare
+  2 NAND flash memory concurrently reads a large number of (> 105 ) cells         Flash-Cosmos to two different computing platforms, a state-
+whose control gates are connected to the same wordline. See Section 2.1 for       of-the-art multi-core CPU (which we call outside-storage pro-
+more background on NAND flash memory operation.                                   cessing or OSP) [91] and ParaBit [21]. Our evaluation using
+
+
+                                                                              2
+three real-world workloads shows that Flash-Cosmos improves               injects electrons into a cell, which increases the cell’s VTH level.
+performance by 32×/3.5× and reduces energy consumption by                 As multiple flash cells are connected to a single WL, NAND
+95×/3.3× on average compared to OSP/ParaBit.                              flash memory writes data at page (e.g., 16 KiB) granularity
+   This work makes the following key contributions:                       such that each cell in a WL stores one bit of the page. To
+• To our knowledge, this work is the first to enable NAND flash           decrease a programmed cell’s VTH level, NAND flash memory
+  memory to perform bulk bitwise operations on multiple (i.e.,            performs an erase operation that ejects electrons from the cell.
+  tens) operands via a single sensing operation.                          The granularity of an erase operation is a block, which causes
+• We introduce Flash-Cosmos, a new in-flash processing tech-              the erase latency tBERS to be much longer (e.g., 3–5 ms) than
+  nique to significantly improve both performance and energy              the program latency tPROG (e.g., 200–700 µs).
+  efficiency of bulk bitwise operations while achieving zero bit
+  errors in computation results.                                          Read Operation. NAND flash memory determines a cell’s
+• We demonstrate the feasibility and reliability of Flash-                VTH level (i.e., the cell’s bit data) by sensing the conductance
+  Cosmos using 160 real state-of-the-art 3D NAND flash chips.             of the corresponding NAND string. Figure 2 shows the read
+• We evaluate the effectiveness of Flash-Cosmos using real-               mechanism of NAND flash memory, which consists of three
+  world workloads, showing large performance and energy                   steps: (i) precharge, (ii) evaluation, and (iii) discharge [64, 92].
+  benefits over a state-of-the-art multi-core processor and the           In the precharge step ( P in the left part of Figure 2), a NAND
+  state-of-the-art in-flash processing technique.                         flash chip charges all target BLs and their sense-out (SO) ca-
+                                                                          pacitors (CSO ) to the precharge voltage VPRE by enabling the
+2. Background                                                             precharge transistor MPRE 1 . At the same time, the chip ap-
+We provide a brief background on NAND flash memory that is                plies the read-reference voltage VREF to the target WL while
+useful to understand the rest of the paper.                               applying a much larger pass voltage VPASS to the other WLs
+                                                                          in the same block 2 . Doing so makes each target cell’s VTH
+2.1. Basics of NAND Flash Memory                                          level dictate the corresponding NAND string’s conductance; the
+NAND Flash Organization. Figure 1 shows the organization                  target cell would operate as either a resistor, if VTH ≤VREF ( a
+of 3D NAND flash memory. A number of vertically-stacked                   in Figure 2, left part), or an open switch, if VTH >VREF ( b );
+flash cells (e.g., 24 to 176 cells) are serially connected, which         all non-target cells in the same NAND string would always
+is called a NAND string. A NAND string is connected to a                  operate as resistors since VPASS is high enough (>6 V) to turn
+bitline (BL), and NAND strings at different BLs compose a sub-            on any flash cell regardless of its VTH level [75]. The chip
+block. The control gates of all cells that are at the same vertical       then starts the evaluation of the target cells ( E in the middle
+location in a sub-block are connected to the same wordline                part of Figure 2) by disconnecting the BLs from VPRE 3 and
+(WL), which makes all such cells operate concurrently. A                  enabling the latching circuit 4 . If the target cell’s VTH level is
+NAND flash block consists of several (e.g., 4 or 8) sub-blocks,           lower than VREF , the charge in CSO quickly flows through the
+and thousands of blocks comprise a plane. The blocks in a                 NAND string ( c ), which is sensed as a ‘1’. If VTH >VREF , the
+plane share all the BLs in that plane, which implies that a               capacitance of CSO hardly changes ( d ) as the target cell blocks
+single BL is shared by thousands of NAND strings. In the                  the BL discharge current, which is sensed as a ‘0’. Finally, the
+rest of the paper, unless specified otherwise, we refer to a sub-         chip discharges the BLs ( D in the right part of Figure 2) to
+block as a block for simplicity. A NAND flash chip (or a die)             return the NAND string to its initial stable state (i.e., the state
+contains multiple (e.g., 2 or 4) planes. Multiple chips in a              before precharge can take place) for future operations.
+NAND flash package can operate independently of each other
+but share the package’s command/data buses (i.e., channel) in a
+time-interleaved manner.
+
+
+
+
+                                                                                       Figure 2: NAND flash read mechanism.
+                                                                             Figure 3 depicts how NAND flash memory senses a BL’s
+                                                                          conductance with its latching circuit. Figures 3(a) and 3(b)
+               Figure 1: NAND flash organization.                         describe the operation of the latching circuit when the threshold
+                                                                          voltage VTH of a flash cell is lower and higher than the read
+Program and Erase Operations. A flash cell stores data using              reference voltage VREF , respectively. We show the transition in
+its threshold voltage (VTH ) level that highly depends on the             voltage state at each of the three nodes (SO/OUT/OUT) when
+amount of charge in the cell’s charge trap. A program operation           going from the precharge step ( P in Figure 2) to the evaluation
+
+
+                                                                      3
+         VOUT : 0 à 0         VOUT : 1 à 1                                  VOUT : 1 à 0                             Retention Interference/
+                                                       VOUT : 0 à 1                                                     loss     disturbance                       VREF1   VREF2   VREF3
+
+
+
+
+                                                                                                                                               # of cells
+                                                                                                 # of cells
+                 OUT                OUT                        OUT                 OUT                                VREF                                  MSB LSB
+                                                                                                                1              0                              11       01     00           10
+        VPRE                                          VPRE                                                    Erased         Prog.       VTH                   E       P1     P2           P3 VTH
+                M1                      M2                    M1                      M2
+MPRE
+                                                                                                                           VTH margin                                  VTH margin
+                                               MPRE
+                                                                                                              (a) SLC–mode programming                       (b) MLC–mode programming
+            SO                                                 SO                                              Figure 5: VTH distribution of a programmed wordline.
+        BL                                            BL
+           VSO : 1 à 0                                       VSO : 1 à 1
+               (a) VTH ≤ VREF                                (b) VTH > VREF
+                                                                                                  of a WL, when the WL is programmed in (a) single-level cell
+                                                                                                  (SLC) mode and (b) multi-level cell (MLC) mode to store one
+Figure 3: Latching circuit showing the voltage states at SO, OUT
+                                                                                                  and two bits per cell, respectively. Reading or programming
+and OUT in the precharge P and evaluation E steps during a
+read operation (see Figure 2).                                                                    a WL affects the VTH distribution of other WLs in the same
+          IOUT : 0 à 0          VOUT : 1 à 1            IOUT : 0 à 1          IOUT : 1 à 0        block by increasing the VTH level of other cells (i.e., interfer-
+                  OUT                OUT
+step ( E in Figure 2). During precharge, the NAND flash OUT     OUT
+                                                                              chip                ence and disturbance as shown in Figure 5(a)). A flash cell also
+       VPRE M                                     VPRE M
+charges   the BL, 1   making VSOM=    2 1. Before the evaluation
+                                                             1                  M2
+                                                                        step, the                 leaks its charge over time, which decreases its VTH level (i.e.,
+ MPRE initializes the latching circuit M
+chip                                         by
+                                              PREactivating only transistor
+                                                                                                  retention loss as shown in Figure 5(a)). If a cell’s VTH level
+M1 , resulting SO
+                    in VOUT =0 and thus VOUT =1SO. The evaluation                                 moves beyond VREF (i.e., to a VTH range corresponding to a
+        BL
+step disables                                      BL M . à
+             ISO : 1M  0 and M1 while enabling
+                    àPRE                                ISO :21 In1Figure 3(a),                   different value), sensing the cell results in a different value from
+the evaluation      step
+            (a) VTH ≤ VREFmakes   V SO  = 0 as  the charge
+                                                       (b) VTHin> C  SO quickly
+                                                                   VREF                           the original stored data, introducing a bit error.
+flows through the NAND string (because VTH ≤VREF ), which                                            Two major factors significantly increase the raw (i.e., pre-
+leads to VOUT =1 ( E in Figure 2). The bit value of the flash                                     correction) bit-error rate (RBER) of NAND flash memory. First,
+cell is immediately stored in the latching circuit because of the                                 a flash cell becomes more error-prone as it experiences more
+low charge retention of CSO [92]. In Figure 3(b), the evaluation                                  program and erase (P/E) cycles [95], due to the high voltage
+step leads to VSO =1 and VOUT =0 as the flash cell operates as                                    used in program and erase operations which damages the cell
+an open switch when VTH >VREF .                                                                   to more easily leak its charge. Second, storing more bits per
+Inverse Read. Modern NAND flash chips commonly support                                            cell increases RBER because it reduces the margin between
+the inverse-read mode [85] to read the inverse of the stored                                      adjacent VTH ranges in order to pack more VTH states within
+data.3 Supporting inverse reads requires no hardware changes                                      the same voltage window, as shown in Figure 5(b).
+to the Vlatching     circuit shown
+                          VOUT :1à1
+                                     in Figure 4.V We: 0denote      the  voltage
+                                                                      VOUT : 1 à 0
+                                                                                                  Error-Correcting Codes (ECC). To ensure the integrity of
+         OUT : 0 à 0                                OUT     à1
+states at theOUT three nodes (SO/OUT/OUT)
+                                OUT                  during
+                                                         OUT an inverseOUT    read                stored data, modern SSDs commonly employ ECC. ECC can
+operation
+      VPRE M  using ISO , IOUTMand IOUT . VPRE     TheMchip performs Man                          detect and correct bit errors by storing redundant information.
+                1                   2                      1                     2
+inverse
+ MPRE     read by simply changing the          activation sequence of M1
+                                            MPRE                                                  To cope with the high RBER of modern NAND flash mem-
+and M2 . Unlike a read operation, the inverse read activates M2                                   ory, it is necessary to use sophisticated ECC (e.g., low-density
+to initialize SOthe latching circuit before the evaluation
+                                                         SO           step. This                  parity-check (LDPC) codes [67, 96-101]), which increases the
+       BL                                         BL
+            VSO : 1 à 0                               VSO : 1 à 1
+leads to IOUT =0 and thus IOUT =1. During the evaluation step,                                    performance and the area overheads of an ECC engine.
+           (a) VTH ≤while
+M1 is activated        VREF M                         (b) VTH > VREF
+                                PRE and M2 are disabled. This causes                              Data Randomization. It is common practice to randomize the
+the values stored in the latching circuit after the evaluation step                               values of stored data in modern SSDs to reduce the probabil-
+to be the inverse of the values stored in a normal read.                                          ity of worst-case data patterns that would exacerbate program
+          IOUT : 0 à 0          VOUT : 1 à 1            IOUT : 0 à 1          IOUT : 1 à 0        disturbance [66, 87, 102]. For example, when a NAND string
+                  OUT                OUT                        OUT                 OUT           has many consecutive erased cells, programming the next cell
+        VPRE     M1                     M2            VPRE                                        of the same NAND string significantly increases the VTH level
+                                                               M1                      M2
+ MPRE                                          MPRE                                               of the consecutive cells, which could introduce bit errors. Data
+                                                                                                  randomization reduces the probability of such cases to a small
+                  SO                                            SO
+         BL
+                ISO : 1 à 0                            BL
+                                                              ISO : 1 à 1
+                                                                                                  value by randomly distributing VTH states across a NAND string
+                                                                                                  regardless of the original data values to store.4 The stored data
+               (a) VTH ≤ VREF                                (b) VTH > VREF
+                                                                                                  is de-randomized during a read operation to correctly read the
+Figure 4: Latching circuit showing the voltage states at SO, OUT
+                                                                                                  originally stored values before they were randomized.
+and OUT in the precharge P and evaluation E steps during an
+inverse read operation (see Figure 2).
+                                                                                                  3. Motivation
+                                                                                                  We describe the benefits of in-flash processing and the main
+2.2. Reliability of NAND Flash Memory                                                             limitations of the state-of-the-art in-flash processing technique
+Modern NAND flash memory is highly error-prone due to var-                                        for bulk bitwise operations (i.e., bitwise operations on large bit
+ious error sources [67] such as program interference [68-70],                                     vectors) [21].
+data retention loss [71-74], read disturbance [75, 76], and cell-
+to-cell interference [69]. Figure 5 shows the VTH distribution
+   3 Supporting inverse reads is essential to the copyback operation [85] that                       4 In fact, randomization is the reason why the V
+                                                                                                                                                      TH distribution of NAND
+moves a page’s data to another page in the same plane without off-chip data                       flash memory is commonly described by using VTH states with the same shape,
+transfer and thus can improve SSD garbage-collection performance [93, 94].                        as in Figure 5.
+
+
+                                                                                             4
+3.1. In-Flash Bulk Bitwise Operations
+Many prior studies [7-9, 20, 37, 38, 48] investigate near-data
+processing (NDP) solutions for bulk bitwise operations due to
+two main reasons. First, bulk bitwise operations are used in
+a wide variety of important applications, including databases
+and web search [1-13], data analytics [7, 14-17], graph process-
+ing [9, 18-21], genome analysis [22-29], cryptography [30-32],
+set operations [7, 19], and hyper-dimensional computing [33-
+36]. Second, bulk bitwise operations can significantly benefit
+from NDP. Due to the simple nature of bitwise operations, the
+performance and energy efficiency of bulk bitwise operations
+are bottlenecked by data movement between the computation
+units and the memory hierarchy in conventional systems [7-9,
+21, 37, 38]. NDP can effectively mitigate such data movement
+at low cost by supporting simple bulk bitwise operations at very
+high levels of concurrency near or inside memory devices (e.g.,
+in all memory banks or subarrays [7, 9, 103]).
+   Among many existing NDP solutions, only one recent work,
+ParaBit [21], proposes an in-flash processing technique for bulk                     Figure 6: Bitwise computation techniques employed in the state-
+bitwise operations inside a NAND flash chip. ParaBit leverages                       of-the-art in-flash processing technique [21].
+the latching circuits that are commonly employed in modern
+                                                                                     stores ‘1’ (i.e., when SO=0), sensing the cell does not change
+NAND flash chips [92, 104-108] (see Section 2.1). Existing
+                                                                                     the value at node OUTS . In other words, sensing new data N
+NAND flash chips support a command called cache read [104-
+                                                                                     leads to OUTS =1 only if both the new data N and the current
+108] whose purpose is to improve the performance of a read
+                                                                                     value at node OUTS are ‘1’, which is equivalent to OUTS =(N
+operation by enabling the transfer of data from the NAND flash
+                                                                                     AND OUTS ). After serially reading all the operands sharing the
+chip to the flash controller in parallel with the sensing of a
+                                                                                     same bitline (which results in bitwise AND of all the operands at
+subsequent read operation. To enable cache read, existing chips
+                                                                                     node OUTS ), ParaBit enables M3 to move the result from the
+include a cache latch in addition to the sensing latch ( 4 in
+                                                                                     sensing latch to the cache latch (line 5).
+Figure 2). We describe the operation and implementation of
+this cache latch since it is important for and used in Parabit.                      Bitwise OR in ParaBit. To perform a bitwise OR operation,
+   Figure 6(a) illustrates the common latching circuit of a mod-                     ParaBit also serially reads the operands sharing the same bitline
+ern NAND flash chip equipped with a cache latch (right part)                         (lines 2 to 5 in Figure 6(c)) as in bitwise AND, but it reinitializes
+in addition to the sensing latch (left part) described in Figure 3.                  the sensing latch (line 3) before sensing each read and activates
+A NAND flash chip initializes the cache latch in the precharge                       M3 (line 5, i.e., moves the result from the sensing latch to the
+step by activating M4 , which pulls down node OUTL and thus                          cache latch) after sensing each operand. Doing so keeps the
+makes OUTL =1. Until enabling M3 , the sensing latch (i.e., the                      result of the bitwise OR of the read operands sharing the same
+value at node OUTS ) cannot affect the data stored in the cache                      bitline in the cache latch (node OUTL ). If newly read data N in
+latch. This feature enables the chip to read new data (into the                      the sensing latch (i.e., OUTS =N) is ‘1’, enabling M3 results in
+sensing latch) while transferring the previously-read data in the                    OUTL =1 regardless of the current value of node OUTL . When
+cache latch to the flash controller.                                                 N=OUTS =‘0’, activating M3 does not change the value at node
+   Figures 6(b) and 6(c) describe how ParaBit performs in-                           OUTL . Hence, latching new data N to the cache latch causes
+flash bitwise AND and OR operations, respectively, by intelli-                       OUTL =0 only if both the new data N and the current value of
+gently controlling the latching circuit shown in Figure 6(a).5                       OUTL are ‘0’, which is equivalent to OUTL =(N OR OUTL ).
+Bitwise AND in ParaBit. To perform a bitwise AND operation,                          Benefits of In-Flash Processing. Figure 7 shows an example
+ParaBit serially reads operands sharing the same bitline (lines                      where ParaBit-like in-flash processing (IFP) can provide ben-
+3 and 4 in Figure 6(b)) while neither enabling M3 nor re-                            efits over conventional outside-storage processing (OSP) and
+initializing the sensing latch. Doing so allows ParaBit to keep                      in-storage processing (ISP) that process data using compute
+the result of the bitwise AND of the serially read operands in                       units in the host CPU/GPU and inside the SSD, respectively.
+the sensing latch (node OUTS ). If the read cell stores ‘0’ (i.e.,                   Figure 7(a) depicts the target SSD considered in this example.
+if the value at SO is ‘1’), enabling only M2 causes OUTS =0                          The SSD has eight channels, each of which is shared by four
+regardless of the current value at node OUTS . When the cell                         2-plane dies (i.e., 64 planes in total) with 16-KiB pages. We
+                                                                                     assume a page-read latency (tR) of 60 µs, a channel bandwidth
+   5 ParaBit also introduces several mechanisms to support other bitwise op-
+                                                                                     of 1.2 GB/s between a channel and the SSD controller [109],
+erations (e.g., bitwise XOR) and different approaches that exploit the common
+bit-encoding scheme for MLC NAND flash memory, but we discuss only AND
+                                                                                     and an external I/O bandwidth of 8 GB/s (4-lane PCIe Gen4)
+and OR since the others have key drawbacks, such as costly additional inverter       between the host and the SSD. Figures 7(b), 7(c) and 7(d) show
+logic at each BL to support bitwise XOR operations.                                  the execution timeline for a channel when an application uses
+
+
+                                                                                 5
+             External BW: 8 GB/s
+                                                 tR: 60 μs tDMA: 27 μs                       flash chips and transferring only the computation result to the
+   SSD Controller                                             tEXT: 4 μs × 8
+     Channels         Internal BW:          A:                                               SSD controller and the host, thereby significantly improving
+                    9.6 (1.2×8) GB/s                                        # channels       performance and energy efficiency. In state-of-the-art IFP, inter-
+  NAND Flash Array                          B:
+Channel#1                     Channel#8     C:                                               nal data movement between the SSD controller and the NAND
+                Bit-Vectors                                                                  flash dies is not a bottleneck, but sensing the data becomes a
+                  A
+                      B
+                        C                               Bottleneck: External I/O             bottleneck, as Figure 7(d) shows.
+         ⋯            ⋯           ⋯
+ Die#1       D#4 Plane      D#1       D#4               Execution time: 471 μs
+
+         (a) SSD organization                (b) Channel#1 timeline in OSP                   3.2. Limitations of State-of-the-Art
+                                                                                             We identify two key limitations of ParaBit, the state-of-the-art
+                  Start computation &                 Start computation &
+A:                result transfer to host   A:        result transfer to controller          IFP technique for bulk bitwise operations.
+B:                                          B:
+                                                                                             Unexploited Potential of IFP Capabilities. Despite ParaBit’s
+C:                                          C:                                               benefits over other processing approaches, we identify that Para-
+                                                                                             Bit still misses a large potential of exploiting IFP to significantly
+     Bottleneck: Internal I/O                    Bottleneck: Sensing                         improve the performance and energy efficiency of bulk bitwise
+         Execution time: 431 μs                    Execution time: 335 μs                    operations. As explained in Section 3.1, ParaBit serially reads
+     (c) Channel#1 timeline in ISP               (d) Channel#1 timeline in IFP               every operand from a bitline (tR in Figure 7(d)). Each read of an
+Figure 7: (a) SSD organization, and comparison of execution time-                            operand requires a costly (i.e., slow) sensing operation in Para-
+lines of a channel in (b) outside-storage processing (OSP), (c) in-                          Bit. Such serial reading of every operand poses a big bottleneck
+storage processing (ISP), and (d) in-flash processing (IFP) during
+bulk bitwise operations.                                                                     when operations need to be performed across more than two
+                                                                                             operands. We identify that NAND flash memory has inherent
+one of OSP, ISP, and IFP, respectively, to perform bulk bitwise                              capability to perform bulk bitwise operations on a large number
+OR operations on three 1-MiB bit vectors A, B, and C (i.e., A OR                             of operands (i.e., tens) at once (i.e., using only a single sensing
+B OR C). We assume that each bit-vector is distributed across all                            operation) due to (i) its unique cell-array structure and (ii) flash
+the 64 planes in the SSD as shown in Figure 7(a).                                            cells’ operation principles. First, as explained in Section 2.1, in
+   Figure 7(b) shows the execution timeline of bulk bitwise                                  NAND flash memory, several tens or more than a hundred of
+operations for one of the eight channels in OSP. To achieve the                              flash cells are serially connected (as in digital NAND gates), and
+highest possible performance using OSP, the host must perform                                thousands of NAND strings are connected to a single BL (as
+concurrent multi-plane reads across the NAND flash dies for                                  in digital NOR gates). Second, a flash cell is similar to a normal
+each operand. The operands themselves are read sequentially                                  MOS transistor, a basic component for digital logic gates, in its
+(tR for operands A, B and C in Figure 7(b)). Once an operand                                 structure and operation principles. These observations lead us
+is read to the sensing latch, it can be transferred to the SSD                               to develop a new IFP technique (described in Section 4) that
+controller (tDMA) and subsequently to the host (tEXT) while a                                does not have the sensing bottleneck that the state-of-the-art
+read is simultaneously being performed on the next operand.                                  has: our new technique performs bulk bitwise operations on
+Given the flash channel and external I/O bandwidth, each die                                 multiple operands with only a single sensing operation.
+requires tDMA=27 µs and tEXT=4 µs to transfer 32-KiB data                                    Limited Applicability. ParaBit’s applicability is limited to
+(2 planes×16-KiB page) to the SSD controller and to the host,                                highly error-tolerant applications because it is not designed
+respectively. While tEXT per die is lower than tR and tDMA, the                              to take into account the highly error-prone nature of NAND
+data movement between the host and the SSD (called External                                  flash memory. As explained in Section 2.2, due to the error-
+I/O in Figure 7(b)) bottlenecks performance, as the SSD serially                             prone nature of NAND flash memory, using ECC and data
+transfers all the bit vectors from the eight channels through the                            randomization is essential to guaranteeing the reliability of
+external I/O interface for computation in the host CPU.                                      stored data. However, ParaBit cannot leverage any of the widely-
+   Figure 7(c) shows the execution timeline of a channel in the                              used ECC and randomization techniques, as it performs bulk
+ISP approach. ISP can use per-channel accelerators (e.g., [16,                               bitwise operations while reading the operands. Bitwise AND
+50, 55, 56, 110]) to reduce external data movement by perform-                               or OR operations on ECC-encoded or randomized data lead
+ing computation in the SSD controller and transferring only                                  can easily lead to incorrect results during ECC decoding or
+the computation result to the host system. However, the SSD-                                 de-randomization. While storing fewer bits per cell can reduce
+internal data movement between the SSD controller and NAND                                   RBER compared to advanced MLC techniques (e.g., triple-level
+flash dies (called Internal I/O in Figure 7(c)) becomes the new                              cell (TLC) or quad-level cell (QLC) techniques), ParaBit can
+performance and energy bottleneck in ISP. This is because the                                be used only when the application can tolerate the NAND flash
+internal data movement must be serialized through the channel                                chips’ RBER (pre-correction error rate), which is still very large
+shared by the NAND flash dies, while the dies connected to the                               as reported in prior works [67, 69, 71, 73].
+channel can concurrently perform page reads.                                                    To better understand the impact of NAND flash reliability on
+   Figure 7(d) shows the execution timeline of a channel for the                             the applicability of IFP, we perform real-device characterization
+state-of-the-art IFP approach, ParaBit. ParaBit can effectively                              using 160 TLC NAND flash chips (see Section 5.1 for more
+reduce both internal and external data movement by performing                                detail on our methodology). Figure 8 shows the average RBER
+the computation as the operands are read within the NAND                                     across 3,686,400 WLs randomly selected from 160 NAND
+
+
+                                                                                         6
+                           PEC:     0K      1K        3K                        2K       6K    10K             sults in bitwise AND or OR of the WLs. Figure 9 shows how
+                         w/ data randomization                                 w/o data randomization          MWS enables a NAND flash chip to perform bulk bitwise
+                    6                                                     6
+Avg. RBER [×10–3]
+
+
+
+
+                                                     Avg. RBER [×10–3]
+                                                                                                               (a) AND and (b) OR operations on two operands with a sin-
+                    4                                                     4
+                                                                                                               gle sensing operation. While Figure 9 shows bulk bitwise
+                    2                                                     2                                    operations on only two operands, Flash-Cosmos can support
+                    00                                                    00
+                                                                                                               multi-operand bulk bitwise operations (on tens of operands).
+                           1     2     3   6    12                               1     2     3   6    12
+                         Retention age [months]                                Retention age [months]          For bitwise AND, the NAND flash chip simultaneously applies
+                                        (a) SLC–mode programming                                               VREF to multiple target WLs that contain the source operands of
+                         w/ data randomization                                 w/o data randomization          the bulk bitwise operation (WLx and WLz in Figure 9(a)) within
+                                                                         20
+Avg. RBER [×10–3]
+
+
+
+
+                                                     Avg. RBER [×10–3]
+                    6                                                                                          a block, which we call intra-block MWS.6 If the chip applies
+                                                                         15                                    VPASS to all non-target WLs (e.g., WLy and WLw ) as in a reg-
+                    4
+                                                                         10                                    ular read, a BL can be sensed as discharged only when all the
+                    2
+                                                                          5                                    target cells in the corresponding NAND string are erased (i.e.,
+                    00     1     2     3   6    12                        00     1     2     3   6    12       VTH <VREF ). In other words, the sensing circuitry would read a
+                         Retention age [months]                                Retention age [months]          BL as ‘1’ only if all the target cells store ‘1’ (BL1 in Figure 9(a))
+                                       (b) MLC–mode programming                                                and it would read a BL as ‘0’ if any of the target cells stores ‘0’
+  Figure 8: Raw Bit Error Rate (RBER) impact of (a) SLC-mode                                                   (BL2 , BL3 , BL4 in Figure 9(a)), which is equivalent to the bit-
+  and (b) MLC-mode programming schemes at different P/E cycles                                                 wise AND operation. The intra-block MWS operation can easily
+  and retention ages, with and without data randomization.
+                                                                                                               be generalized to more than two operands by applying VREF to
+flash chips we analyze. We measure each WL’s RBER (without                                                     more than two wordlines, leading to the computation of the bit-
+applying ECC) when (i) programming it in (a) SLC mode and                                                      wise AND of all such wordlines with a single sensing operation.
+(b) MLC mode and (ii) enabling (left) and disabling (right)                                                    For bitwise OR, we introduce inter-block MWS, where the chip
+data randomization under different P/E-cycle counts (PEC) and                                                  simultaneously applies VREF to multiple WLs (WLi and WLk
+retention ages.                                                                                                in Figure 9(b)) of different blocks while applying VPASS to all
+   We make three key observations. First, even when using                                                      non-target WLs in those blocks. Doing so causes a BL to be
+SLC-mode programming with data randomization (left plot in                                                     discharged if at least one of the target cells in the corresponding
+Figure 8(a)), the average RBER is significantly (i.e., around                                                  NAND string is erased. In other words, the sensing circuitry
+12 orders of magnitude) higher than the uncorrectable bit-error                                                would read a BL as ‘0’ only if all the target cells in the BL
+rate (UBER) requirement of an SSD (e.g., <10−15 to 10−16 [67,                                                  store ‘0’ (BL4 in Figure 9(b)) and it would read a BL as ‘1’ if
+69, 71, 73, 111, 112]). Second, disabling data randomization                                                   any of the target cells stores ‘1’(BL1 , BL2 , BL3 in Figure 9(b)),
+(right plots in Figures 8(a) and 8(b)) significantly increases                                                 which is equivalent to the bitwise OR operation. The inter-block
+the RBER of stored data by 1.91× and 4.92× in SLC mode                                                         MWS operation can easily be generalized to more than two
+and MLC mode, respectively. Third, as expected, using MLC-                                                     operands by applying VREF to more than two wordlines, each
+mode programming (plots in Figure 8(b)) significantly degrades                                                 in a different block, leading to the computation of the bitwise
+the reliability of stored data, leading to up to 4× the RBER                                                   OR of all such wordlines across different blocks with a single
+of SLC-mode programming. Based on our observations, we                                                         sensing operation.
+conclude that the state-of-the-art IFP technique is hard to adopt                                                 As mentioned above, both types of MWS are capable of
+for applications that cannot tolerate a bit error rate range of                                                single-sensing bulk bitwise operations even for more than two
+8.6×10−4 to 1.6×10−2 (the RBER range across the two plots
+in Figure 8(b)), which is very large.
+   Our goal in this work is to develop a new in-flash process-
+ing technique that (i) maximizes performance and energy effi-
+ciency by fully exploiting the inherent computation capability
+of NAND flash memory to enable many-operand computation
+with a single sensing operation and (ii) provides high data reli-
+ability (i.e., zero bit errors in computation results) so that it is
+applicable to a wide range of error-intolerant applications.
+
+  4. Flash-Cosmos: Key Mechanisms
+ We present the two key ideas of Flash-Cosmos (Flash
+ Computation with One-Shot Multi-Operand Sensing) that over-
+ come the limitations of the state-of-the-art.                                                                 Figure 9: Overview of (a) intra-block MWS (leading to bitwise
+                                                                                                               AND) and (b) inter-block MWS (leading to bitwise OR).
+  4.1. Multi-Wordline Sensing (MWS)                                                                               6 Intra-block MWS, which applies V
+                                                                                                                                                       REF to two or more WLs, differs from a
+  Key Idea. MWS is based on our key observation that simul-                                                    regular read operation that applies VREF only to a single WL. ParaBit [21], the
+  taneously reading multiple WLs in NAND flash memory re-                                                      prior state-of-the-art IFP technique, uses regular read operations.
+
+
+                                                                                                           7
+operands. This property enables MWS to be more powerful                            programmed without randomization using the ESP scheme (ex-
+than prior NDP proposals that leverage multi-wordline (or multi-                   plained in Section 4.2). Without randomization, a NAND string
+row) activation for in-memory computation in two aspects. First,                   can have low resistance (e.g., when all the cells are in the erased
+although prior works also propose to activate multiple word-                       state) compared to with randomization (where around 50% of
+lines to perform bulk bitwise operations inside various memory                     the cells are always erased), which may increase the precharge
+devices [7, 8, 20, 37, 57], the number of source operands that                     latency and the evaluation latency (see Figure 2) for reliable
+can be computed on at the same time is limited (usually to only                    operation. We evaluate the potential drawbacks in Section 5.
+two), thereby requiring sequential sensing of more operands
+like ParaBit.7 Second, there exist several proposals that leverage                 4.2. Enhanced SLC-Mode Programming (ESP)
+multi-wordline activation to perform accumulative computation
+                                                                                   Key Idea. ESP enhances existing SLC-mode programming by
+(e.g., multiply-accumulate operations) inside NAND flash mem-
+                                                                                   maximizing the margin between the two VTH states. Figure 10
+ory [57-63], but they rely on analog current sensing, which
+                                                                                   shows how ESP improves reliability compared to regular SLC-
+requires significant changes to regular flash chips (for instance,
+                                                                                   mode programming. NAND flash memory commonly uses the
+in a system with multiple memristor-based crossbar arrays, the
+                                                                                   incremental step pulse programming (ISPP) scheme [79, 114]
+addition of a precise analog-to-digital converter (ADC) to each
+                                                                                   to precisely control the threshold voltage (VTH ) of a NAND
+array is costly (e.g., each ADC accounts for 58% of the chip
+                                                                                   flash cell and to narrow the width of VTH state distributions.
+power and 31% of the chip area even when each ADC is shared
+                                                                                   As depicted in Figure 10(a), the ISPP scheme gradually in-
+across 128 output columns [113])).
+                                                                                   creases the program voltage from VPGM1 with a certain step
+   Intra- and inter-block MWS can be combined to perform
+                                                                                   voltage (∆VISPP ), until the VTH level of every cell in the WL
+complex bitwise AND and OR operations.8 Suppose that blocks
+                                                                                   reaches its target voltage VTGT . At the end of each ISPP step,
+Blkl and Blkn in Figure 9(b) have N pages (WLs), each of
+                                                                                   the chip checks if each cell’s VTH level has reached its VTGT
+which stores bit vectors Ai and Bi (1≤i≤N), respectively. If we
+                                                                                   (i.e., Verify in Figure 10(a)), and excludes such cells from the
+simultaneously apply VREF to all the WLs in the two blocks,
+                                                                                   next ISPP step. The key idea of ESP is to perform additional
+the chip would read a BL j as ‘1’, only when at least one of
+                                                                                   ISPP steps (after performing regular SLC-mode programming),
+Blkl and Blkn has a NAND string in which every cell stores ‘1’,
+                                                                                   using (i) an increased VTGT value (for each cell), which fur-
+which is equivalent to:
+                                                                                   ther moves the programmed VTH state to a higher voltage level,
+              (A1, j • ... • AN, j ) + (B1, j • ... • BN, j )          (1)         and (ii) a decreased ∆VISPP value, which narrows the width
+                                                                                   of the programmed VTH state distribution. Doing so signifi-
+Feasibility & Overhead. Applying MWS to commodity                                  cantly increases the margins from the new read-reference volt-
+NAND flash chips is highly feasible at low cost. In fact, existing                 age (VREF ’) to both the erased and the programmed VTH states,
+chips already use/support both inter- and intra-block MWS for                      as shown in Figure 10(b), which makes the cells less vulnerable
+other purposes. For example, after erasing a block, a NAND                         to many error sources present in NAND flash memory [67].
+                                                                                                    Program       Verify
+                                                                                                                               # of cells
+flash chip needs to check if all the cells in the block are com-                                                                  Regular SLC-mode ESP
+                                                                                  Voltage
+
+
+
+
+pletely erased (called erase verify) by simultaneously applying                                     VPGMN          VPGM(N+M)                 V REF’
+                                                                                            VPGM1                                     1               0     0
+VREF to all the cells [92], i.e., the chip performs intra-block                                     ⋯         ⋯      Only in ESP    Erased          Prog. Prog.
+MWS for all WLs in the block. Also, manufacturers commonly                                    tPROG                        Time VTH margin                      VTH
+                                                                                                    (a) ISPP timeline                       (b) VTH distribution
+design a chip to support the activation of multiple WLs (i.e.,
+intra-block MWS) and multiple blocks (i.e., inter-block MWS),                               Figure 10: Overview of Enhanced SLC-mode Programming.
+to perform multi-page reads/writes and multi-block erases that                     Feasibility & Overhead. Applying ESP to commodity NAND
+are critical for rapid testing of the chip [92].                                   flash chips is highly feasible at low cost due to two reasons.
+   The MWS scheme has two potential drawbacks. First, an                           First, modern MLC NAND flash memory commonly sup-
+inter-block MWS would consume more power compared to a                             ports SLC-mode programming for several reasons, e.g., stor-
+regular page read since it needs to activate more blocks, which                    ing reliability-sensitive data [78], managing an SLC write
+requires charging of all the WLs in multiple blocks. Note that                     buffer [77] or using unreliable cells for data storage in case
+an intra-block MWS operation’s power consumption is lower                          they cannot be used in MLC mode [115]. Second, commod-
+compared to a regular read because it applies VREF to addi-                        ity NAND flash chips can tune ISPP parameters [79-84] us-
+tional target WLs, to which a regular read would apply VPASS                       ing the SET FEATURE command [64, 116], which is essential
+(which is several times larger than VREF ). Second, the latency                    to post-fabrication optimization of NAND flash chips. The
+for a reliable MWS operation may be longer than the default                        SET FEATURE command is also used to dynamically adapt to
+read latency tR since the target data of an MWS operation is                       changes in P/E cycles [65, 67] and reliability characteristics of
+                                                                                   NAND flash cells [65, 67].
+   7 Exceptionally, Pinatubo [20] can perform the bitwise OR operation on a
+                                                                                      ESP has two drawbacks. First, it increases the program la-
+large number of rows with a single sensing operation. However, Pinatubo
+cannot support the bitwise AND operation for more than two operands.
+                                                                                   tency by performing additional ISPP steps. Second, because
+   8 Section 6.1 explains how Flash-Cosmos supports other common bitwise           it uses SLC-mode programming, it requires double the WLs
+operations (e.g., NOT, NAND, NOR, XOR, and XNOR).                                  to store the same amount of data compared to MLC-mode pro-
+
+
+                                                                              8
+gramming. We provide a detailed analysis of the performance                                5.2. Characterization Results
+and capacity overheads of ESP in Section 8.3.                                              ESP Latency & Reliability. We first study the trade-off be-
+                                                                                           tween the reliability and program latency of the ESP scheme.
+5. Real Device Characterization                                                            Figure 11 shows the average RBER per 1-KiB data when we
+This section presents our characterization of 160 real 3D NAND                             program the WLs while increasing the ESP latency tESP for
+flash chips to validate the feasibility, performance, and reliabil-                        more precise ISPP control. We plot the RBER of the worst, me-
+ity of the two key mechanisms of Flash-Cosmos.                                             dian, and best block out of all the tested blocks and normalize
+                                                                                           the increased tESP values to the default program latency tPROG
+5.1. Characterization Methodology                                                          for regular SLC-mode programming.
+Infrastructure. We use an FPGA-based testing platform that                                    We make two key observations from Figure 11. First, it is
+contains a custom NAND flash controller and a temperature                                  possible to avoid raw bit errors without data randomization
+controller. The flash controller supports all the commands im-                             by enhancing SLC-mode programming, at the cost of an in-
+plemented in our NAND flash chips, including not only basic                                crease in program latency.10 When we increase tESP by more
+read/program/erase commands but also various test-mode com-                                than 90% compared to tPROG, we observe zero bit errors in
+mands necessary to dynamically change operating parameters                                 our tested pages that contain more than 4.83×1011 bits in total,
+(e.g., the ISPP step voltage and other timing parameters) and                              which means that the statistical RBER of ESP is lower than
+simultaneously activate multiple WLs. The temperature con-                                 2.07×10−12 .11 Second, the ESP scheme’s reliability improve-
+troller maintains a NAND flash chip within ±1◦ C of the target                             ment significantly increases with tESP. For the median block,
+temperature. This feature allows us to (i) test all the chips un-                          increasing tESP by 60% achieves an order of magnitude RBER
+der the same operating temperature (85◦ C) and (ii) accelerate                             reduction. We conclude that the ESP scheme is essential for
+retention loss based on Arrhenius’s Law [117], which is essen-                             achieving effectively zero bit errors in the computation results
+tial to real device characterization under long retention ages                             of in-flash processing and thus ESP can increase applicability
+(e.g., 1 year) while maintaining reasonable testing time. We                               of in-flash processing to a much wider range of applications.
+characterize 160 48-layer 3D TLC NAND flash chips, where a                                 MWS Latency & Reliability. We measure tMWS, the minimum
+NAND string consists of 48 flash cells and the page size is 16                             latency for an MWS operation to achieve zero bit errors in all
+KiB. Under regular SLC-mode programming, the chips have a                                  the tested blocks. First, we perform intra-block MWS oper-
+read latency tR=22.5 µs and a program latency tPROG=200 µs.                                ations while changing the number of read WLs from 1 to 48
+Methodology. To minimize the potential inaccuracies in our                                 (the number of WLs in a NAND string). Second, we perform
+characterization results, we carefully design our experiments                              inter-block MWS operations on all WLs in the target blocks
+following the JEDEC standards [118, 119] that specify the                                  while changing the number of activated (target) blocks from 1
+test methodology recommended for evaluating the reliability                                to 32. In both experiments, we first increase a target block’s
+of commercial-grade NAND flash products. To ensure high-                                   P/E cycle count using a checkered data pattern. Next, we check
+confidence reliability tests, JEDEC recommends testing more                                the correctness of intra-block MWS under high disturbance
+than 39 flash chips from three different wafers. Our 160 flash                             and noise, induced by programming the block using a different
+chips are fabricated from five different wafers, and we select                             data pattern. This new data pattern maximizes the resistance
+120 blocks (not sub-blocks) from each of the 160 chips at ran-                             of NAND strings in the block by programming the block to
+dom locations. We test every page in each selected block (a total                          meet two conditions; (i) the number of cells that store bit value
+of 3,686,400 WLs) to obtain statistically significant results.                             ‘1’ (i.e., ‘1’ cells) must be less than two; (ii) if a NAND string
+   To evaluate Flash-Cosmos’ reliability under the worst-case                              has a ‘1’ cell, the cell must be in one of the MWS operations’
+operating conditions, we measure each WL’s RBER under a                                    target wordlines. As explained in Section 4.1, bypassing data
+1-year retention age at 30◦ C [112] and 10K P/E cycles.9 We                                randomization can affect the read latency (both tR and tMWS)
+increase a block’s P/E-cycle count by repeating the cycle of                               for reliable operation by decreasing a NAND string’s resistance
+programming every page in the block (in TLC mode) and eras-                                compared to the typical read of randomized data. We validate
+ing the entire block. Unless specified otherwise, we program                               the correctness of MWS by comparing the result of MWS oper-
+each page using the checkered data pattern, the worst-case data                            ations that we obtain from the real chips to the correct results
+pattern for NAND flash reliability where any two adjacent cells                            of the bitwise operations on the stored data.
+(both horizontally and vertically) are programmed either to the                               Figures 12 and 13 show the tMWS value (as a multiple of tR)
+highest VTH state (e.g., the P7 state in TLC mode) or to the                               for intra- and inter-block MWS operations, respectively. We
+lowest VTH state (i.e., the Erased state).                                                   10 We also tried to achieve the same level of RBER by enhancing MLC-mode
+
+                                                                                           programming, but the RBER of MLC-mode programming does not decrease
+                                                                                           below 10−4 even when we increase the program latency to 5 ms.
+                                                                                             11 The result is not enough to guarantee the JEDEC-specified UBER require-
+   9 In our RBER measurements, we exclude faulty cells that introduce perma-               ments (see Section 5.1), but we carefully select the evaluated blocks to avoid
+nent (non-transient) errors due to defects in fabrication since (i) faulty cells can       any potential inaccuracy in our results. Given the limitations in academia, it
+be profiled and excluded for the purpose of Flash-Cosmos, and (ii) manufactur-             is challenging to experimentally guarantee the UBER requirements, which
+ers can significantly reduce the faulty-cell fraction by specially designing chips         requires around 1,000× samples and 1,000× longer testing time than our ex-
+for Flash-Cosmos at the cost of yield and/or technology node size.                         periments using our experimental testing infrastructure.
+
+
+                                                                                       9
+               5                                          1.05                                              1.4                                                   2
+                                  Worst                                                                                                                                Erase
+RBER [×10–3]
+
+
+
+
+                                                                                                                                                   Norm. power
+                                             tMWS [×tR]
+
+
+
+
+                                                                                               tMWS [×tR]
+               4                                          1.04                                              1.3
+                                  Med.
+               3                                          1.03                                                                                                   1.5                Prog.
+                                  Best                                                                      1.2
+               2                                          1.02
+               1                                          1.01                                              1.1                                                   1                 Read
+               0                                             1                                               1
+                   1   1.2 1.4 1.6 1.8 2.0                       1 4 8 16 24 32 40        48                      124 8       16              32                   1   2      3     4    5
+                        tESP [×tPROG]                                Number of read WLs                            Number of activated blocks                    Number of activated blocks
+       Figure 11: RBER vs. tESP.               Figure 12: Intra-block MWS latency.                 Figure 13: Inter-block MWS latency. Figure 14: MWS power.
+
+make three key observations from the results. First, bypassing                                 WLs). We normalized all values in Figure 14 to the average
+data randomization does not increase a regular read operation’s                                power consumption of a regular page-read operation.
+latency. As shown in Figure 12, using the default read latency                                    We make three observations. First, the power consumption
+introduces no error when we read only a single WL in a block.                                  of a NAND flash chip considerably increases with the num-
+Second, intra-block MWS does not significantly increase the                                    ber of activated blocks for inter-block MWS. Increasing the
+read latency. Even when we simultaneously read all the 48                                      number of activated blocks from one to two increases the av-
+WLs in a block, tMWS is only 3.3% higher than tR. When we                                      erage power consumption by about 34%. Second, despite the
+perform intra-block MWS on eight (or fewer) WLs, tMWS is                                       non-trivial increase in power consumption, it is possible to sup-
+less than 1% higher than tR. Third, although inter-block MWS                                   port inter-block MWS within the SSD’s power budget. Until
+(shown in Figure 13) affects tMWS more significantly compared                                  we activate four blocks, the power consumption of inter-block
+to intra-block MWS, it can still provide significant benefits over                             MWS remains lower than that of an erase operation. Third,
+individual reads of the same WLs. As shown in Figure 13,                                       inter-block MWS is more energy efficient compared to serial
+when simultaneously reading WLs in 32 different blocks, tMWS                                   reads of the same WLs. For example, performing an inter-block
+is 36.3% higher than tR. This is because activating multiple                                   MWS operation on four different blocks would cause about
+blocks significantly increases the number of WLs to precharge                                  80% power increase compared a regular read, but due to its
+at the same time. The increased WL-precharge time is mostly                                    negligible latency increase (3.3%), it significantly reduces the
+hidden by the BL-precharge time until we activate eight blocks,                                energy consumption by 53% compared to individual reads of
+but it becomes larger than the BL-precharge time as the number                                 the four WLs. We conclude that, with a proper limit on the
+of activated blocks further increases, which causes the latency                                number of inter-block MWS, Flash-Cosmos would not require
+of a reliable MWS operation to be longer than the latency of                                   an increase in the power budget of commodity SSDs.
+a regular page read. However, the increased latency of MWS
+on 32 WLs (1.363×tR) is much lower than the latency to                                          6. Design of Flash-Cosmos
+individually (serially) read 32 WLs (32×tR).
+                                                                                               We present our design of Flash-Cosmos to support efficient
+   Based on our observations, we draw three major conclusions.
+                                                                                               in-flash bulk bitwise operations.
+First, we demonstrate that real commodity NAND flash chips
+can reliably support both intra-block and inter-block MWS oper-
+                                                                                                6.1. Enhanced Computation Capability
+ations, so computer architects can build a system that leverages
+Flash-Cosmos, as long as they have access to the command                                       We enhance the basic capability of Flash-Cosmos (beyond
+interfaces used for our characterization. Second, both types of                                the bitwise AND and bitwise OR operations introduced in Sec-
+MWS significantly accelerate in-flash bulk bitwise operations in                               tion 3.1) in two ways.
+commodity NAND flash chips at low cost. Third, it is possible                                  Supporting Other Bitwise Operations. We design Flash-
+to support both types of MWS with a small latency increase                                     Cosmos to also support bitwise NOT/NAND/NOR/XOR/XNOR op-
+over the default read latency. If we limit the maximum number                                  erations by leveraging two existing features that are widely
+of simultaneously-activated blocks for inter-block MWS to 4,                                   supported in real NAND flash memory chips. First, as ex-
+we can support any MWS operation with a fixed latency (tMWS)                                   plained in Section 2.1, modern NAND flash memory commonly
+only 3.3% higher than tR.                                                                      supports inverse reads [85], which enables Flash-Cosmos to per-
+Maximum Power Consumption of Inter-Block MWS. As ex-                                           form not only bitwise NOT operations but also bitwise NAND and
+plained in Section 4.1, inter-block MWS consumes more power                                    NOR operations. Flash-Cosmos performs NOT of a WL by simply
+compared to a regular page read due to the higher number of                                    reading the WL in inverse-read mode. If we perform intra-block
+activated WLs at the same time. Understanding the impact of                                    (inter-block) MWS while controlling the sensing latch circuit in
+MWS on power consumption is important because a NAND                                           inverse-read mode, the sensed data would be the inverse value
+flash-based SSD has a limited power budget (e.g., 75W for PCIe                                 of the bitwise AND (OR) of all the WLs simultaneously read, i.e.,
+Gen4 SSDs [120]). Figure 14 shows the average power con-                                       bitwise NAND (NOR) by definition.
+sumption of a NAND flash chip when we perform inter-block                                         Second, many modern NAND flash chips (including the 160
+MWS as a function of the number of simultaneously-activated                                    chips used in our real-device characterization, Section 5) sup-
+blocks. To measure the worst-case power consumption, we read                                   port a bitwise XOR operation between the data in different latches
+only one WL per each block (i.e., we apply VREF to only one                                    (i.e., two/three additional latches available in a NAND flash
+WL per block while applying VPASS (>VREF ) to all non-target                                   chip for MLC/TLC program operation) [87, 88]. This feature
+
+
+                                                                                          10
+is essential for supporting on-chip randomization [87] and im-           of Flash-Cosmos commands is important due to two reasons.
+proving testability (e.g., it significantly reduces a NAND flash         First, NAND flash vendors consider their test-mode command
+chip’s test time by enabling comparison of programmed data               set design to be proprietary and do not reveal any details in
+to a golden value without reading the data out of the chip [121,         publicly-accessible documentation. Second, efficient command
+122]). By using this feature along with inverse reads, Flash-            set design can significantly reduce the necessary changes to the
+Cosmos can also support bitwise XNOR operations since                    NAND flash chip’s control logic and communication overheads
+                                                                         with a flash controller.
+              A XNOR B ≡ A XOR B ≡ A XOR B                   (2)            Figure 15 shows three new NAND flash commands that we
+                                                                         design for Flash-Cosmos: (a) MWS, (b) ESP, and (c) XOR. We
+To be specific, Flash-Cosmos uses the existing XOR logic while
+                                                                         design the MWS command to be used for all three necessary
+performing an inverse read for either of the two operands.
+                                                                         features in Flash-Cosmos except for bitwise XOR: (i) intra- and
+Improving the Performance of the Bitwise OR Operation.
+                                                                         inter-block MWS, (ii) inverse read, and (iii) accumulation of
+The performance of bitwise OR using inter-block MWS is lim-
+                                                                         the results of all reads as described in Section 6.1. To this end,
+ited compared to that achieved by bitwise AND using intra-block
+                                                                         we extend the regular read command that contains the operation
+MWS. As demonstrated in Section 5.2, commodity NAND flash
+                                                                         code and target page address in three aspects. First, we add
+chips can perform bitwise AND of all the WLs in a block via
+                                                                         the ISCM command slot before the address slot to allow a flash
+a single intra-block MWS operation. However, the maximum
+                                                                         controller to turn on/off four features by setting the dedicated
+number of operands in inter-block MWS is limited due to high
+                                                                         flags: (i) inverse-read mode, (ii) sensing-latch (S-latch) initial-
+power consumption.
+                                                                         ization, (iii) cache-latch (C-latch) initialization, and (iv) data
+   We can remove this restriction on the maximum number of
+                                                                         transfer from S-latch to C-latch. Second, we enable the flash
+activated blocks by performing bitwise OR using 1) intra-block
+                                                                         controller to efficiently specify the WLs to activate for MWS op-
+MWS along with 2) inverse reads and 3) taking advantage of De
+                                                                         erations by sending the page bitmap (PBM) instead of the page
+Morgan’s laws. If we store operands in a block with their inverse
+                                                                         index in the address slot. Third, we design an MWS command to
+data (instead of the original data), we can perform bitwise OR
+                                                                         have up to four address slots for inter-block MWS by sending
+of the operands with a single intra-block MWS operation by
+                                                                         the additional block address and PBM after a CONT (continue)
+leveraging the inverse read mode and De Morgan’s laws:
+                                                                         slot.12 The ESP command has the same command interface as
+              (A1 + ... + AN ) ≡ (A1 • ... • AN )            (3)         the regular program command, and the XOR command performs
+                                                                         bitwise XOR between two (sensing and cache) latches and stores
+Note that (i) Flash-Cosmos can return the original data of such          the result in the C-latch.
+operands via inverse reads (∵A≡NOT A), and (ii) inter-block
+MWS is still useful for combined bitwise AND/OR operations as
+explained in Section 4.1 (Equation 1).
+Increasing Maximum Number of Operands for IFP. Flash-
+Cosmos alone cannot completely avoid off-chip data transfer for
+                                                                         Figure 15: Three new NAND flash commands for Flash-Cosmos:
+bitwise AND/OR/NAND/NOR operations if the number of operands             (a) MWS, (b) ESP, and XOR.
+exceeds the number of WLs in a block. This is because intra-
+block MWS involves a single sensing operation to read all                   Figure 16 shows how a flash controller can use Flash-Cosmos
+WLs within a block, thereby limiting the maximum number of               to perform bulk bitwise operations using an example that makes
+operands to the number of WLs in a block. Inter-block MWS                two assumptions: (i) a Flash-Cosmos-enabled chip stores four
+has a stronger constraint on the maximum number of operands              sets of four bit vectors, Ai , Bi , Ci , and Di , in four blocks Blki
+due to the limited power budget as explained in Section 5.2.             (1≤i≤4), each of which has four pages; (ii) bit vectors Ci and Di
+   Fortunately, Flash-Cosmos can accumulate the results of mul-          are programmed using their inverse data with the knowledge that
+tiple intra-block MWS operations by leveraging ParaBit, which            they would be used for bitwise OR (Section 6.1). Suppose that
+has fewer constraints on the maximum number of operands. For             the user would like to perform the following bitwise operations:
+example, suppose that (i) a block has N WLs, and (ii) Flash-
+Cosmos needs to perform bitwise AND of all WLs of M different                       {A1 + (B1 • B2 • B3 • B4 )} • (C1 + C3 ) • (D2 + D4 )         (4)
+blocks (i.e., the number of total operands is M × N). We can ac-
+                                                                         As shown in Figure 16, the user can perform bitwise operations
+cumulate the results in two steps. First, Flash-Cosmos performs
+                                                                         using two intra-block MWS commands, 1 one for (C1 + C3 ) •
+bitwise AND on each block for N operands at a time. Second,
+                                                                         (D2 + D4 ) while enabling the inverse-read mode and initializa-
+Flash-Cosmos performs bitwise AND on the results from the M
+                                                                         tion of both latches and 2 the other for A1 + (B1 • B2 • B3 • B4 )
+blocks.
+                                                                         while disabling the inverse-read mode and initialization of both
+6.2. Flash-Cosmos Command Set                                            latches. By disabling the initialization of both latches while
+Although we demonstrate that our NAND flash chips already                performing the second MWS command, the results of the two
+support all necessary features to perform the ESP and MWS                 12 CONT is a command slot to indicate that an address cycle will follow next.
+
+operations in their test-mode command set, efficient design              CONF is a command slot to indicate the end of the command sequence.
+
+
+
+                                                                    11
+  {A1+(B1 • B2 • B3 • B4)} •(C1+C2) •(D2+D4)
+                                                                                results of bitwise operations. Using fc_write, the application
+ ❶(C1+C2) •(D2+D4)≡(C1 • C3)+(D2 • D4)           Flash-Cosmos
+                                                NAND Flash Chip                 informs the SSD of the context of the operation, such as the pro-
+     ISCM BLK PBM          BLK PBM
+                                                Plane#1
+                                               A B
+                                                             Plane#2            gramming mode and the location (e.g., logical block address),
+ MWS 1111 0011 0101 CONT 0100 1010 CONF               C D
+          Blk: 3 WLs: 1&3 Blk: 4 WLs: 2&4                     16KiB
+                                                                                to ensure that the data is properly stored for in-flash computa-
+                                                                                tion. To perform an in-flash bitwise operation, the application
+ ❷ A1+(B1 • B2 • B3 • B4)                         1      1     1       1
+
+ MWS 0001 0001 0001 CONT 0010 1111 CONF        A 23   B 23   C 23   D 23        uses fc_read to specify to the SSD the locations of the target
+          Blk: 1 WLs: 1  Blk: 2 WLs: all
+                                                  4      4     4       4        operands, the size of the operands, and the types of bitwise
+                                               Blk1 Blk2 Blk3 Blk4              operations required.
+Figure 16: Operational example of Flash-Cosmos.While perform-                   SSD Changes. In our design, the SSD firmware requires two
+ing the second MWS command, the results of the two MWS com-
+mands, 1 and 2 , are accumulated in both the S-latch and the                    key changes. First, it generates Flash-Cosmos commands to
+C-latch.                                                                        properly handle fc_write and fc_read from the host system.
+                                                                                Second, the SSD firmware maintains additional metadata neces-
+MWS commands, 1 and 2 , are accumulated in both the S-latch                     sary for Flash-Cosmos, such as each page’s programming mode
+and the C-latch (Section 6.1). Note that the order of the two                   and the location where the page should be stored.
+MWS commands is important, as an inverse read requires S-latch                     In this work, our focus is on investigating the feasibility and
+initialization, which prevents the accumulation of the results.                 benefits of Flash-Cosmos using modern NAND flash memory
+                                                                                chips. While the end-to-end support for Flash-Cosmos requires
+6.3. System Support
+                                                                                several changes within layers of the system stack, we believe
+We briefly discuss the end-to-end system support that we envi-                  that existing approaches can be applied to meet the key require-
+sion to efficiently enable Flash-Cosmos.                                        ments (e.g., efficient storage layout designs [7-9, 37], host-SSD
+Requirements. There are two key requirements for a system                       communication [9, 50, 78], and metadata management inside
+to take full advantage of Flash-Cosmos-enabled NAND flash                       the SSD [50, 78]). We leave more efficient end-to-end system
+chips. First, the target data of bitwise operations needs to be                 designs and software stack for Flash-Cosmos to future work.
+properly stored using ESP. To maximize the performance bene-
+fits of Flash-Cosmos, it is important to store as many operands                 7. Methodology
+of the target bitwise operation as possible in the same block,                  Evaluated Systems. To evaluate the effectiveness of Flash-
+which minimizes the number of MWS operations required. For                      Cosmos, we analyze four computing platforms: (i) an outside-
+example, bitwise OR on 48 pages (i.e., operands) would require                  storage processing system (OSP),(ii) an in-storage processing
+12 inter-block MWS operations if each operand is stored in                      system (ISP), (iii) ParaBit (PB) [21], and (iv) Flash-Cosmos
+different blocks, assuming that the maximum number of pages                     (FC). OSP performs bulk bitwise operations using the host CPU
+for inter-block MWS is limited to 4 in order to avoid maxi-                     concurrently with reading the operands from the SSD to main
+mum power consumption related issues. However, when the                         memory in batches. ISP leverages an in-storage hardware accel-
+operands are stored in the same block with their inverse data,                  erator that consists of simple bitwise logic and 256-KiB SRAM
+it is possible to perform the same bitwise OR operation with                    buffer in order to perform bulk bitwise operations inside the
+a single intra-block MWS operation using inverse-mode read                      SSD and sends only the final results to the host. PB and FC
+(Section 6.1). Second, the host system needs to interact with the               perform bulk bitwise operations inside the NAND flash chips
+underlying SSD in order to efficiently store the data to maximize               via the in-flash processing mechanisms described in Section 3.1
+the benefits of Flash-Cosmos.                                                   and Section 6, respectively, and send only the final results to
+Application Changes. In our design, the application program                     the host. Unless otherwise specified, we set all the evaluated
+needs to decide how to store data in three aspects. First, the                  systems to program (and thus read) the inputs and outputs of
+application determines the data that will be used for bulk bitwise              bitwise operations in SLC mode for fair performance compari-
+operations so that it can inform the SSD to selectively use ESP                 son.
+for only such data (to minimize the storage overhead due to                     Performance Modeling. We use two state-of-the-art simula-
+SLC mode). Second, depending on the computation that can                        tors to analyze the performance of the evaluated systems. We
+benefit the most from Flash-Cosmos, the application decides                     model DRAM timing with the DDR4 interface [123] in Ramula-
+whether or not to store the inverse of the original data. For                   tor [124, 125], a widely-used cycle-accurate DRAM simulator.
+example, if the application performs bitwise OR more frequently                 We model SSD performance using MQSim [126, 127], a state-
+than bitwise AND for certain data, it could be more beneficial to               of-the-art SSD simulator. We extend MQSim to faithfully model
+store the inverse data to leverage intra-block MWS for bitwise                  the performance of ISP, ParaBit, and Flash-Cosmos with the
+OR as well. Third, the application decides which operands to                    timing parameters we obtain from our real-device character-
+be stored in the same block to minimize the number of MWS                       ization (Section 5). We model the end-to-end throughput of
+operations required for the same bitwise operation.                             the evaluated systems based on the throughput of each of two
+System Software Changes. In our design, the application pro-                    computation stages, SSD read (including in-storage processing
+gram interacts with the SSD using the Flash-Cosmos library that                 in ISP, PB, and FC) and host computation (which we measure
+includes two methods: (i) fc_write, which writes the operand                    on a real host system). Table 1 summarizes the configurations
+data for bitwise operations, and (ii) fc_read, which reads the                  of the SSD and host system used for our evaluation.
+
+
+                                                                           12
+              Table 1: Evaluated system configurations.                                    from pre-processing [135]. In our evaluation, IMS segments I
+                    CPU: Intel Rocket Lake i7 11700K [91];                                 images, each of which consists of 800×600 pixels, with four
+Real Host System    x86 [128]; 8 cores; out-of-order; 3.6 GHz;                             colors. This can be done by performing a bulk bitwise AND
+                    Main Memory: 64 GB; DDR4-3600; 4 channels;
+                                                                                           operation to three bit vectors where each bit-vector contains
+                    48-WL-layer 3D TLC NAND flash-based SSD; 2 TB;
+                                                                                           I × 800 × 600 × 4 bits. We assume the three bit-vectors are
+                    Bandwidth: 8-GB/s external I/O bandwidth (4-lane PCIe Gen4);
+                    1.2-GB/s Channel IO rate;
+                                                                                           initially stored in the SSD and evaluate the IMS workload while
+                    NAND Config: 8 channels; 8 dies/channel; 2 planes/dies;
+                                                                                           varying I from 10,000 to 200,000.
+ Simulated SSD
+                    2,048 blocks/plane; 196 (4×48) WLs/block; 16 KiB/page;                 3) K-Clique Star Listing (KCS): K-clique star listing [19, 133,
+                    Latencies: tR (SLC mode): 22.5 µs; tMWS: 25 µs (Max. 4 blocks);        134] aims to find all the k-clique stars in an input graph. For a
+                    tPROG (SLC/MLC/TLC mode): 200/500/700 µs; tESP: 400 µs;
+                                                                                           given graph, a k-clique is a sub-graph with k vertices that are
+                    Power: HW Accelerator (only in ISP): 93 pJ for 64B operation;
+                                                                                           fully connected to each other. A k-clique star is a collection
+                                                                                           of (i) a k-clique and (ii) all the vertices in the remainder of the
+Energy Modeling. We measure the energy consumption for
+                                                                                           graph that are connected to all vertices of the k-clique. Prior
+host computation using Intel RAPL [129] To model DRAM
+                                                                                           work demonstrates that k-clique star listing can be significantly
+energy consumption, We use DRAM power values based on the
+                                                                                           accelerated via processing-in-memory with a set-centric for-
+DDR4 model [130, 131]. To model SSD energy consumption,
+                                                                                           mulation [19]. In our evaluation, each vertex is represented
+we use the SSD power values of Samsung 980 Pro SSDs [132]
+                                                                                           using a bit-vector that contains adjacency information to all
+and the NAND flash power values that we measure in our real-
+                                                                                           other vertices in the graph. Each k-clique is represented with
+device characterization (Section 5).
+                                                                                           another bit vector that specifies the set of vertices that belong
+Workloads. We evaluate three real-world applications that
+                                                                                           to the k-clique. With such bit-vector representations, our KCS
+heavily rely on bulk bitwise operations. For fair comparison
+                                                                                           workload can determine a k-clique star by performing only a
+with ParaBit, we evaluate two of the three applications studied
+                                                                                           bitwise AND operation of the bit-vectors of all the vertices in the
+in [21], bitmap indices and image segmentation,13 as well as a
+                                                                                           corresponding k-clique. To form the final representation of a
+graph-processing workload called k-clique star listing [19, 133,
+                                                                                           k-clique star, KCS performs a bitwise OR operation of the calcu-
+134]. For all workloads, we assume that the data set is initially
+                                                                                           lated intermediate bit vector and the bit-vector that represents
+stored in the SSD due to its large size.
+                                                                                           the k-clique. Note that Flash-Cosmos can perform both of the
+1) Bitmap Index (BMI): Bitmap indices [1] are an alternative
+                                                                                           bitwise AND and OR operations simultaneously if the k-clique bit
+to traditional B-tree indices for databases, which can provide
+                                                                                           vector is stored in a block that is different from than the block
+high space efficiency and high performance for many queries
+                                                                                           that stores the vertex adjacency vectors. We use an input graph
+(e.g., join and scan) compared to B-trees. We assume a database
+                                                                                           with 32 million vertices and 1,024 k-cliques and we sweep the
+that tracks the log-in activities of u users for a website every
+                                                                                           dimensions of the cliques, from 8 to 64.
+day. For the i-th day, the database maintains a vector Di with u
+elements, each of which is a 1-bit flag to indicate each user’s                               Applications using bulk bitwise operations with many
+log-in activity on the day (0: not logged-in, 1: logged-in). Our                           operands can be particularly sensitive to the RBER of NAND
+BMI workload runs the following query: “How many users
+                                                                                           flash memory. For example, a single bit error in any of the
+were active every day for the past m months?” Executing the                                operands in the BMI workload results in an active user not being
+query requires (i) bitwise AND operations on d vectors, where                              counted. The probability of miscounting active users grows as
+d is the number of days in the past m months, and (ii) a bit-                              the number of operands increases and rapidly becomes imprac-
+count operation, i.e., an operation that counts the number of ‘1’                          tical without a sufficiently low RBER. Assuming a best-case
+(logged-in) bits in a given result vector r. We assume a database                          RBER of 8.6 × 10−4 (based on our analysis) and m=36, the
+that tracks the log-in activities of 800 million users and evaluate                        probability of a correct output is 0.42 which is not acceptable.
+                                                                                           KCS is similarly error-intolerant due to the large number of
+the BMI workload while varying m from 1 to 36. For executing
+the BMI workload, PB and FC perform the bit-count operation                                operands it uses. In contrast, IMS is more error tolerant due
+using the host CPU concurrently with sending the result vector                             to the fewer operands in this workload. Thus, we expect that
+to main memory in batches.                                                                 Flash-Cosmos would be a good fit for all these workloads, espe-
+2) Image Segmentation (IMS): Image segmentation [135] is an                                cially BMI and KCS, due to its zero bit error rate in computation
+image processing kernel that aims to break an image into mul-                              results.
+tiple regions depending on a given set of colors. To determine
+whether a pixel p belongs to a certain color C, our IMS work-                              8. Evaluation Results
+load uses the YUV color recognition and performs a bitwise                                 We evaluate the performance and energy efficiency of Flash-
+AND operation of Y (p,C) • U(p,C) • V (p,C), where Y (p,C),                                Cosmos by comparing its execution time and energy consump-
+U(p,C), and V (p,C) are binary values that can be obtained                                 tion to three baseline computing platforms.
+
+ 13 We do not evaluate the other application evaluated in ParaBit [21], image              8.1. Impact on Performance
+encryption [30], as it relies only on bitwise XOR operations that commodity
+NAND flash chips already support (see Section 3), i.e., neither ParaBit nor Flash-         Figure 17 shows the speedups of Flash-Cosmos (FC), Para-
+Cosmos is necessary to perform in-flash processing for such XOR operations.                Bit (PB), and the in-storage processing system (ISP) over the
+
+
+                                                                                      13
+          103   ISP   PB    FC                            4                                    102
+Speedup
+
+          102                                             3
+                                                          2                                    101
+          101
+                                                          1
+           1                                              0                                      1
+                1      3        6      12       24   36        10        50     100      200          8      16      24       32       48      64
+                              m=# of months                         I=# of images [×103]                      k=# of vertices in a clique
+                           (a) Bitmap index (BMI)             (b) Image segmentation (IMS)                   (c) k-clique star listing (KCS)
+ Figure 17: Performance comparison of four computing platforms on three real-world workloads. ISP (In-storage processing), PB
+ (ParaBit), FC (Flash-Cosmos). Speedup values are normalized to OSP (Outside-storage processing). Y-axis is in log-scale.
+
+ conventional outside-storage processing system (OSP). We make                 Figure 7(d), external data movement can become the bottleneck
+ six observations from Figure 17.                                              even for in-flash processing if the external I/O time within an
+    First, FC significantly outperforms OSP, providing 32×                     application (e.g., due to transferring results out of the SSD) is
+ speedup on average across all three workloads and input data                  larger than the overall sensing time. Therefore, the benefit of FC
+ sets. In OSP, computation can be completely hidden by reading                 over PB is lower if the external I/O time dominates the overall
+ of the operands due to the simple nature of bitwise operations,               execution time.
+ but the SSD’s external bandwidth bottlenecks performance.                        Sixth, FC and PB show almost similar performance for IMS
+ This means that, when the operands are stored in the storage                  across all input sets. Even though FC reduces the average num-
+ system, any other outside-storage processing platform (e.g.,                  ber of sensing operations by 3× compared to PB when executing
+ GPU or near-memory processor) cannot improve the perfor-                      the IMS workload, moving the large (up to 44GiB) result vector
+ mance of bulk bitwise operations over OSP (unless one increases               of IMS to the host dominates the total execution time for both
+ SSD’s external bandwidth).                                                    mechanisms. This is in contrast to BMI where the vector size is
+    Second, FC also significantly outperforms ISP, providing                   only 100 MB. Note that, in IMS, both FC and PB provide high
+ 25× speedup on average. While ISP provides considerable                       speedups compared to ISP and OSP (2.5× and 3×, respectively)
+ speedup (28%) over OSP by reducing external data movement                     by reducing the amount of external and internal data transfers,
+ from the SSD (external bandwidth is 8 GB/s, Table 1), the                     which are the performance bottleneck in IMS.
+ limited internal SSD bandwidth (9.6 GB/s, Table 1) becomes a                     We conclude that Flash-Cosmos is an effective substrate to
+ new bottleneck. ISP needs to read out all operands from NAND                  accelerate important real-world applications. Flash-Cosmos not
+ flash chips to the hardware accelerators, which can be largely                only largely outperforms the state-of-the-art IFP technique but
+ avoided by in-flash processing.                                               also, crucially, provides reliable, error-free execution (which is
+    Third, FC provides large performance improvement over Para-                necessary for correct results in all three real-world workloads
+ Bit. While PB also significantly outperforms OSP (and ISP) by                 we evaluate).
+ 9.4× (7.2×), FC outperforms PB by 3.5× on average across all
+ three workloads and input data sets. This highlights the key
+                                                                               8.2. Impact on Energy Consumption
+ benefit of performing MWS in real-world applications.
+    Fourth, the benefits of FC increase with the number of                     Fig. 18 shows the energy-efficiency of FC, PB, and ISP, in terms
+ operands used in bulk bitwise operations. The speedups of FC                  of the number of bits that can be computed/transferred per unit
+ for BMI are higher compared to the other two workloads, since                 of energy, normalized to that of OSP. We make three observa-
+ BMI has a larger number of operands (from 30 to 1,095). In                    tions. First, FC greatly increases energy efficiency over the other
+ contrast, the performance of PB does not improve as the number                evaluated systems, providing 95×/13.4×/3.3× higher energy-
+ of operands increases (e.g., for k>16 in KCS). This is because                efficiency compared to OSP/ISP/PB, on average across all three
+ the performance bottleneck of PB shifts to the serial sensing                 workloads and input sets. Flash-Cosmos has the maximum en-
+ of the operands as discussed in Section 3.2, due to which the                 ergy savings of 1,839×/222×/35.5× over OSP/ISP/PB for BMI
+ latency also linearly increases with the number of operands.                  when m=36. Second, the overall trend of FC’s energy-efficiency
+ As a result, while FC significantly improves performance over                 benefits is similar to its performance benefits. The energy ben-
+ OSP/ISP for BMI by 198.4×/150.5×, PB’s benefits over OSP/ISP                  efits of FC increase (decrease) as the number of operands (the
+ for BMI remain at only 14×/10.7×.                                             operand size) increases. Third, FC reduces energy by not only
+    Fifth, the benefits of FC are affected by not only the number              reducing data movement but also reducing sensing energy, es-
+ of operands but also the operand size. For example, FC does                   pecially for multi-operand operations. As a result, it provides
+ the same operation (AND) over 30 operands for BMI (when m=1)                  higher improvements in energy efficiency (95× on average over
+ and over 32 operands for KCS (when k=32). Although KCS has                    OSP) than in performance (32× on average over OSP). Note that,
+ more operands than BMI, we observe that FC provides higher                    as shown in Figures 17(b) and 18(b), for IMS, even though FC
+ improvement over PB for BMI. This is because the total size of                performs similarly to PB, it provides 2.3% energy savings. We
+ the result bit vectors is smaller in BMI (100 MB) than in KCS                 conclude that Flash-Cosmos is an efficient substrate to eliminate
+ (4 GB), which results in reduced external I/O time spent for                  the energy overheads of data movement for many commonly-
+ transferring the results from the SSD to the host. As shown in                used real-world applications.
+
+
+                                                                          14
+                   104                                             10                                      103
+Norm. bit/energy
+                         ISP   PB     FC
+                   103                                              8
+                                                                    6                                      102
+                   102
+                                                                    4                                      101
+                   101                                              2
+                     1                                              0                                        1
+                         1      3        6      12       24   36         10        50     100      200            8      16       24       32       48      64
+                                       m=# of months                          I=# of images [×103]                        k=# of vertices in a clique
+                                    (a) Bitmap index (BMI)              (b) Image segmentation (IMS)                      (c) k-clique star listing (KCS)
+ Figure 18: Energy-efficiency comparison of four computing platforms on three real-world workloads. Normalized to OSP (Outside-
+ storage processing). Y-axis represents number of bits computed per unit of energy in log-scale.
+
+ 8.3. Overhead Analysis                                                                    results. We already discussed and comprehensively compared
+As briefly discussed in Section 4.2, Flash-Cosmos introduces                               to the state-of-the-art technique [21] closely related to Flash-
+two key overheads due to the use of ESP for reliable in-flash                              Cosmos (Sections 3, 7 and 8). We briefly describe other NDP
+computation. First, ESP requires 2× the page-program latency                               proposals at different levels in the memory hierarchy.
+compared to regular SLC-mode programming. Second, ESP                                      In-Flash Processing. Several prior works propose in-flash pro-
+consumes 2× the storage capacity to store the same amount of                               cessing techniques to accelerate the multiply-and-accumulate
+data compared to MLC-mode programming.                                                     (MAC) operations in different applications such as neural net-
+   While the write-performance and capacity overheads are not                              works (e.g., [57, 58, 62, 63, 110, 137-140]) and mixed signal
+negligible, we believe that both overheads would not be serious                            sensing (e.g., [60]). Similar to Flash-Cosmos, these mech-
+obstacles to the adoption of Flash-Cosmos due to three reasons.                            anisms have high bit-level parallelism, but they exploit ana-
+First, ESP is essential to ensuring the reliability of in-flash                            log current accumulation, which requires significant changes
+computation.14 As shown in Section 3.2, regular SLC/MLC-                                   to the NAND flash cell array structures, e.g., deploying pre-
+mode programming exhibits significantly higher RBER than the                               cise and costly analog-to-digital converters inside the chip (see
+UBER requirement, and ESP effectively solves this important                                Section 4.1). In contrast, our mechanism can be adopted in
+reliability problem that is present in in-flash computation.15                             commodity SSDs with very low cost, as we demonstrated in
+   Second, both the write-performance and capacity overheads                               Section 5.
+apply only to the data used for bulk bitwise operations. As such,                          In-Storage Processing. Several prior works propose to lever-
+Flash-Cosmos can minimize these overheads by selectively us-                               age the internal processor (e.g., [51, 52, 55, 56, 141-154]) or
+ing ESP only for the data that is involved in in-flash processing                          embed hardware accelerators (e.g., [15-17, 49, 50, 155-165])
+(bulk bitwise operations) while programming other data using                               within the storage device for computation. Due to their more
+regular SLC/MLC/TLC-mode programming. Such a functional-                                   general-purpose designs, these proposals can perform more
+ity is supported by the multiple programming modes in modern                               diverse and complex operations (e.g., arithmetic operations).
+NAND flash memory, i.e., any block can be programmed in                                    However, as discussed in Section 3, in-storage processing needs
+SLC, MLC, and TLC modes [77, 78, 136].                                                     to first read out the processed data from the flash chips and
+   Third, ESP does not degrade SSD write performance, in                                   transmit it to the SSD controller over the SSD-internal I/O link,
+terms of both bandwidth and latency, compared to MLC-mode                                  which is a performance bottleneck. In contrast, Flash-Cosmos
+programming. This is because the program latency of ESP                                    can effectively reduce the data movement between NAND flash
+(400 µs, Section 4.2) is still lower than the latency of MLC- and                          chips and the SSD controller by performing computation inside
+TLC-mode programming (500 µs and 700 µs, respectively, in                                  the flash chip arrays, leading to more than an order of magni-
+our evaluated chips). We evaluate the sequential write band-                               tude higher performance and energy-efficiency than in-storage
+width of ESP, and the results show that ESP provides a write                               processing (Section 8).
+bandwidth of 4.7 GB/s, which is 73.4%/121.4%/166.7% of the                                 In-Memory and In-Cache Processing. A large body of prior
+regular SLC/MLC/TLC-mode programming write bandwidth                                       work proposes various NDP techniques at other levels of the
+(6.4/3.87/2.82 GB/s).                                                                      memory hierarchy, e.g., in main memory (e.g., [6-9, 14, 20,
+                                                                                           38, 39, 54, 166-192]) and in SRAM caches (e.g., [37, 40, 41,
+ 9. Related Work                                                                           193-199]). Even though these works provide significantly lower
+To our knowledge, this work is the first to enable in-flash bulk                           access latency and high reliability, once the size of the processed
+bitwise operations on multiple operands through a single sens-                             data exceeds the cache and main memory capacity, the data
+ing operation, while achieving zero bit errors in the computation                          needs to move between the storage devices and the rest of the
+                                                                                           memory hierarchy. Flash-Cosmos can complement these NDP
+   14 In order to be useful for general-purpose computation, ParaBit has to support        approaches (including in-storage processing) by processing
+ error-free computation, potentially using ESP.                                            large amounts of data inside flash arrays and communicating
+   15 Flash-Cosmos can also work with MLC NAND flash memory while guar-
+                                                                                           only the results of the computation.
+ anteeing the same level of reliability as ParaBit provides, when the operands
+ are stored in LSB pages. This is because the mechanism of LSB-page reads is               10. Discussion
+ the same as SLC-page reads, except for the used read-reference voltage levels
+ (LSB-page read in MLC: VREF2 in in Figure 5(b) vs. SLC-page read: VREF in                 Extensions to Other Applications. Flash-Cosmos can be used
+ Figure 5 (a)).                                                                            to accelerate not only bitwise operations but also any desired op-
+
+
+                                                                                      15
+eration. This is because Flash-Cosmos supports a set of bitwise          previously not possible. We experimentally demonstrate the
+operations that are logically complete, like other processing-           feasibility, performance, and reliability of Flash-Cosmos us-
+using-memory (PuM) substrates that use the operational prin-             ing 160 real 3D NAND flash chips. Our simulation-based real
+ciples of the memory cells for computation, such as Compute              workload evaluations show that Flash-Cosmos significantly out-
+Caches [37] (SRAM-based PuM), Ambit [7] (DRAM-based                      performs outside-storage processing, in-storage processing and
+PuM), and Pinatubo [20] (NVM-based PuM). Follow-up works                 the state-of-the-art in-flash processing technique in terms of
+(e.g., DualityCache [40], SIMDRAM [9], and IMP [200]) pro-               both performance and energy efficiency while providing reli-
+pose frameworks that leverage these substrates and techniques            able operation. We conclude that Flash-Cosmos is a promising
+to automate the creation of desired complex operations (e.g.,            substrate to enable highly-efficient, high-performance, and re-
+addition and multiplication) to accelerate a broad range of work-        liable in-flash computation. We hope and expect that future
+loads, including graph processing, databases, neural networks            work builds on Flash-Cosmos in many ways, e.g., by enabling
+and genome analysis. We leave the development of such a                  system-level frameworks that take advantage of Flash-Cosmos
+framework for Flash-Cosmos to future work.                               and by demonstrating benefits over more workloads.
+Limitations. Flash-Cosmos has two key limitations that also
+commonly exist in other PuM solutions. First, like ParaBit and           Acknowledgments
+other PuM proposals (e.g., [6-9, 20, 37-39, 166-170, 172, 173,
+188]), it is not straightforward for Flash-Cosmos to work with           We thank the anonymous reviewers of ISCA 2022 and MI-
+mainstream encryption techniques (e.g., AES-256 [132, 201])              CRO 2022 for feedback. We thank the SAFARI group mem-
+that are widely used in modern SSDs. This is because widely-             bers for feedback and the stimulating intellectual environment.
+used encryption techniques have input-data dependence and/or             We specifically thank Nika Mansouri Ghiasi and Minesh Patel
+require complex computation other than bitwise operations                who helped shape our arguments and strengthen our evalua-
+(e.g., shifting). One possible solution is to employ homomor-            tion. We acknowledge the generous gifts and support provided
+phic encryption that preserves the correctness of computation            by our industrial partners: Google, Huawei, Intel, Microsoft,
+for encrypted data [202]. Although homomorphic encryption                VMware, the Semiconductor Research Corporation and the
+currently has many challenges with large computation and ca-             ETH Future Computing Laboratory. Jisung Park was in part
+pacity overheads, we believe that the development of efficient           supported by the National Research Foundation (NRF) of Korea
+homomorphic encryption would be a promising direction to                 (NRF-2020R1A6A3A03040573). (Co-corresponding Authors:
+solve this common problem of the PuM paradigm in dealing                 Jisung Park, Myungsuk Kim, and Onur Mutlu)
+with encrypted data.
+   Second, like ParaBit and other PuM proposals, Flash-Cosmos            References
+can accelerate bulk bitwise operations only when the operands             [1] C.-Y. Chan and Y. E. Ioannidis, “Bitmap Index Design and Evaluation,” in SIG-
+are stored in the same chip. The system can potentially leverage              MOD, 1998.
+                                                                          [2] E. O’Neil, P. O’Neil, and K. Wu, “Bitmap Index Design Choices and their Perfor-
+an efficient inter-chip data migration technique to gather the                mance Implications,” in IDEAS, 2007.
+target operands into the same block in background, but doing so           [3] Y. Li and J. M. Patel, “WideTable: An Accelerator for Analytical Data Processing,”
+                                                                              in VLDB, 2014.
+inevitably incurs data movement that eats away from the benefits          [4] Y. Li and J. M. Patel, “BitWeaving: Fast Scans for Main Memory Data Processing,”
+of Flash-Cosmos. When the operands are stored in different                    in SIGMOD, 2013.
+                                                                          [5] B. Goodwin, M. Hopcroft, D. Luu, A. Clemmer, M. Curmei, S. Elnikety, and Y. He,
+chips, in-storage processing that uses hardware accelerators near             “BitFunnel: Revisiting Signatures for Search,” in SIGIR, 2017.
+NAND flash chips could be more effective. Fortunately, Flash-             [6] V. Seshadri, Y. Kim, C. Fallin, D. Lee, R. Ausavarungnirun, G. Pekhimenko, Y. Luo,
+                                                                              O. Mutlu, P. B. Gibbons, M. A. Kozuch et al., “RowClone: Fast and Energy-
+Cosmos requires only small changes to commodity NAND                          Efficient In-DRAM Bulk Data Copy and Initialization,” in MICRO, 2013.
+flash chips, which makes it easy to be combined with such                 [7] V. Seshadri, D. Lee, T. Mullins, H. Hassan, A. Boroumand, J. Kim, M. A. Kozuch,
+                                                                              O. Mutlu, P. B. Gibbons, and T. C. Mowry, “Ambit: In-Memory Accelerator for
+an in-storage processing solution. We leave the integration of                Bulk Bitwise Operations Using Commodity DRAM Technology,” in MICRO, 2017.
+Flash-Cosmos with other NDP solutions to future work.                     [8] V. Seshadri, K. Hsieh, A. Boroumand, D. Lee, M. A. Kozuch, O. Mutlu, P. B.
+                                                                              Gibbons, and T. C. Mowry, “Fast Bulk Bitwise AND and OR in DRAM,” IEEE
+                                                                              CAL, 2015.
+11. Conclusion                                                            [9] N. Hajinazar, G. F. Oliveira, S. Gregorio, J. D. Ferreira, N. M. Ghiasi, M. Patel,
+                                                                              M. Alser, S. Ghose, J. Gómez-Luna, and O. Mutlu, “SIMDRAM: A Framework for
+We propose Flash-Cosmos, a new in-flash processing technique                  Bit-Serial SIMD Processing Using DRAM,” in ASPLOS, 2021.
+that significantly improves the performance, energy efficiency,          [10] “FastBit: An Efficient Compressed Bitmap Index Technology,” https://sdm.lbl.gov/
+                                                                              fastbit/.
+and reliability of in-flash bulk bitwise operations. Flash-Cosmos        [11] M.-C. Wu and A. P. Buchmann, “Encoded Bitmap Indexing for Data Warehouses,”
+takes full advantage of the massive bit-level parallelism present             in ICDE, 1998.
+                                                                         [12] Z. Guz, M. Awasthi, V. Balakrishnan, M. Ghosh, A. Shayesteh, T. Suri, and
+in modern NAND flash memory by leveraging the cell-array                      S. Semiconductor, “Real-Time Analytics as the Killer Application for Processing-
+structures and operating principles of NAND flash memory.                     In-Memory,” WoNDP, 2014.
+                                                                         [13] Redis, “Redis bitmaps,” https://redis.io/docs/data-types/bitmaps/.
+First, Flash-Cosmos enables the chips to perform bulk bitwise            [14] B. Perach, R. Ronen, B. Kimelfeld, and S. Kvatinsky, “PIMDB: Under-
+operations on multiple (tens) operands via only one single-                   standing Bulk-Bitwise Processing In-Memory Through Database Analytics,”
+                                                                              arXiv:2203.10486, 2022.
+sensing operation. Second, Flash-Cosmos enhances the existing            [15] S.-W. Jun, M. Liu, S. Lee, J. Hicks, J. Ankcorn, M. King, S. Xu et al., “BlueDBM:
+SLC-mode programming scheme to achieve zero bit errors in                     An Appliance for Big Data Analytics,” in ISCA, 2015.
+                                                                         [16] M. Torabzadehkashi, S. Rezaei, A. Heydarigorji, H. Bobarshad, V. Alves, and
+computation results, thereby enabling the use of in-flash pro-                N. Bagherzadeh, “Catalina: In-Storage Processing Acceleration for Scalable Big
+cessing for general, error-intolerant applications, which was                 Data Analytics,” in PDP, 2019.
+
+
+
+                                                                    16
+[17] J. H. Lee, H. Zhang, V. Lagrange, P. Krishnamoorthy, X. Zhao, and Y. S. Ki,                     S. Swanson, “Willow: A User-Programmable SSD,” in USENIX OSDI, 2014.
+     “SmartSSD: FPGA Accelerated Near-Storage Data Analytics on SSD,” IEEE CAL,                 [52] B. Gu, A. S. Yoon, D.-H. Bae, I. Jo, J. Lee, J. Yoon, J.-U. Kang, M. Kwon, C. Yoon,
+     2020.                                                                                           S. Cho et al., “Biscuit: A Framework for Near-Data Processing of Big Data Work-
+[18] S. Beamer, K. Asanovic, and D. Patterson, “Direction-Optimizing Breadth-First                   loads,” in ISCA, 2016.
+     Search,” in SC, 2012.                                                                      [53] R. Balasubramonian, J. Chang, T. Manning, J. H. Moreno, R. Murphy, R. Nair, and
+[19] M. Besta, R. Kanakagiri, G. Kwasniewski, R. Ausavarungnirun, J. Beránek,                        S. Swanson, “Near-Data Processing: Insights from a MICRO-46 Workshop,” IEEE
+     K. Kanellopoulos, K. Janda, Z. Vonarburg-Shmaria, L. Gianinazzi, I. Stefan et al.,              Micro, 2014.
+     “SISA: Set-Centric Instruction Set Architecture for Graph Mining on Processing-            [54] O. Mutlu, S. Ghose, J. Goḿes-Luna, and R. Ausavarungnirun, “A Modern Primer
+     in-Memory Systems,” in MICRO, 2021.                                                             on Processing in Memory,” in Emerging Computing: From Devices to Systems –
+[20] S. Li, C. Xu, Q. Zou, J. Zhao, Y. Lu, and Y. Xie, “Pinatubo: A Processing-in-                   Looking Beyond Moore and Von Neumann. Springer, 2021.
+     Memory Architecture for Bulk Bitwise Operations in Emerging Non-Volatile Mem-              [55] N. Mansouri Ghiasi, J. Park, H. Mustafa, J. Kim, A. Olgun, A. Gollwitzer,
+     ories,” in DAC, 2016.                                                                           D. Senol Cali, C. Firtina, H. Mao, N. Almadhoun Alserr, R. Ausavarungnirun,
+[21] C. Gao, X. Xin, Y. Lu, Y. Zhang, J. Yang, and J. Shu, “ParaBit: Processing Parallel             N. Vijaykumar, M. Alser, and O. Mutlu, “GenStore: A High-Performance In-
+     Bitwise Operations in NAND Flash Memory Based SSDs,” in MICRO, 2021.                            Storage Processing System for Genome Sequence Analysis,” in ASPLOS, 2022.
+[22] M. Alser, H. Hassan, H. Xin, O. Ergin, O. Mutlu, and C. Alkan, “GateKeeper: A              [56] Y. Kang, Y. suk Kee, E. L. Miller, and C. Park, “Enabling Cost-effective Data
+     New Hardware Architecture for Accelerating Pre-alignment in DNA Short Read                      Processing with Smart SSD,” in MSST, 2013.
+     Mapping,” Bioinformatics, 2017.                                                            [57] W. Choi, P.-F. Chiu, W. Ma, G. Hemink, T. Hoang, M. Lueker-Boden, and
+[23] J. Loving, Y. Hernandez, and G. Benson, “BitPAl: A Bit-Parallel, General Integer-               Z. Bandic, “An In-Flash Binary Neural Network Accelerator with SLC NAND
+     Scoring Sequence Alignment Algorithm,” Bioinformatics, 2014.                                    Flash Array,” in ISCAS, 2020.
+[24] H. Xin, J. Greth, J. Emmons, G. Pekhimenko, C. Kingsford, C. Alkan, and                    [58] R. Han, P. Huang, Y. Xiang, C. Liu, Z. Dong, Z. Su, Y. Liu, L. Liu, X. Liu, and
+     O. Mutlu, “Shifted Hamming Distance: A Fast and Accurate SIMD-Friendly Filter                   J. Kang, “A Novel Convolution Computing Paradigm Based on NOR Flash Array
+     to Accelerate Alignment Verification in Read Mapping,” Bioinformatics, 2015.                    with High Computing Speed and Energy Efficiency,” TCAS, 2019.
+[25] D. S. Cali, G. S. Kalsi, Z. Bingöl, C. Firtina, L. Subramanian, J. S. Kim,                 [59] W. Shim and S. Yu, “GP3D: 3D NAND based In-memory Graph Processing Accel-
+     R. Ausavarungnirun, M. Alser, J. Gómez-Luna, A. Boroumand, A. Nori, A. Scibisz,                 erator,” JETCAS, 2022.
+     S. Subramoney, C. Alkan, S. Ghose, and O. Mutlu, “GenASM: A High-                          [60] F. Merrikh-Bayat, G. Xinjie, M. Klachko, M. Prezioso, K. Likharev, and D. Strukov,
+     Performance, Low-Power Approximate String Matching Acceleration Framework                       “High-Performance Mixed-Signal Neurocomputing With Nanoscale Floating-Gate
+     for Genome Sequence Analysis,” in MICRO, 2020.                                                  Memory Cell Arrays,” TNNLS, 2017.
+[26] J. S. Kim, D. Senol Cali, H. Xin, D. Lee, S. Ghose, M. Alser, H. Hassan, O. Ergin,         [61] P.-H. Tseng, F.-M. Lee, Y.-H. Lin, L.-Y. Chen, Y.-C. Li, H.-W. Hu, Y.-Y. Wang,
+     C. Alkan, and O. Mutlu, “GRIM-Filter: Fast Seed Location Filtering in DNA Read                  C.-C. Hsieh, M.-H. Lee, H.-L. Lung, K.-Y. Hsieh, K.-C. Wang, and C.-Y. Lu, “In-
+     Mapping Using Processing-in-Memory Technologies,” BMC Genomics, 2018.                           Memory-Searching Architecture Based on 3D-NAND Technology with Ultra-High
+[27] E. S. Lander, L. M. Linton, B. Birren, C. Nusbaum, M. C. Zody, J. Baldwin, K. De-               Parallelism,” in IEDM, 2020.
+     von, K. Dewar, M. Doyle, W. Fitzhugh et al., “Initial Sequencing and Analysis of           [62] P. Wang, F. Xu, B. Wang, B. Gao, H. Wu, H. Qian, and S. Yu, “Three-Dimensional
+     the Human Genome,” Nature, 2001.                                                                NAND Flash for Vector-Matrix Multiplication,” TVLSI, 2018.
+[28] S. F. Altschul, W. Gish, W. Miller, E. W. Myers, and D. J. Lipman, “Basic Local            [63] H.-T. Lue, P.-K. Hsu, M.-L. Wei, T.-H. Yeh, P.-Y. Du, W.-C. Chen, K.-C. Wang,
+     Alignment Search Tool,” JMB, 1990.                                                              and C.-Y. Lu, “Optimal Design Methods to Transform 3D NAND Flash into a
+[29] G. Myers, “A Fast Bit-Vector Algorithm for Approximate String Matching Based                    High-Density, High-Bandwidth and Low-Power Nonvolatile Computing in Mem-
+     on Dynamic Programming,” JACM, 1999.                                                            ory (nvCIM) Accelerator for Deep-Learning Neural Networks (DNN),” in IEDM,
+[30] J. Han, C.-S. Park, D.-H. Ryu, and E.-S. Kim, “Optical Image Encryption Based on                2019.
+     XOR Operations,” Optical Engineering, 1999.                                                [64] J. Park, M. Kim, M. Chun, L. Orosa, J. Kim, and O. Mutlu, “Reducing Solid-State
+[31] P. Tuyls, H. D. Hollmann, J. H. Van Lint, and L. Tolhuizen, “XOR-based Visual                   Drive Read Latency by Optimizing Read-Retry,” in ASPLOS, 2021.
+     Cryptography Schemes,” Des. Codes, Cryptogr., 2005.                                        [65] Y. Cai, S. Ghose, E. F. Haratsch, Y. Luo, and O. Mutlu, “Reliability Issues in Flash-
+[32] S. A. Manavski, “CUDA Compatible GPU as an Efficient Hardware Accelerator                       memory-based Solid-state Drives: Experimental Analysis, Mitigation, Recovery,”
+     for AES Cryptography,” in SPCOM, 2007.                                                          in Inside Solid State Drives, 2018.
+[33] P. Kanerva, “Sparse Distributed Memory and Related Models,” Tech. Rep., 1992.              [66] J. Cha and S. Kang, “Data Randomization Scheme for Endurance Enhancement
+[34] P. Kanerva, “Hyperdimensional Computing: An Introduction to Computing in Dis-                   and Interference Mitigation of Multilevel Flash Memory Devices,” ETRI Journal,
+     tributed Representation with High-Dimensional Random Vectors,” Cognitive Com-                   2013.
+     putation, 2009.                                                                            [67] Y. Cai, S. Ghose, E. F. Haratsch, Y. Luo, and O. Mutlu, “Error Characterization,
+[35] G. Karunaratne, M. Le Gallo, G. Cherubini, L. Benini, A. Rahimi, and A. Sebastian,              Mitigation, and Recovery in Flash-Memory-Based Solid-State Drives,” Proc. IEEE,
+     “In-memory Hyperdimensional Computing,” Nature Electronics, 2020.                               2017.
+[36] M. Imani, A. Rahimi, D. Kong, T. Rosing, and J. M. Rabaey, “Exploring Hyperdi-             [68] Y. Cai, O. Mutlu, E. F. Haratsch, and K. Mai, “Program Interference in MLC NAND
+     mensional Associative Memory,” in HPCA, 2017.                                                   Flash Memory: Characterization, Modeling, and Mitigation,” in ICCD, 2013.
+[37] S. Aga, S. Jeloka, A. Subramaniyan, S. Narayanasamy, D. Blaauw, and R. Das,                [69] Y. Cai, S. Ghose, Y. Luo, K. Mai, O. Mutlu, and E. F. Haratsch, “Vulnerabilities in
+     “Compute Caches,” in HPCA, 2017.                                                                MLC NAND Flash Memory Programming: Experimental Analysis, Exploits, and
+[38] V. Seshadri and O. Mutlu, “In-DRAM Bulk Bitwise Execution Engine,”                              Mitigation Techniques,” in HPCA, 2017.
+     arXiv:1905.09822, 2019.                                                                    [70] J. Park, J. Jeong, S. Lee, Y. Song, and J. Kim, “Improving Performance and Life-
+[39] S. Li, D. Niu, K. T. Malladi, H. Zheng, B. Brennan, and Y. Xie, “DRISA: A DRAM-                 time of NAND Storage Systems Using Relaxed Program Sequence,” in DAC, 2016.
+     based Reconfigurable In-Situ Accelerator,” in MICRO, 2017.                                 [71] Y. Cai, Y. Luo, E. F. Haratsch, K. Mai, and O. Mutlu, “Data Retention in MLC
+[40] D. Fujiki, S. Mahlke, and R. Das, “Duality Cache for Data Parallel Acceleration,”               NAND Flash Memory: Characterization, Optimization, and Recovery,” in HPCA,
+     in ISCA, 2019.                                                                                  2015.
+[41] C. Eckert, X. Wang, J. Wang, A. Subramaniyan, R. Iyer, D. Sylvester, D. Blaaauw,           [72] Y. Cai, G. Yalcin, O. Mutlu, E. F. Haratsch, A. Cristal, O. S. Unsal et al., “Flash
+     and R. Das, “Neural Cache: Bit-Serial In-Cache Acceleration of Deep Neural Net-                 Correct-and-Refresh: Retention-Aware Error Management for Increased Flash
+     works,” in ISCA, 2018.                                                                          Memory Lifetime,” in ICCD, 2012.
+[42] A. K. Ramanathan, G. S. Kalsi, S. Srinivasa, T. M. Chandran, K. R. Pillai, O. J.           [73] Y. Cai, G. Yalcin, O. Mutlu, E. F. Haratsch, A. Crista, O. S. Unsal et al., “Error
+     Omer, V. Narayanan, and S. Subramoney, “Look-up Table Based Energy Efficient                    Analysis and Retention-aware Management for NAND Flash Memory,” Intel Tech.
+     Processing in Cache Support for Neural Network Acceleration,” in MICRO, 2020.                   J., 2013.
+[43] A. Augusta and S. Idreos, “JAFAR: Near-Data Processing for Databases,” in SIG-             [74] Y. Luo, S. Ghose, Y. Cai, E. F. Haratsch, and O. Mutlu, “Improving 3D NAND
+     MOD, 2015.                                                                                      Flash Memory Lifetime by Tolerating Early Retention Loss and Process Variation,”
+[44] J. Ahn, S. Hong, S. Yoo, O. Mutlu, and K. Choi, “A Scalable Processing-in-                      in SIGMETRICS, 2018.
+     Memory Accelerator for Parallel Graph Processing,” in ISCA, 2015.                          [75] Y. Cai, Y. Luo, S. Ghose, and O. Mutlu, “Read Disturb Errors in MLC NAND Flash
+[45] J. Ahn, S. Yoo, O. Mutlu, and K. Choi, “PIM-Enabled Instructions: A Low-                        Memory: Characterization, Mitigation, and Recovery,” in DSN, 2015.
+     Overhead, Locality-Aware Processing-in-Memory Architecture,” in ISCA, 2015.                [76] K. Ha, J. Jeong, and J. Kim, “An Integrated Approach for Managing Read Disturbs
+[46] M. Drumond, A. Daglis, N. Mirzadeh, D. Ustiugov, J. Picorel, B. Falsafi, B. Grot,               in High-density NAND Flash Memory,” TCAD, 2015.
+     and D. Pnevmatikatos, “The Mondrian Data Engine,” in ISCA, 2017.                           [77] S. Lee, K. Ha, K. Zhang, J. Kim, and J. Kim, “FlexFS: A Flexible Flash File System
+[47] A. Farmahini-Farahani, J. H. Ahn, K. Morrow, and N. S. Kim, “NDA: Near-DRAM                     for MLC NAND Flash Memory.” in USENIX ATC, 2009.
+     Acceleration Architecture Leveraging Commodity DRAM Devices and Standard                   [78] M. Kim, J. Park, G. Cho, Y. Kim, L. Orosa, O. Mutlu, and J. Kim, “Evanesco: Ar-
+     Memory Modules,” in HPCA, 2015.                                                                 chitectural Support for Efficient Data Sanitization in Modern Flash-based Storage
+[48] M. Gao and C. Kozyrakis, “HRL: Efficient and Flexible Reconfigurable Logic for                  Systems,” in ASPLOS, 2020.
+     Near-Data Processing,” in HPCA, 2016.                                                      [79] J. Jeong, S. S. Hahn, S. Lee, and J. Kim, “Lifetime Improvement of NAND Flash-
+[49] S.-W. Jun, A. Wright, S. Zhang, S. Xu, and Arvind, “GraFBoost: Using Acceler-                   based Storage Systems Using Dynamic Program and Erase Scaling,” in FAST, 2014.
+     ated Flash Storage for External Graph Analytics,” in ISCA, 2018.                           [80] Y. Shim, M. Kim, M. Chun, J. Park, Y. Kim, and J. Kim, “Exploiting Process
+[50] V. S. Mailthody, Z. Qureshi, W. Liang, Z. Feng, S. G. De Gonzalo, Y. Li, H. Franke,             Similarity of 3D Flash Memory for High Performance SSDs,” in MICRO, 2019.
+     J. Xiong, J. Huang, and W.-m. Hwu, “Deepstore: In-Storage Acceleration for Intel-          [81] M. Kim, Y. Song, M. Jung, and J. Kim, “SARO: A State-Aware Reliability Opti-
+     ligent Queries,” in MICRO, 2019.                                                                mization Technique for High Density NAND Flash Memory,” in GLSVLSI, 2018.
+[51] S. Seshadri, M. Gahagan, S. Bhaskaran, T. Bunker, A. De, Y. Jin, Y. Liu, and
+
+
+                                                                                           17
+ [82] Y. Feng, D. Feng, W. Tong, Y. Jiang, and C. Liu, “Using Disturbance Compensation                  R. S. Williams, and V. Srikumar, “ISAAC: A Convolutional Neural Network Accel-
+      and Data Clustering (DC)2 to Improve Reliability and Performance of 3D MLC                        erator with In-Situ Analog Arithmetic in Crossbars,” in ISCA, 2016.
+      Flash Memory,” in ICCD, 2017.                                                               [114] K.-D. Suh, B.-H. Suh, Y.-H. Lim, J.-K. Kim, Y.-J. Choi, Y.-N. Koh, S.-S. Lee, S.-
+ [83] H. Wang, N. Wong, T.-Y. Chen, and R. D. Wesel, “Using Dynamic Allocation of                       C. Kwon, B.-S. Choi, J.-S. Yum, J.-H. Choi, J.-R. Kim, and H.-K. Lim, “A 3.3 V
+      Write Voltage to Extend Flash Memory Lifetime,” TCOM, 2016.                                       32 Mb NAND Flash Memory with Incremental Step Pulse Programming Scheme,”
+ [84] G. Dong, S. Li, and T. Zhang, “Using Data Postcompensation and Predistortion to                   JSSC, 1995.
+      Tolerate Cell-to-Cell Interference in MLC NAND Flash Memory,” TCAS, 2010.                   [115] X. Jimenez, D. Novo, and P. Ienne, “Phoenix: Reviving MLC Blocks as SLC to
+ [85] J. Lee, H.-S. Im, D.-S. Byeon, K.-H. Lee, D.-H. Chae, K.-H. Lee, S. W. Hwang,                     Extend NAND Flash Devices Lifetime,” in DATE, 2013.
+      S.-S. Lee, Y.-H. Lim, J.-D. Lee, J.-D. Choi, Y.-I. Seo, J.-S. Lee, and K.-D. Suh,           [116] ONFI Workgroup, “Open NAND Flash Interface Specification Revision 4.2,” 2020,
+      “High-Performance 1-Gb-NAND Flash Memory with 0.12-µm Technology,” JSSC,                          https://media-www.micron.com/-/media/client/onfi/specs/onfi_4_2-gold.pdf.
+      2002.                                                                                       [117] S. Arrhenius, “Über die Dissociationswärme und den Einfluss der Temperatur auf
+ [86] J. Lee, H.-S. Im, D.-S. Byeon, K.-H. Lee, D.-H. Chae, K.-H. Lee, Y.-H. Lim, J.-D.                 den Dissociationsgrad der Elektrolyte,” Z. Phys. Chem., 1889.
+      Choi, Y.-I. Seo, J.-S. Lee et al., “A 1.8V 1Gb NAND Flash Memory with 0.12µm                [118] JEDEC, JESD47: Stress-Test-Driven Qualification of Integrated Circuits, 2010.
+      STI Process Technology,” in ISSCC, 2002.                                                    [119] JEDEC, JESD22-A117: Electrically Erasable Programmable ROM (EEPROM)
+ [87] C. Kim, J. Ryu, T. Lee, H. Kim, J. Lim, J. Jeong, S. Seo, H. Jeon, B. Kim, I. Lee,                Program / Erase Endurance and Data Retention Stress Test, 2010.
+      D. Lee, P. Kwak, S. Cho, Y. Yim, C. Cho, W. Jeong, K. Park, J.-M. Han, D. Song,             [120] PCISIG, “PCIe Specification,” 2017, https://pcisig.com/specifications/pciexpress/.
+      K. Kyung, Y.-H. Lim, and Y.-H. Jun, “A 21 nm High Performance 64 Gb MLC                     [121] S.-K. Lu, S.-X. Zhong, and M. Hashizume, “Fault Leveling Techniques for Yield
+      NAND Flash Memory with 400 MB/s Asynchronous Toggle DDR Interface,” JSSC,                         and Reliability Enhancement of NAND Flash Memories,” JET, 2018.
+      2012.                                                                                       [122] H. Cao, F. Liu, Q. Wang, Z. Du, L. Jin, and Z. Huo, “An Efficient Built-in Error
+ [88] C. Kim, D.-H. Kim, W. Jeong, H.-J. Kim, I. H. Park, H.-W. Park, J. Lee, J. Park, Y.-              Detection Methodology with Fast Page-oriented Data Comparison in 3D NAND
+      L. Ahn, J. Y. Lee, S.-B. Kim, H. Yoon, J. D. Yu, N. Choi, N. Kim, H. Jang, J. Park,               Flash Memories,” Electronics Letters, 2022.
+      S. Song, Y. Park, J. Bang, S. Hong, Y. Choi, M.-S. Kim, H. Kim, P. Kwak, J.-D.              [123] JEDEC, JESD79-4C: DDR4 SDRAM Standard, 2020.
+      Ihm, D. S. Byeon, J.-Y. Lee, K.-T. Park, and K.-H. Kyung, “A 512-Gb 3-b/Cell                [124] Y. Kim, W. Yang, and O. Mutlu, “Ramulator: A Fast and Extensible DRAM Simu-
+      64-Stacked WL 3-D-NAND Flash Memory,” JSSC, 2018.                                                 lator,” CAL, 2016.
+ [89] L. Crippa and R. Micheloni, “Sensing circuits,” in Inside NAND Flash Memories,              [125] CMU-SAFARI, “Ramulator,” https://github.com/CMU-SAFARI/ramulator.git.
+      2010.                                                                                       [126] A. Tavakkol, J. Gómez-Luna, M. Sadrosadati, S. Ghose, and O. Mutlu, “MQSim: A
+ [90] Y. Luo, S. Ghose, Y. Cai, E. F. Haratsch, and O. Mutlu, “Enabling Accurate and                    Framework for Enabling Realistic Studies of Modern Multi-Queue SSD Devices,”
+      Practical Online Flash Channel Modeling for Modern MLC NAND Flash Memory,”                        in FAST, 2018.
+      JSAC, 2016.                                                                                 [127] CMU-SAFARI, “MQSim,” https://github.com/CMU-SAFARI/MQSim.git.
+ [91] Intel Corp., “Intel Core i711700K Processor – Product Specifica-                            [128] Intel, Intel® 64 and IA-32 Architectures Software Developer’s Manual, Vol. 3,
+      tions,”              https://ark.intel.com/content/www/us/en/ark/products/212047/                 2016.
+      intel-core-i711700k-processor-16m-cache-up-to-5-00-ghz.html, 2021.                          [129] M. Hähnel, B. Döbel, M. Völp, and H. Härtig, “Measuring Energy Consumption
+ [92] R. Micheloni, L. Crippa, and A. Marelli, Inside NAND Flash Memories, 2010.                        for Short Code Paths Using RAPL,” SIGMETRICS, 2012.
+ [93] D. Hong, M. Kim, J. Park, M. Jung, and J. Kim, “Improving SSD Performance                   [130] M. T. Inc., “4Gb: x4, x8, x16 DDR4 SDRAM Data Sheet,” 2016.
+      Using Adaptive Restricted-Copyback Operations,” in NVMSA, 2019.                             [131] S. Ghose, T. Li, N. Hajinazar, D. S. Cali, and O. Mutlu, “Demystifying Complex
+ [94] F. Wu, J. Zhou, S. Wang, Y. Du, C. Yang, and C. Xie, “FastGC: Accelerate Garbage                  Workload-DRAM Interactions: An Experimental Study,” ACM POMACS, 2019.
+      Collection via an Efficient Copyback-Based Data Migration in SSDs,” in DAC,                 [132] Samsung, “Samsung SSD 980 PRO,” 2020. [Online]. Available: https:
+      2018.                                                                                             //www.samsung.com/semiconductor/minisite/ssd/product/consumer/980pro/
+ [95] Y. Cai, E. F. Haratsch, O. Mutlu, and K. Mai, “Error Patterns in MLC NAND Flash             [133] M. Danisch, O. Balalau, and M. Sozio, “Listing k-Cliques in Sparse Real-world
+      Memory: Measurement, Characterization, and Analysis,” in DATE, 2012.                              Graphs,” in TheWebConf, 2018.
+ [96] K. Zhao, W. Zhao, H. Sun, X. Zhang, N. Zheng, and T. Zhang, “LDPC-in-SSD:                   [134] S. Jabbour, N. Mhadhbi, B. Raddaoui, , and L. Sais, “Pushing the Envelope in
+      Making Advanced Error Correction Codes Work Effectively in Solid State Drives,”                   Overlapping Communities Detection,” in ISIDAS, 2018.
+      in FAST, 2013.                                                                              [135] J. Bruce, T. Balch, and M. Veloso, “Fast and Inexpensive Color Image Segmenta-
+ [97] Micron, “Product Flyer:            Micron 3D NAND Flash Memory,” 2016,                            tion for Interactive Robots,” in IROS, 2000.
+      https://www.micron.com/-/media/client/global/documents/products/product-flyer/              [136] S. Li, W. Tong, J. Liu, B. Wu, and Y. Feng, “Accelerating Garbage Collection for
+      3d_nand_flyer.pdf?la=en.                                                                          3D MLC Flash Memory with SLC Blocks,” in ICCAD, 2019.
+ [98] G. Dong, N. Xie, and T. Zhang, “On the Use of Soft-Decision Error-Correction                [137] S. Wang, “MemCore: Computing-in-Flash Design for Deep Neural Network Ac-
+      Codes in NAND Flash Memory,” TCAS, 2010.                                                          celeration,” in EDTM, 2022.
+ [99] L. Zuolo, C. Zambelli, P. Olivo, R. Micheloni, and A. Marelli, “LDPC Soft Decod-            [138] R. Han, Y. Xiang, P. Huang, Y. Shan, X. Liu, and J. Kang, “Flash Memory Array
+      ing with Reduced Power and Latency in 1X-2X NAND Flash-Based Solid State                          for Efficient Implementation of Deep Neural Networks,” Adv. Intell. Syst., 2021.
+      Drives,” in IMW, 2015.                                                                      [139] M. Kang, H. Kim, H. Shin, J. Sim, K. Kim, and L.-S. Kim, “S-FLASH: A
+[100] S. Tanakamaru, Y. Yanagihara, and K. Takeuchi, “Error-Prediction LDPC and Error-                  NAND Flash-based Deep Neural Network Accelerator Exploiting Bit-Level Spar-
+      Recovery Schemes for Highly Reliable Solid-State Drives (SSDs),” JSSC, 2013.                      sity,” IEEE TC, 2021.
+[101] X. Hu, “LDPC Codes for Flash Channel,” Flash Memory Summit, 2012.                           [140] S.-T. Lee and J.-H. Lee, “Neuromorphic Computing Using NAND Flash Memory
+[102] R.-A. Cernea, “Highly Compact Non-Volatile Memory and Method Thereof,” 2006,                      Architecture With Pulse Width Modulation Scheme,” Front. Neurosci., 2020.
+      US Patent 6,983,428.                                                                        [141] X. Wang, Y. Yuan, Y. Zhou, C. C. Coats, and J. Huang, “Project Almanac: A Time-
+[103] Y. Kim, V. Seshadri, D. Lee, J. Liu, and O. Mutlu, “A Case for Exploiting Subarray-               Traveling Solid-State Drive,” in EuroSys, 2019.
+      Level Parallelism (SALP) in DRAM,” in ISCA, 2012.                                           [142] A. Acharya, M. Uysal, and J. Saltz, “Active Disks: Programming Model, Algo-
+[104] N. Leong, S. Chandra, and H. Chen, “Random Cache Read Using a Double Mem-                         rithms and Evaluation,” ASPLOS, 1998.
+      ory,” 2008, US Patent 7,423,915.                                                            [143] K. Keeton, D. A. Patterson, and J. M. Hellerstein, “A Case for Intelligent Disks
+[105] Macronix, “Technical Note: Improving NAND Throughput with Two-Plane                               (IDISKs),” SIGMOD Rec., 1998.
+      and Cache Operations,” 2013, https://www.macronix.com/Lists/ApplicationNote/                [144] J. Wang, D. Park, Y.-S. Kee, Y. Papakonstantinou, and S. Swanson, “SSD In-
+      Attachments/1907/AN0268V1_Improving%20NAND%20Throughput%20with%                                   Storage Computing for List Intersection,” in DaMoN, 2016.
+      20Two-Plane%20and%20Cache%20Operations.pdf.                                                 [145] G. Koo, K. K. Matam, T. I, H. K. G. Narra, J. Li, H.-W. Tseng, S. Swanson, and
+[106] Micron, “NAND Flash Memory Data Sheet: MT29F16G08ABABA, MT29F32G-                                 M. Annavaram, “Summarizer: Trading Communication with Computing Near Stor-
+      08AFABA, MT29F64G08A[J/K/M]ABA, MT29F128G08AUABA, MT29F16G-                                       age,” in MICRO, 2017.
+      08ABCBB, MT29F32G08AECBB, MT29F64G08A[K/M]CBB, MT29F128G-                                   [146] D. Tiwari, S. Boboila, S. Vazhkudai, Y. Kim, X. Ma, P. Desnoyers, and Y. Solihin,
+      08AUCBB,” 2009.                                                                                   “Active Flash: Towards Energy-Efficient, In-Situ Data Analytics on Extreme-Scale
+[107] Samsung, “32Gb A-die NAND Flash Datasheet,” 2009.                                                 Machines,” in FAST, 2013.
+[108] Toshiba, “NAND Memory Toggle DDR1.0 Technical Data Sheet,” 2012.                            [147] D. Tiwari, S. S. Vazhkudai, Y. Kim, X. Ma, S. Boboila, and P. J. Desnoyers, “Reduc-
+[109] D. Kang, M. Kim, S. C. Jeon, W. Jung, J. Park, G. Choo, D.-k. Shim, A. Kavala, S.-                ing Data Movement Costs Using Energy-Efficient, Active Computation on SSD,” in
+      B. Kim, K.-M. Kang, J. Lee, K. Ko, H.-W. Park, B.-J. Min, C. Yu, S. Yun, N. Kim,                  HotPower, 2012.
+      Y. Jung, S. Seo, S. Kim, M. K. Lee, J.-Y. Park, J. C. Kim, Y. S. Cha, K. Kim, Y. Jo,        [148] S. Boboila, Y. Kim, S. S. Vazhkudai, P. Desnoyers, and G. M. Shipman, “Active
+      H. Kim, Y. Choi, J. Byun, J.-h. Park, K. Kim, T.-H. Kwon, Y. Min, C. Yoon, Y. Kim,                Flash: Out-of-core Data Analytics on Flash Storage ,” in MSST, 2012.
+      D.-H. Kwak, E. Lee, W.-g. Hahn, K.-s. Kim, K. Kim, E. Yoon, W.-T. Kim, I. Lee,              [149] D.-H. Bae, J.-H. Kim, S.-W. Kim, H. Oh, and C. Park, “Intelligent SSD: A Turbo
+      S. h. Moon, J. Ihm, D. S. Byeon, K.-W. Song, S. Hwang, and K. H. Kyung, “A                        for Big Data Mining,” in CIKM, 2013.
+      512Gb 3-Bit/Cell 3D 6th-Generation V-NAND Flash Memory with 82MB/s Write                    [150] M. Torabzadehkashi, S. Rezaei, V. Alves, and N. Bagherzadeh, “CompStor: An In-
+      Throughput and 1.2Gb/s Interface,” in ISSCC, 2019.                                                Storage Computation Platform for Scalable Distributed Processing,” in IPDPSW,
+[110] S. Kim, Y. Jin, G. Sohn, J. Bae, T. J. Ham, and J. W. Lee, “Behemoth: A Flash-                    2018.
+      centric Training Accelerator for Extreme-scale {DNNs},” in FAST, 2021.                      [151] L. Kang, Y. Xue, W. Jia, X. Wang, J. Kim, C. Youn, M. J. Kang, H. J. Lim, B. Ja-
+[111] J. Gray and C. Van Ingen, “Empirical Measurements of Disk Failure Rates and                       cob, and J. Huang, “IceClave: A Trusted Execution Environment for In-Storage
+      Error Rates,” arXiv cs/0701166, 2007.                                                             Computing,” in MICRO, 2021.
+[112] A. Cox, “JEDEC SSD Endurance Workloads,” in FMS, 2011.                                      [152] C. Li, Y. Wang, C. Liu, S. Liang, H. Li, and X. Li, “GLIST: Towards In-Storage
+[113] A. Shafiee, A. Nag, N. Muralimanohar, R. Balasubramonian, J. P. Strachan, M. Hu,
+
+
+                                                                                             18
+      Graph Learning,” in USENIX ATC, 2021.                                                       [179] X.-Q. Li, G.-M. Tan, and N.-H. Sun, “PIM-Align: A Processing-in-Memory Archi-
+[153] M. Lim, J. Jung, and D. Shin, “LSM-Tree Compaction Acceleration Using In-                         tecture for FM-Index Search Algorithm,” JCST, 2021.
+      Storage Processing,” in ICCE-Asia, 2021.                                                    [180] H. Kim, H. Park, T. Kim, K. Cho, E. Lee, S. Ryu, H.-J. Lee, K. Choi, and J. Lee,
+[154] M. Kim and S. Lee, “Reducing Tail Latency of DNN-based Recommender Systems                        “GradPIM: A Practical Processing-in-DRAM Architecture for Gradient Descent,”
+      using In-Storage Processing,” in APSys, 2020.                                                     in HPCA, 2021.
+[155] S. Pei, J. Yang, and Q. Yang, “REGISTOR: A Platform for Unstructured Data Pro-              [181] D. Zhang, N. Jayasena, A. Lyashevsky, J. L. Greathouse, L. Xu, and M. Igna-
+      cessing inside SSD Storage,” ACM TOS, 2019.                                                       towski, “TOP-PIM: Throughput-Oriented Programmable Processing in Memory,”
+[156] J. Do, Y.-S. Kee, J. M. Patel, C. Park, K. Park, and D. J. DeWitt, “Query Processing              in HPDC, 2014.
+      on Smart SSDs: Opportunities and Challenges,” in ACM SIGMOD, 2013.                          [182] P. C. Santos, G. F. Oliveira, D. G. Tomé, M. A. Alves, E. C. Almeida, and L. Carro,
+[157] S. Kim, H. Oh, C. Park, S. Cho, S.-W. Lee, and B. Moon, “In-Storage Processing                    “Operand Size Reconfiguration for Big Data Processing in Memory,” in DATE,
+      of Database Scans and Joins,” Information Sciences, 2016.                                         2017.
+[158] E. Riedel, C. Faloutsos, G. A. Gibson, and D. Nagle, “Active Disks for Large-Scale          [183] J. D. Ferreira, G. Falcao, J. Gómez-Luna, M. Alser, L. Orosa, M. Sadrosadati, J. S.
+      Data Processing,” Computer, 2001.                                                                 Kim, G. F. Oliveira, T. Shahroodi, A. Nori et al., “pLUTo: Enabling Massively
+[159] E. Riedel, G. Gibson, and C. Faloutsos, “Active Storage for Large-Scale Data Min-                 Parallel Computation in DRAM via Lookup Tables,” arXiv:2104.07699, 2021.
+      ing and Multimedia Applications,” VLDB, 1998.                                               [184] Y. Zhuo, C. Wang, M. Zhang, R. Wang, D. Niu, Y. Wang, and X. Qian, “GraphQ:
+[160] S. Liang, Y. Wang, Y. Lu, Z. Yang, H. Li, and X. Li, “Cognitive SSD: A Deep                       Scalable PIM-Based Graph Processing,” in MICRO, 2019.
+      Learning Engine for In-Storage Data Retrieval,” in USENIX ATC, 2019.                        [185] D. A. Patterson, T. E. Anderson, N. Cardwell, R. Fromm, K. Keeton, C. E.
+[161] B. Y. Cho, W. S. Jeong, D. Oh, and W. W. Ro, “XSD: Accelerating MapReduce by                      Kozyrakis, R. Thomas, and K. A. Yelick, “A Case for Intelligent RAM,” IEEE
+      Harnessing the GPU inside an SSD ,” in WoNDP, 2013.                                               Micro, 1997.
+[162] M. Ajdari, P. Park, J. Kim, D. Kwon, and J. Kim, “CIDR: A Cost-effective In-line            [186] A. Boroumand, S. Ghose, G. F. Oliveira, and O. Mutlu, “Polynesia: Enabling High-
+      Data Reduction System for Terabit-per-second Scale SSD Arrays,” in HPCA, 2019.                    Performance and Energy-Efficient Hybrid Transactional/Analytical Databases with
+[163] S. Liang, Y. Wang, C. Liu, H. Li, and X. Li, “InS-DLA: An In-SSD Deep Learning                    Hardware/Software Co-Design,” in ICDE, 2022.
+      Accelerator for Near-Data Processing,” in FPL, 2019.                                        [187] G. Singh, J. Gómez-Luna, G. Mariani, G. F. Oliveira, S. Corda, S. Stuijk, O. Mutlu,
+[164] W. S. Jeong, C. Lee, K. Kim, M. K. Yoon, W. Jeon, M. Jung, and W. W. Ro, “RE-                     and H. Corporaal, “NAPEL: Near-Memory Computing Application Performance
+      ACT: Scalable and High-performance Regular Expression Pattern Matching Accel-                     Prediction via Ensemble Learning,” in DAC, 2019.
+      erator for In-storage Processing,” IEEE TPDS, 2019.                                         [188] V. Seshadri and O. Mutlu, “The Processing Using Memory Paradigm: In-DRAM
+[165] S.-W. Jun, H. T. Nguyen, V. Gadepally et al., “In-Storage Embedded Accelerator                    Bulk Copy, Initialization, Bitwise AND and OR,” arXiv:1610.09603, 2016.
+      for Sparse Pattern Processing,” in HPEC, 2016.                                              [189] A. Boroumand, S. Ghose, M. Patel, H. Hassan, B. Lucia, K. Hsieh, K. T. Malladi,
+[166] S. Angizi and D. Fan, “GraphiDe: A Graph Processing Accelerator Leveraging                        H. Zheng, and O. Mutlu, “LazyPIM: An Efficient Cache Coherence Mechanism for
+      In-DRAM-Computing,” in GLSVLSI, 2019.                                                             Processing-in-Memory,” IEEE CAL, 2017.
+[167] M. F. Ali, A. Jaiswal, and K. Roy, “In-Memory Low-Cost Bit-Serial Addition Using            [190] P. Chi, S. Li, C. Xu, T. Zhang, J. Zhao, Y. Liu, Y. Wang, and Y. Xie, “PRIME:
+      Commodity DRAM Technology,” TCAS-I, 2019.                                                         A Novel Processing-in-Memory Architecture for Neural Network Computation in
+[168] K. K. Chang, P. J. Nair, D. Lee, S. Ghose, M. K. Qureshi, and O. Mutlu, “Low-Cost                 ReRAM-Based Main Memory,” in ISCA, 2016.
+      Inter-Linked Subarrays (LISA): Enabling Fast Inter-Subarray Data Movement in                [191] W. Kautz, “Cellular Logic-in-Memory Arrays,” IEEE Trans. Comput., 1969.
+      DRAM,” in HPCA, 2016.                                                                       [192] H. S. Stone, “A Logic-in-Memory Computer,” IEEE Trans. Comput., 1970.
+[169] Q. Deng, L. Jiang, Y. Zhang, M. Zhang, and J. Yang, “DrAcc: A DRAM based                    [193] M. Kang, S. K. Gonugondla, and N. R. Shanbhag, “Deep In-Memory Architectures
+      Accelerator for Accurate CNN Inference,” in DAC, 2018.                                            in SRAM: An Analog Approach to Approximate Computing,” Proc. IEEE, 2020.
+[170] F. Gao, G. Tziantzioulis, and D. Wentzlaff, “ComputeDRAM: In-Memory Com-                    [194] K. Angstadt, A. Subramaniyan, E. Sadredini, R. Rahimi, K. Skadron, W. Weimer,
+      pute Using Off-the-Shelf DRAMs,” in MICRO, 2019.                                                  and R. Das, “ASPEN: A Scalable In-SRAM Architecture for Pushdown Automata,”
+[171] X. Xin, Y. Zhang, and J. Yang, “ELP2IM: Efficient and Low Power Bitwise Opera-                    in MICRO, 2018.
+      tion Processing in DRAM,” in HPCA, 2020.                                                    [195] M. Kang, S. K. Gonugondla, and N. R. Shanbhag, “Deep In-Memory Architectures
+[172] V. Seshadri, D. Lee, T. Mullins, H. Hassan, A. Boroumand, J. Kim, M. A.                           in SRAM: An Analog Approach to Approximate Computing,” Proc. IEEE, 2020.
+      Kozuch, O. Mutlu, P. B. Gibbons, and T. C. Mowry, “Buddy-RAM: Improv-                       [196] J. Zhang, Z. Wang, and N. Verma, “In-Memory Computation of a Machine-
+      ing the Performance and Efficiency of Bulk Bitwise Operations Using DRAM,”                        Learning Classifier in a Standard 6T SRAM Array,” IEEE JSSC, 2017.
+      arXiv:1611.09988, 2016.                                                                     [197] Y.-H. Lin, C. Liu, C.-L. Hu, K.-Y. Chang, J.-Y. Chen, and S.-J. Jou, “A Reconfig-
+[173] M. S. Truong, E. Chen, D. Su, L. Shen, A. Glass, L. R. Carley, J. A. Bain, and                    urable In-SRAM Computing Architecture for DCNN Applications,” in VLSI-DAT,
+      S. Ghose, “RACER: Bit-Pipelined Processing Using Resistive Memory,” in MI-                        2021.
+      CRO, 2021.                                                                                  [198] K. Al-Hawaj, O. Afuye, S. Agwa, A. Apsel, and C. Batten, “Towards a Recon-
+[174] C. Giannoula, I. Fernandez, J. G. Luna, N. Koziris, G. Goumas, and                                figurable Bit-Serial/Bit-Parallel Vector Accelerator using In-Situ Processing-In-
+      O. Mutlu, “SparseP: Towards Efficient Sparse Matrix Vector Multiplication on Real                 SRAM,” in ISCAS, 2020.
+      Processing-in-Memory Architectures,” POMACS, 2022.                                          [199] J. Zhang, H. Naghibijouybari, and E. Sadredini, “Sealer: In-SRAM AES for High-
+[175] G. Dai, T. Huang, Y. Chi, J. Zhao, G. Sun, Y. Liu, Y. Wang, Y. Xie, and H. Yang,                  Performance and Low-Overhead Memory Encryption,” arXiv:2207.01298, 2022.
+      “GraphH: A Processing-in-Memory Architecture for Large-Scale Graph Process-                 [200] D. Fujiki, S. Mahlke, and R. Das, “In-Memory Data Parallel Processor,” in ASP-
+      ing,” IEEE TCAD, 2019.                                                                            LOS, 2018.
+[176] Y. Tang, Y. Wang, H. Li, and X. Li, “ApproxPIM: Exploiting Realistic 3D-Stacked             [201] A. Biryukov and D. Khovratovich, “Related-Key Cryptanalysis of the Full AES-
+      DRAM for Energy-Efficient Processing in-Memory,” in ASP-DAC, 2017.                                192 and AES-256,” in ASIACRYPT, 2009.
+[177] O. Leitersdorf, D. Leitersdorf, J. Gal, M. Dahan, R. Ronen, and S. Kvatinsky, “Ar-          [202] C. Fontaine and F. Galand, “A Survey of Homomorphic Encryption for Nonspecial-
+      itPIM: High-Throughput In-Memory Arithmetic,” arXiv:2206.04218, 2022.                             ists,” EURASIP JIS, 2007.
+[178] N. Rohbani, M. A. Soleimani, and H. Sarbazi-Azad, “PIPF-DRAM: Processing in
+      Precharge-Free DRAM,” in DAC, 2022.
+
+
+
+
+                                                                                             19
+

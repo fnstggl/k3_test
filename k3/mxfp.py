@@ -56,6 +56,17 @@ def e8m0_decode(code: int) -> float:
     return 2.0 ** (code - 127)
 
 
+def e4m3_decode(code: int) -> float:
+    """Decode an 8-bit E4M3 code to its real value (sign,4-exp,3-mant).
+    Normals: (8+m)*2^(e-10); subnormals (e=0): m*2^-9. e=15,m=7 = NaN (excluded)."""
+    s = -1.0 if code & 0x80 else 1.0
+    e = (code >> 3) & 0xF
+    m = code & 0x7
+    if e == 0:
+        return s * m * 2.0 ** -9
+    return s * (8 + m) * 2.0 ** (e - 10)
+
+
 def e4m3_quantize(x: float) -> float:
     """Round a real to the E4M3 grid (saturating, no inf)."""
     if x == 0.0:
