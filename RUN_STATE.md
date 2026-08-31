@@ -8,8 +8,28 @@ NAND-internal primitive set required. Falsification-driven; outputs feed a later
 real-NAND experiment on Micron MT29F1T08EELEEJ4-R:E.
 
 # Current Gate
-COMPLETE — all software-executable gates (0–8) passed; final deliverables written.
-Only remaining work is physical (BABOL real-NAND experiment, spec'd). See audit below.
+COMPLETE — gates 0–8 + Gate 9 (physics-aware architecture invention) passed; final
+deliverables written. Only remaining work is physical (BABOL real-NAND). See audit.
+
+# Gate 9 (physics-aware architecture invention) — PASSED
+- 9A capability audit: 6 primary sources audited (MCFlash/Flash-Cosmos/AiF/ParaBit/
+  BABOL/Ares-Flash/CrossBit); configs/nand_capabilities.yaml + reports/07a. KEY: MCFlash
+  tested our EXACT part (MT29F1T08EELEEJ4) -> user-mode bitwise ops L1 but NO reduction.
+- 9B sense-event sim (sim/sense.py) modeling useful-exact-K3-MACs/sense.
+- 9C 104 hypotheses in 22 families (reports/07b).
+- 9D search: 3,888 archs x3 cases (results/gate9_*.csv/json); calibrated to Gate6 ±10%.
+- 9E exactness: bit-serial popcount decomposition BIT-EXACT vs OCP-MX (tests/test_gate9_exact
+  + k3/validate_exact full GEMV rel err 0.00e+00); real-K3 capture harness + remote cmd doc'd.
+- 9F economics: complete-appliance $/Mtok + refreshed GPU baseline (measured at-scale K3
+  serving $0.11-0.36/Mtok -> >10x throughput claim MORE falsified).
+- 9G adversarial: no-cr-read delta (2.3x), fp8/analog labeled NON-QUALIFYING, count reducer loses.
+- 9H BABOL update (E6-E9 cr-read/MWS/latch tests) + BEST_PHYSICALLY_CREDIBLE_ARCHITECTURE.md.
+- RESULT: best native-K3 arch K3-FlashReduce = $0.26 opt/$0.61 central per Mtok, ~100 tok/s
+  agg, 25-67 tok/s/user, 1-2 J/tok. Targets (500 agg/25 user/$0.10) NOT reached (0/3888).
+  10-40x win vs naive/low-concurrency GPU; NOT vs best at-scale GPU. "10x again" (MTP spec
+  decode, exact) buys per-user latency + best energy (0.19 J/tok) not $/Mtok floor. No
+  further step-function; aggressive targets need a NEW exact more-work-per-sense primitive
+  that no audited mechanism provides. Frozen gates 0-8 untouched.
 
 # Gate Status
 - Gate 0 (env + sources): PASSED (commit gate0-source-audit)

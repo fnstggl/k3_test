@@ -52,3 +52,25 @@ fail-bit **count** primitive and time it. PASS if a maskable count returns in
 silicon path. This single bench session both pins the tR the economics turn on
 and settles whether firmware-only K3-on-NAND is alive. Full protocol, prepared
 states, command sequences, and pass/fail bounds: `BABOL_TEST_SPEC.md`.
+
+---
+
+## Gate 9 update (physics-aware architecture invention)
+
+The verdict is unchanged and reinforced. Gate 9 built a sense-event-level
+simulator, audited the full NAND-compute literature from primary sources, proved
+the native-K3 popcount datapath bit-exact, and searched 3,888 composed
+architectures. **Best physically-credible native-K3 architecture (K3-FlashReduce):
+$0.26/Mtok optimistic / $0.61 central, ~100 tok/s aggregate, ~25–67 tok/s/user,
+1–2 J/token** — a genuine **10–40× win over naive/low-concurrency GPU serving**,
+but it does **NOT** reach the aggressive Gate-9 targets ($0.10/Mtok + 500 tok/s +
+25/user: 0 of 3,888 configs) and does not beat best at-scale GPU K3 serving
+(refreshed measured baseline **$0.11–0.36/Mtok**).
+
+New Gate-9 evidence: MCFlash tested our **exact part** (user-mode bitwise ops are
+L1 but give no reduction); cr-read is measured on a fabricated array (worth ~2.3×,
+F1); Ares-Flash (MICRO'24) independently corroborates the Gate-7 reducer as the
+minimum silicon. The **updated highest-impact next experiment is BABOL_TEST_SPEC
+E6** — trigger cr-read on the Micron part at ≈10 µs SLC tR (worth ~2.3× on $/Mtok);
+E2 (cross-bitline count) remains decisive for the aggressive targets, which require
+a new exact more-work-per-sense primitive that no audited mechanism provides.

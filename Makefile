@@ -33,6 +33,14 @@ economics:
 dram-sensitivity:
 	$(PY) experiments/dram_sensitivity.py
 
+gate9:
+	$(PY) experiments/gate9_run.py
+	$(PY) experiments/gate9_useful_work.py
+	$(PY) k3/validate_exact.py
+
+gate9-test:
+	$(PY) -m pytest tests/test_gate9_exact.py -q
+
 mqsim:
 	cd experiments/mqsim && ../../third_party/MQSim/MQSim -i ssdconfig_znand.xml -w workload_seqread.xml
 

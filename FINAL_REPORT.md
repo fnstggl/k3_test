@@ -172,3 +172,69 @@ Keeping K3's weights in NAND and reducing before they leave the die is
 idling a GPU node. The decisive open question is physical and narrow: does
 commodity NAND have any cross-bitline reduction primitive? Gate 4 says no on
 structural grounds; `BABOL_TEST_SPEC.md` E2 is the experiment that settles it.
+
+---
+
+## Gate 9 addendum — physics-aware architecture invention
+
+A dedicated invention phase (reports/07a–07c, `BEST_PHYSICALLY_CREDIBLE_ARCHITECTURE.md`)
+audited the primary NAND-compute literature (MCFlash, Flash-Cosmos, AiF, ParaBit,
+BABOL, Ares-Flash, CrossBit — several read in full), built a **sense-event-level**
+simulator (`sim/sense.py`) that models useful exact-K3 work per physical sense,
+proved the **bit-serial popcount decomposition bit-exact** for native MXFP4×MXFP8
+(`tests/test_gate9_exact.py`, `k3/validate_exact.py`: full GEMV rel err 0.00e+00),
+generated 104 hypotheses in 22 families, and searched 3,888 composed architectures
+× 3 cases against complete-appliance $/Mtok (calibrated to reproduce Gate 6 within
+~10%).
+
+**New physical facts that reshaped the evidence:**
+- MCFlash tested our **exact part** (`MT29F1T08EELEEJ4`): user-mode read-offset
+  bitwise AND/OR/XNOR/NOT are **L1**, RBER 0 fresh — but 2-operand, no reduction.
+- SLC-mode tR **22.5 µs measured** (48-layer TLC); cr-read **28→9.7 µs, −72% energy**
+  (measured on a fabricated 9×9 array + calibrated SPICE; die-internal F1).
+- **Ares-Flash (MICRO'24)** independently corroborates the Gate-7 reducer: a
+  page-buffer full-adder+shift with **32-bitline shift range = one MX block**.
+- BABOL is a **real MICRO'24 controller** tested on a Micron part → the BABOL
+  experiments are physically executable.
+
+**Best physically-credible architecture (K3-FlashReduce):** cr-read streaming +
+per-plane exact shift-add reducer + SLC many-small-dies + batch/expert-stationary +
+optional MTP speculation. Native precision, ≥25 tok/s/user:
+**$0.26/Mtok (opt) / $0.61 (central), 103 tok/s aggregate, 1.08–2.27 J/token.**
+
+**Targets verdict (native, ≥25 tok/s/user):** the $0.10/Mtok + 500 tok/s + 25/user
+targets are **NOT reached** (0 of 3,888 configs). First-principles: 500 tok/s needs
+a 7–23× cut in effective sensed bytes/token; the only exact levers are batch
+(latency-limited) and more-useful-work-per-sense (MWS gives **0 exact GEMV MACs**;
+count loses at MXFP4 density) — no audited mechanism delivers the cut exactly, so
+the **100×-per-sense claim is false for exact K3**. The refreshed GPU baseline
+(measured at-scale K3 serving **$0.11–0.36/Mtok, 0.4–1.2 J/tok**) makes the >10×
+throughput-serving claim MORE falsified. The step-function **is** real against
+naive/low-concurrency GPU serving ($6–12/Mtok): ~10–40× cheaper.
+
+**"10× again":** speculative decoding via K3's native MTP layer (exact, lossless)
+buys large per-user speedup (single-user 60→67 tok/s) and the best energy
+(0.19 J/tok) but does **not** move the $/Mtok floor — no further step-function
+found. The dominant term (array sense bandwidth per native-K3 byte at interactive
+latency) has a clear physical lower bound.
+
+**Highest-impact next experiment (updated):** BABOL_TEST_SPEC **E6** — can cr-read
+be triggered on `MT29F1T08EELEEJ4-R:E` at ≈10 µs SLC tR? It is worth ~2.3× on
+$/Mtok and is the one L3 primitive K3-FlashReduce leans on.
+
+### Final answer to the Gate-9 question
+
+*Given everything physically demonstrated in commodity NAND today, everything
+plausibly exposable through firmware/test-mode, and the smallest realistic
+peripheral modifications — the cheapest, fastest physically-credible architecture
+for unmodified native-accuracy Kimi K3 is **K3-FlashReduce** at **~$0.26–0.61/Mtok,
+~100 tok/s aggregate, ~25–67 tok/s/user, ~1–2 J/token***. To reach **500/1000 tok/s,
+$0.10/M, or a 10× advantage over the best GPU serving**, a **new physical capability
+is required that does not exist today**: an **exact cross-bitline reduction that
+resolves ≥5× more native-K3 MACs per physical sense than dense sensing, masks to
+32-column MX blocks, and folds multiple bitplanes per sense** — i.e., a
+maskable-popcount or exact digitally-corrected analog-sum primitive inside the
+array. No audited commodity or near-commodity mechanism provides it. **So the honest
+answer is: none yet for the aggressive targets** — but K3-FlashReduce is a genuine
+10–40× win over low-concurrency GPU serving and needs only a ~0.03%-die reducer
+(Ares-Flash-class, F2) plus cr-read exposure (F1), both physically credible.

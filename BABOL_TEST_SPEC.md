@@ -164,6 +164,56 @@ element/cycle at ≥400 MHz (equivalently ≥17 SIMD passes within tR). BABOL th
 validates its interface via E4, and fabrication is the next hardware step beyond
 BABOL.
 
+## E6–E9 — Gate 9 physical tests (new L3 primitives the architecture leans on)
+
+Gate 9's best architecture (K3-FlashReduce, `BEST_PHYSICALLY_CREDIBLE_ARCHITECTURE.md`)
+depends on cr-read and a tiny per-plane reducer; these turn the L3 mechanisms into
+precise bench questions. BABOL (MICRO'24, a real software-defined NAND controller
+demonstrated on a Micron 2-LUN part) is the instrument; MCFlash already proved
+read-offset/SBR work on our exact die.
+
+**E6 — Charge-recycling read (cr-read) trigger + timing (HIGHEST IMPACT).**
+- Prepare: program a block's LSB pages (SLC/pSLC mode) with a known contiguous
+  weight run.
+- Sequence to discover: after a first normal read (00h…30h), issue successive
+  same-block WL reads WITHOUT returning to standby — probe vendor/test-mode command
+  prefixes and SET FEATURE timer/voltage settings (per AiF: X-decoder WL-voltage
+  control + scheduler timer code) that suppress full precharge/discharge between
+  consecutive WL senses. Capture R/B# timing with a logic analyzer (BABOL method).
+- PASS: consecutive same-block reads complete at **≤ ~0.5× the single-sense tR**
+  (target ~10 µs from ~28 µs) with bit-identical data (compare to normal reads).
+- FAIL: no command/setting shortens consecutive reads, or data differs.
+- Decides: K3-FlashReduce at ~$0.26–0.61/Mtok (PASS) vs L2-commodity floor
+  ~$0.45–1.4/Mtok (FAIL). Worth ~2.3× on $/Mtok.
+
+**E7 — Multi-wordline sensing (MWS) on this die.**
+- Prepare: ESP-programmed SLC pages on ≤8 WLs of one block, known patterns.
+- Sequence: attempt simultaneous activation of N WLs (N=2,4,8) at VREF (rest VPASS)
+  — Flash-Cosmos test-mode class.
+- PASS: sensed result = per-bitline AND of the N WLs, RBER≈0, at ≤1.03× tR for N≤8.
+- FAIL: no multi-WL activation exposed, or errors.
+- Decides: whether MWS can form exact bitplane products in one sense (a minor
+  optimization; the reducer does not require it).
+
+**E8 — Latch persistence across senses (ParaBit/cache-read-random class).**
+- Sequence: sense WL_a into the sense latch; issue CACHE READ RANDOM to sense WL_b
+  without re-initializing the latch; read out.
+- PASS: the second read's latch reflects a combine (AND/OR) of WL_a and WL_b —
+  i.e. latch state persisted and participated.
+- FAIL: latch re-initialized between senses (no persistence).
+- Decides: whether retained-accumulator reuse (D_ACC) can lean on existing latch
+  behavior (F1) vs requiring the added reducer registers (F2).
+
+**E9 — Runtime-activation participation without programming.**
+- Sequence: load an activation pattern into a cache latch (via a write to the cache
+  register, not a program), then sense a stored weight page and attempt a
+  latch-combine (XOR/AND) with the loaded activation.
+- PASS: a stored-weight × loaded-activation bitwise combine appears in a latch
+  WITHOUT a NAND program (no 600 µs tPROG).
+- FAIL: activation cannot participate without programming a cell.
+- Decides: whether activations can enter the datapath cheaply (they must, every
+  token) — currently modeled via the broadcast-register path (F2 reducer input).
+
 ## What is proven physically vs what remains modeled
 
 - BABOL **can** settle Q0 (primitive existence), real tR/energy/geometry
