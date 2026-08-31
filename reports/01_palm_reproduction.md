@@ -83,11 +83,15 @@ exactly what reproduces the paper's capacity curve. The 28–30× overall speedu
 
 ## DRAMsim3
 
-Not integrated, with reasoning: attention is a pure sequential K/V stream; the paper's
-own Fig 16c shows only 1.1× TPOT change across 3400→9400 Mbps DRAM, and our 51.2 GB/s
-roofline reproduces all four context deltas within 1%. A cycle-accurate DRAM model
-cannot change any Gate 2 conclusion at the 10% level. (Directory `third_party/DRAMsim3`
-is pinned for later use if a K3 configuration becomes DRAM-sensitive; Gate 3 revisits.)
+Not integrated, with a quantitative justification (not just an assertion):
+attention/KDA-state/KV traffic runs on the DRAM roofline; a cycle-accurate model
+would only refine that roofline. `experiments/dram_sensitivity.py` sweeps DRAM
+bandwidth over a **32× range (12.8→409.6 GB/s)** on the K3 decode and finds TPOT
+moves only **1.38×** (153→111 ms), because the NAND-sense time is fixed at
+109.3 ms regardless of DRAM speed — i.e. **K3-on-NAND decode is NAND-sense-bound,
+not DRAM-bound.** This mirrors the paper's own Fig 16c (1.1× across its DRAM axis).
+A cycle-accurate DRAM model therefore cannot change any decision-level conclusion.
+(`third_party/DRAMsim3` stays pinned; `results/dram_sensitivity.json` records the run.)
 
 ## Ambiguities carried forward (not silently resolved)
 

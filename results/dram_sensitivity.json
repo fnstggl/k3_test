@@ -1,0 +1,46 @@
+{
+ "provenance": {
+  "git": "8f1f40b478b8047ea78c82473f6579697dfea89e",
+  "ts": "2026-08-31T03:34:39Z"
+ },
+ "note": "32x DRAM-BW range; TPOT span factor below shows K3 decode is NAND-sense-bound, not DRAM-bound. Cycle-accurate DRAM (DRAMsim3) cannot change a decision-level conclusion. Cf. paper Fig 16c (1.1x).",
+ "sweep": [
+  {
+   "dram_GBps": 12.8,
+   "tpot_ms": 153.0,
+   "dyn_busy_ms": 43.7,
+   "nand_busy_ms": 109.3
+  },
+  {
+   "dram_GBps": 25.6,
+   "tpot_ms": 131.1,
+   "dyn_busy_ms": 21.8,
+   "nand_busy_ms": 109.3
+  },
+  {
+   "dram_GBps": 51.2,
+   "tpot_ms": 120.2,
+   "dyn_busy_ms": 10.9,
+   "nand_busy_ms": 109.3
+  },
+  {
+   "dram_GBps": 102.4,
+   "tpot_ms": 114.8,
+   "dyn_busy_ms": 5.5,
+   "nand_busy_ms": 109.3
+  },
+  {
+   "dram_GBps": 204.8,
+   "tpot_ms": 112.0,
+   "dyn_busy_ms": 2.7,
+   "nand_busy_ms": 109.3
+  },
+  {
+   "dram_GBps": 409.6,
+   "tpot_ms": 110.7,
+   "dyn_busy_ms": 1.4,
+   "nand_busy_ms": 109.3
+  }
+ ],
+ "tpot_span_factor_12p8_to_409p6": 1.38
+}

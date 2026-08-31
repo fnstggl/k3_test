@@ -30,6 +30,9 @@ sweep:
 economics:
 	$(PY) experiments/economics.py
 
+dram-sensitivity:
+	$(PY) experiments/dram_sensitivity.py
+
 mqsim:
 	cd experiments/mqsim && ../../third_party/MQSim/MQSim -i ssdconfig_znand.xml -w workload_seqread.xml
 
