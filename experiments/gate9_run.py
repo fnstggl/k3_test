@@ -68,15 +68,25 @@ def gen_candidates():
                                     unv.append("cr-read-on-this-part")
                                 if reducer == "failbit_count":
                                     unv.append("exposed-maskable-failbit-count")
-                                a = Arch(
-                                    name=f"{oname}|{fam}|L{lanes}|B{B}|{'fp8' if fp8 else 'native'}",
-                                    family=fam, channels=ch, dies_per_channel=dpc,
-                                    planes_per_die=ppd, page_kb=pkb, die_cap_gb=cap,
-                                    tR_us=tR, slc_mode=slc, cr_read=cr, cr_chain=chain,
-                                    reducer=reducer, lanes=lanes, dataflow=df, batch=B,
-                                    dense_fp8=fp8, ecc=0.0 if slc else 0.10,
-                                    evidence=ev, mod_class=mc, unverified=tuple(unv))
-                                cands.append(a)
+                                # speculative-decode variants (K3-native MTP, exact):
+                                # off, plus K=4/acc=2.5 on shift-add native configs
+                                spec_opts = [(1, 1.0)]
+                                if reducer == "shiftadd" and not fp8 and df == "token":
+                                    spec_opts.append((4, 2.5))
+                                for (K, acc) in spec_opts:
+                                    sname = f"|spec{K}" if K > 1 else ""
+                                    a = Arch(
+                                        name=f"{oname}|{fam}|L{lanes}|B{B}|"
+                                             f"{'fp8' if fp8 else 'native'}{sname}",
+                                        family=fam + ("+spec" if K > 1 else ""),
+                                        channels=ch, dies_per_channel=dpc,
+                                        planes_per_die=ppd, page_kb=pkb, die_cap_gb=cap,
+                                        tR_us=tR, slc_mode=slc, cr_read=cr, cr_chain=chain,
+                                        reducer=reducer, lanes=lanes, dataflow=df, batch=B,
+                                        dense_fp8=fp8, ecc=0.0 if slc else 0.10,
+                                        spec_draft=K, spec_accept=acc,
+                                        evidence=ev, mod_class=mc, unverified=tuple(unv))
+                                    cands.append(a)
     return cands
 
 

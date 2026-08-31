@@ -1,10 +1,10 @@
 {
  "provenance": {
-  "git": "1a2950f98b379f59aaed5deadc2dcf8d09c68d33",
-  "ts": "2026-08-31T17:32:46Z"
+  "git": "c375ad1c7e1424a550e5e68d7eeb36bb256ccfe5",
+  "ts": "2026-08-31T17:43:23Z"
  },
- "n_candidates": 3888,
- "n_points": 10368,
+ "n_candidates": 4536,
+ "n_points": 12096,
  "gpu_baseline": {
   "node_tok_s_at_interactive": 2232.0,
   "usd_per_Mtok_capex": 2.75,
@@ -405,8 +405,8 @@
    "hits_0p10_dollar": false
   },
   "best_energy_qualifying": {
-   "name": "znand-4TB|shiftadd+cr+token|L4|B256|native",
-   "family": "shiftadd+cr+token",
+   "name": "znand-4TB|shiftadd+cr+token|L4|B256|native|spec4",
+   "family": "shiftadd+cr+token+spec",
    "case": "central",
    "qualifying": true,
    "evidence": "L3",
@@ -423,16 +423,16 @@
    "n_planes": 4096,
    "tR_us": 3,
    "eff_tR_us": 1.38,
-   "agg_tok_s": 47.1,
-   "per_user_tok_s": 0.2,
-   "tpot_ms": 5438.5,
-   "usd_per_Mtok": 0.689,
-   "J_per_token": 0.33,
+   "agg_tok_s": 29.4,
+   "per_user_tok_s": 0.1,
+   "tpot_ms": 21753.8,
+   "usd_per_Mtok": 1.086,
+   "J_per_token": 0.19,
    "capex_usd": 1746,
-   "wall_W": 36,
-   "sensed_GB_per_token": 6.03,
-   "senses_per_token_M": 2.94,
-   "macs_per_sense": 35395,
+   "wall_W": 25,
+   "sensed_GB_per_token": 2.44,
+   "senses_per_token_M": 1.19,
+   "macs_per_sense": 87468,
    "raw_cap_TB": 4.1,
    "usable_cap_TB": 2.05,
    "hits_500_agg": false,

@@ -112,6 +112,12 @@ class Arch:
     batch: int
     dense_fp8: bool         # NON-QUALIFYING flag
     ecc: float = 0.10
+    # speculative decode via K3's native MTP layer (EXACT, lossless verification):
+    # draft K positions with the 1-layer MTP, verify all K in one full-model pass;
+    # accept ~spec_accept tokens/user/wave. Converts array batch headroom into
+    # per-user speedup — ideal for the low-concurrency niche. spec_accept=1 = off.
+    spec_draft: int = 1     # K draft length (1 = no speculation)
+    spec_accept: float = 1.0  # mean accepted tokens/user/wave (<= K); measured GPU ~2.6-4.7
     # evidence/mod bookkeeping
     evidence: str = "L2"
     mod_class: str = "F2"
@@ -149,12 +155,19 @@ def evaluate(a: Arch, case: str) -> dict:
 
     dense_b = DENSE_BYTES_BF16 * (8.25 / 16 if a.dense_fp8 else 1.0)
     B = a.batch
+    K = max(1, a.spec_draft)            # draft length (verify K positions/user/wave)
+    positions = B * K                    # full-model verify positions this wave
+    accepted = B * a.spec_accept         # accepted tokens this wave (exact, lossless)
 
-    # --- per-pool sense bytes per wave of B tokens ---
-    dense_bytes = dense_b                                   # sensed ONCE, reused x B
-    n_distinct = distinct_experts(B)
-    expert_bytes = n_distinct * (EXPERT_STORE / N_EXPERTS)  # distinct experts sensed once
+    # --- per-pool sense bytes per wave ---
+    # dense sensed once, reused across all `positions`; experts union over positions
+    dense_bytes = dense_b
+    n_distinct = distinct_experts(positions)
+    expert_bytes = n_distinct * (EXPERT_STORE / N_EXPERTS)
     sensed_wave = dense_bytes + expert_bytes
+    # MTP draft overhead: 1-layer autoregressive draft, K steps, ~1/93 of model
+    draft_overhead = (dense_bytes / N_MOE) * (K - 1) if K > 1 else 0.0
+    sensed_wave += draft_overhead
 
     # --- aggregate sense bandwidth & reducer throughput ---
     tR = eff_tR(a, case)
@@ -179,19 +192,20 @@ def evaluate(a: Arch, case: str) -> dict:
         b = "sense" if t_sense >= t_reduce else "compute"
         return max(t_sense, t_reduce) + cmd_overhead, b
 
-    t_dense, bneck_d = pool_time(dense_bytes, DENSE_MACS * B)
-    t_expert, bneck_e = pool_time(expert_bytes, EXPERT_MACS * B)
-    t_dyn = DYN_BYTES * B / 102.4e9
+    # reducer MACs scale with verify positions (each sensed weight applied to all)
+    t_dense, bneck_d = pool_time(dense_bytes, DENSE_MACS * positions)
+    t_expert, bneck_e = pool_time(expert_bytes, EXPERT_MACS * positions)
+    t_dyn = DYN_BYTES * positions / 102.4e9
     wave_time = t_dense + t_expert + t_dyn
-    agg_tok_s = B / wave_time
-    per_user_tok_s = 1.0 / wave_time
+    agg_tok_s = accepted / wave_time              # accepted tokens (exact output)
+    per_user_tok_s = a.spec_accept / wave_time
     tpot_ms = wave_time * 1e3
     leave_frac = 1.0 if a.reducer == "export" else 0.02
 
-    # --- effective sensed bytes/token & senses/token ---
-    sensed_per_token = sensed_wave / B
+    # --- effective sensed bytes/accepted-token & senses/token ---
+    sensed_per_token = sensed_wave / accepted
     senses_per_token = sensed_per_token / page_b
-    macs_per_sense = MACS_PER_TOKEN * B / max(1.0, sensed_wave / page_b)
+    macs_per_sense = MACS_PER_TOKEN * accepted / max(1.0, sensed_wave / page_b)
 
     # --- energy per token ---
     e_sense = sensed_per_token * 8 * SENSE_PJ_PER_BIT[case] * 1e-12
