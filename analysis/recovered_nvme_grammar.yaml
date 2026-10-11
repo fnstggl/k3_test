@@ -1,0 +1,78 @@
+# Recovered NVMe command grammar from sanupdater-3.12.1-win32.exe
+# (static analysis only; see fwsddt10_reverse_engineering.md for evidence & offsets)
+#
+# command struct layout (80 bytes) as built before executor call at 0x410270:
+#   +0x00 opcode(dw0[7:0])  +0x04 NSID(dw1)  +0x08 CDW10  +0x0C CDW11
+#   +0x10 CDW12  +0x14 CDW13  +0x3C data_len(bytes)  +0x40 direction(1=h2c,2=c2h)  +0x44 timeout
+
+source_binary: sanupdater-3.12.1-win32.exe
+sdk: "SanDisk yupd 1.12.1 (yadl/yextnvme/yextata/yextvuc/yextfirmware)"
+executor: 0x410270   # yadl_nvme_execute, jump-table dispatch by driver type
+
+opcodes_actually_issued:
+  - opcode: 0x06
+    name: Identify
+    sites: [0x40C25C, 0x40C33B]
+    nsid: caller-supplied
+    cdw10: "(CNTID<<16) | CNS"
+    direction: controller->host
+    confidence: CONFIRMED
+  - opcode: 0x09
+    name: Set Features
+    sites: [0x40C497]
+    confidence: CONFIRMED
+  - opcode: 0x10
+    name: Firmware Commit / Activate
+    sites: [0x40C0F9]
+    direction: no-data
+    confidence: CONFIRMED
+  - opcode: 0x11
+    name: Firmware Image Download
+    sites: [0x40C1A5]
+    direction: host->controller
+    confidence: CONFIRMED
+  - opcode: 0xE2
+    name: vendor "adapter info" (Intel RST/RSTe enumeration path)
+    sites: [0x41DBB0, 0x41DD54]     # builder 0x41DA50, called from enumerate 0x415280
+    nsid: 0x00000000
+    cdw10: 0x000003FF               # 1024 dwords - 1 => 4096-byte read
+    cdw11: 0x00000000
+    cdw12: [0xE0, 0xE1]             # sub-selector / object id (two calls)
+    cdw13: 0x00000000
+    data_len: 0x1000
+    direction: controller->host
+    timeout_ms: 500
+    confidence: CONFIRMED (shape)  /  LIKELY (is an Intel-RST query, not a direct SN740 cmd)
+
+opcodes_from_your_list_NOT_present:
+  # 0 occurrences as command opcodes anywhere in fwsddt10.exe / fwwinsd.exe / sanupdater
+  0xEA: absent            # does not occur at all
+  0xE5: absent
+  0xE6: absent
+  0xF1: absent
+  0xFA: absent            # (your DUI-capture opcode lives in a different WD tool)
+  0xE9: "only as `cmp byte,0xe9` at 0x416C34 — not an opcode"
+  0xE4: "only as cmp/`sub esp,0xe4` constants — not an opcode"
+  0x80: "not used as an I/O opcode in any command builder"
+
+firmware_update_path:
+  method: standard NVMe
+  sequence: [Identify(0x06), "Firmware Image Download(0x11) [chunked/offset or deferred]", "Firmware Commit(0x10) [slot select, deferred|immediate]"]
+  vendor_opcodes_used: none
+
+vendor_unique_command_framework:   # yextvuc/wd — present but NOT on the NVMe path
+  transports: [ATA, SCSI/SAS]      # _vsc4 / _vsc5_ata / _vsc5_scsi ; NO nvme variant
+  grammar: "send-key enable/disable + action-code(ac)/function-code(fc) selectors"
+  implementation_level: "<= 4 checked; read from Identify"
+  nvme_reachable: false
+  auth_type: "fixed enable sequence (not cryptographic challenge/response)"
+
+firmware_image:
+  file: 73110101.fluf
+  format: "FLUF Format 002"
+  size: 2822144
+  platform_codename: vulcan_sed_perf
+  entropy: 7.9996
+  encrypted: LIKELY
+  signed: LIKELY (controller-validated on commit)
+  host_decrypts: false
