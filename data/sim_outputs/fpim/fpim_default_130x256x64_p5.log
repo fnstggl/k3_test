@@ -1,0 +1,52 @@
+User-defined configuration file (3D_FPIM.cfg) is loaded
+
+Cell Area (m^2)    : 0.000 (0.000Fx0.000F)
+Cell Height (m)    : 0.000
+Read Voltage       : 1.000V
+Pass Voltage       : 4.500V
+
+====================
+DESIGN SPECIFICATION
+====================
+Design Target: Random Access Memory
+Page Count : 64
+
+Searching for the best solution that is optimized for read latency ...
+
+=============
+CONFIGURATION
+=============
+ - SubArray Size    : 130 Rows x 256 Columns
+Mux Level:
+Local Wire:
+ - Wire Type : Local Aggressive
+ - Repeater Type: No Repeaters
+ - Low Swing : No
+Global Wire:
+ - Wire Type : Global Aggressive
+ - Repeater Type: No Repeaters
+ - Low Swing : No
+Buffer Design Style: Latency-Optimized
+=============
+   RESULT
+=============
+ |--- SubArray Area = 3.413e-03 mm^2
+    |--- Cell Area Inlcuding the Staircase = 9.328e-02 x 2.044e-02 = 1.907e-03 mm^2
+    |--- Decoder Area = 1.092e-03 mm^2
+    |--- SelectDecoder Area = 2.620e-04 mm^2
+    |--- SenseAmp Area (Cap Load) = 6.612e-04 mm^2
+    |--- Precharger Area = 3.757e-05 mm^2
+ - Area Efficiency = 2.798e+01%
+Timing:
+   |--- Row Decoder Latency (SR) = 166 ns
+   |--- Row Decoder Latency (CR) = 95 ns
+   |--- Capacitor Drive Latency = 32 ns
+Energy:
+   |--- CELL + Others = 1.206e+01 fJ
+   |--- Load Capacitor = 6.636e+00 fJ
+   |--- Row Decoder Energy (SR) = 7.323e+01 fJ
+   |--- Row Decoder Energy (CR) = 7.076e+00 fJ
+   |--- Leakage = 2.301e+00 nW
+#################################################
+
+Finished!

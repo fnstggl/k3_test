@@ -1,0 +1,68 @@
+[
+ {
+  "metric": "quant_4b_rel_err_vs_numpy",
+  "expected_tutorial_pt2": null,
+  "observed": 0.16427,
+  "pct_diff": null
+ },
+ {
+  "metric": "quant_6b_rel_err_vs_numpy",
+  "expected_tutorial_pt2": null,
+  "observed": 0.03865,
+  "pct_diff": null
+ },
+ {
+  "metric": "quant_8b_rel_err_vs_numpy",
+  "expected_tutorial_pt2": null,
+  "observed": 0.0096,
+  "pct_diff": null
+ },
+ {
+  "metric": "weight_mae_balanced",
+  "expected_tutorial_pt2": 0.21637,
+  "observed": 0.21528,
+  "pct_diff": -0.51
+ },
+ {
+  "metric": "weight_mae_offset",
+  "expected_tutorial_pt2": 0.34244,
+  "observed": 0.34299,
+  "pct_diff": 0.16
+ },
+ {
+  "metric": "dft_img_mae_balanced",
+  "expected_tutorial_pt2": 0.08355,
+  "observed": 0.08707,
+  "pct_diff": 4.21
+ },
+ {
+  "metric": "dft_img_mae_offset",
+  "expected_tutorial_pt2": 0.14456,
+  "observed": 0.13664,
+  "pct_diff": -5.48
+ },
+ {
+  "metric": "dft_img_mae_balanced_onoff4",
+  "expected_tutorial_pt2": 0.11186,
+  "observed": 0.1141,
+  "pct_diff": 2.01
+ },
+ {
+  "metric": "dft_img_mae_offset_onoff4",
+  "expected_tutorial_pt2": 0.1957,
+  "observed": 0.20581,
+  "pct_diff": 5.16
+ },
+ {
+  "metric": "dft_img_mae_1slice",
+  "expected_tutorial_pt2": 0.08336,
+  "observed": 0.08192,
+  "pct_diff": -1.73
+ },
+ {
+  "metric": "dft_img_mae_4slices",
+  "expected_tutorial_pt2": 0.06327,
+  "observed": 0.0677,
+  "pct_diff": 7.0
+ }
+]

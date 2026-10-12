@@ -1,0 +1,54 @@
+User-defined configuration file (3D_NAND_512G.cfg) is loaded
+
+Cell Area (m^2)    : 0.000 (0.000Fx0.000F)
+Cell Height (m)    : 0.000
+Read Voltage       : 0.000V
+Pass Voltage       : 6.000V
+
+====================
+DESIGN SPECIFICATION
+====================
+Design Target: Random Access Memory
+Page Count : 64
+
+Searching for the best solution that is optimized for read latency ...
+
+=============
+CONFIGURATION
+=============
+ - SubArray Size    : 17244 Rows x 135168 Columns
+Mux Level:
+Local Wire:
+ - Wire Type : Local Aggressive
+ - Repeater Type: No Repeaters
+ - Low Swing : No
+Global Wire:
+ - Wire Type : Global Aggressive
+ - Repeater Type: No Repeaters
+ - Low Swing : No
+Buffer Design Style: Latency-Optimized
+=============
+   RESULT
+=============
+ |--- SubArray Area = 7.852e+01 mm^2
+    |--- Cell Area Inlcuding the Staircase = 1.237e+01 x 5.417e+00 = 6.702e+01 mm^2
+    |--- Decoder Area = 2.936e+00 mm^2
+    |--- SelectDecoder Area = 6.714e+00 mm^2
+    |--- SenseAmp Area = 3.294e-06
+    |--- Precharger Area = 1.984e-02 mm^2
+ - Area Efficiency = 8.520e+01%
+Timing:
+|--- Error = 19.597
+|--- SubArray Latency = 2.814e+04 ns
+   |--- Decoding Latency = 5.512e+03 ns
+       |--- Row Decoder Latency = 5.512e+03 ns
+       |--- Select Latency = 1.970e+03 ns
+   |--- Senseamp Latency = 1.459e+00 ns
+   |--- Precharge Latency = 1.944e+04 ns
+       |--- Enable Latency = 1.239e+03 ns
+   |--- Discharge Latency = 5.660e+03 ns
+      |--- Discharge Precharger = 1.239e+03 ns
+      |--- Discharge Complete Decoder = 1.507e+03 ns
+      |--- Discharge Select Decoder = 1.970e+03 ns
+
+Finished!

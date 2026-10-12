@@ -1,0 +1,5 @@
+[sweep] wrote /home/user/k3_test/data/sim_outputs/neurosim/rram_subarray_sweep.csv (252 rows)
+[sweep] wrote /home/user/k3_test/data/sim_outputs/neurosim/rram_subarray_sweep_7nm_forced_UNSUPPORTED.csv (168 rows)
+[sweep] wrote /home/user/k3_test/data/sim_outputs/neurosim/rram_subarray_sweep_colmux_sensitivity.csv (300 rows)
+[sweep] wrote /home/user/k3_test/data/sim_outputs/neurosim/rram_subarray_sweep_detailed.csv (660 rows)
+[sweep] 660 configs, 660 ok, 0 failed

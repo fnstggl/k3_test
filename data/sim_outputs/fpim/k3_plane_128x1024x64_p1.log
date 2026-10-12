@@ -1,0 +1,52 @@
+User-defined configuration file (k3_k3_plane_128x1024x64_p1.cfg) is loaded
+
+Cell Area (m^2)    : 0.000 (0.000Fx0.000F)
+Cell Height (m)    : 0.000
+Read Voltage       : 1.000V
+Pass Voltage       : 4.500V
+
+====================
+DESIGN SPECIFICATION
+====================
+Design Target: Random Access Memory
+Page Count : 64
+
+Searching for the best solution that is optimized for read latency ...
+
+=============
+CONFIGURATION
+=============
+ - SubArray Size    : 128 Rows x 1024 Columns
+Mux Level:
+Local Wire:
+ - Wire Type : Local Aggressive
+ - Repeater Type: No Repeaters
+ - Low Swing : No
+Global Wire:
+ - Wire Type : Global Aggressive
+ - Repeater Type: No Repeaters
+ - Low Swing : No
+Buffer Design Style: Latency-Optimized
+=============
+   RESULT
+=============
+ |--- SubArray Area = 6.975e-03 mm^2
+    |--- Cell Area Inlcuding the Staircase = 9.184e-02 x 5.116e-02 = 4.699e-03 mm^2
+    |--- Decoder Area = 1.092e-03 mm^2
+    |--- SelectDecoder Area = 2.580e-04 mm^2
+    |--- SenseAmp Area (Cap Load) = 1.322e-03 mm^2
+    |--- Precharger Area = 1.503e-04 mm^2
+ - Area Efficiency = 5.393e+01%
+Timing:
+   |--- Row Decoder Latency (SR) = 240 ns
+   |--- Row Decoder Latency (CR) = 27 ns
+   |--- Capacitor Drive Latency = 2 ns
+Energy:
+   |--- CELL + Others = 9.996e+00 fJ
+   |--- Load Capacitor = 1.327e+01 fJ
+   |--- Row Decoder Energy (SR) = 2.057e+02 fJ
+   |--- Row Decoder Energy (CR) = 5.537e+00 fJ
+   |--- Leakage = 2.814e+00 nW
+#################################################
+
+Finished!

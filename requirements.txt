@@ -1,0 +1,8 @@
+# Python 3.11+ (developed on 3.13)
+numpy>=2.0
+scipy>=1.11
+matplotlib>=3.8
+tiktoken>=0.7          # only for scripts/k3_real_forward.py (K3 tokenizer)
+pillow>=10             # only for the CrossSim tutorial reproduction
+pytest>=8
+# CrossSim (Sandia) V3.2.1, installed from source:  git clone https://github.com/sandialabs/cross-sim && pip install -e cross-sim

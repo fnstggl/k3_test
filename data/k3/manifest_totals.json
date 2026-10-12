@@ -1,0 +1,17 @@
+{
+  "repo": "moonshotai/Kimi-K3",
+  "revision": "f831ab66814297da540d832a5235f8e904f29d06",
+  "num_tensors": 497220,
+  "bytes_by_dtype": {
+    "F32": 44489728,
+    "BF16": 114359769088,
+    "U8": 1446456066048
+  },
+  "elements_by_dtype": {
+    "F32": 11122432,
+    "BF16": 57179884544,
+    "U8": 1446456066048
+  },
+  "total_bytes": 1560860324864,
+  "index_total_size": 1560860324864
+}

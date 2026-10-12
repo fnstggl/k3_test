@@ -1,0 +1,15 @@
+simulator,baseline,metric,published,reproduced,pct_diff,seed_mean,seed_std,published_z_vs_seed_spread,verdict
+CrossSim 3.2.1,tutorial_pt2.ipynb recorded outputs,weight_mae_balanced,0.21637,0.21528,-0.51,,,,see note
+CrossSim 3.2.1,tutorial_pt2.ipynb recorded outputs,weight_mae_offset,0.34244,0.34299,0.16,,,,see note
+CrossSim 3.2.1,tutorial_pt2.ipynb recorded outputs,dft_img_mae_balanced,0.08355,0.08707,4.21,0.0815873,0.00186791,1.05073,reproduced (within 2 sigma of seed spread)
+CrossSim 3.2.1,tutorial_pt2.ipynb recorded outputs,dft_img_mae_offset,0.14456,0.13664,-5.48,0.143553,0.00232179,0.433808,reproduced (within 2 sigma of seed spread)
+CrossSim 3.2.1,tutorial_pt2.ipynb recorded outputs,dft_img_mae_balanced_onoff4,0.11186,0.1141,2.01,,,,see note
+CrossSim 3.2.1,tutorial_pt2.ipynb recorded outputs,dft_img_mae_offset_onoff4,0.1957,0.20581,5.16,,,,see note
+CrossSim 3.2.1,tutorial_pt2.ipynb recorded outputs,dft_img_mae_1slice,0.08336,0.08192,-1.73,0.0815817,0.0018837,0.944047,reproduced (within 2 sigma of seed spread)
+CrossSim 3.2.1,tutorial_pt2.ipynb recorded outputs,dft_img_mae_4slices,0.06327,0.0677,7,0.0662839,0.00151784,-1.98567,reproduced (within 2 sigma of seed spread)
+k3cim.analog vs CrossSim AnalogCore,"identical integer MVM, SONOS model",sonos_prog_noADC,0.0191237,0.0190869,-0.192243,,,,custom simulator validated
+k3cim.analog vs CrossSim AnalogCore,"identical integer MVM, SONOS model",sonos_prog_read_noADC,0.022389,0.0223082,-0.361008,,,,custom simulator validated
+3D-FPIM NVSim (MICRO'22),"shipped validation cfg, 128Gb TLC: 30 us tR / 3 sensings",per-sensing read latency (s),1e-05,1.069e-05,6.857,,,,reproduced within 20% using literature geometry (authors' geometry never released)
+3D-FPIM NVSim (MICRO'22),"shipped validation cfg, 256Gb TLC: 60 us / 3",per-sensing read latency (s),2e-05,1.704e-05,14.801,,,,reproduced within 20% using literature geometry (authors' geometry never released)
+3D-FPIM NVSim (MICRO'22),"shipped validation cfg, 512Gb QLC: 140 us / 4",per-sensing read latency (s),3.5e-05,2.814e-05,19.597,,,,reproduced within 20% using literature geometry (authors' geometry never released)
+3D-FPIM NVSim (MICRO'22),shipped 3D_FPIM.cfg PIM mode,"row-decoder latency SR/CR (ns), cap drive (ns)",not published in repo,"166.0/95.0, 32.0",,,,,runs; no published per-op number available to compare (3D-FPIM Table II not public)
