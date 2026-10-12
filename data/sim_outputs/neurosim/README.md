@@ -70,7 +70,68 @@ after 18 min (`logs/baseline/rram22_pr32_ABORTED_4threads.log`); it was rerun wi
 
 ## 4. Baseline reproduction (manual Table VII)
 
-BASELINE_SECTION_PLACEHOLDER
+**Published reference.** The V1.4 manual's only fully specified published results are Table VII (§11, p.32,
+"Hardware Estimation Examples", dated 9/27/23, "will be constantly updated as we make minor updates in the code"):
+VGG8/CIFAR-10, 8b×8b, 1 bit/cell, 128×128 subarrays, 4-bit ADC, XY bus, parallelRead 32/64, RRAM on/off 17
+(= shipped Ron 100 kΩ / Roff 1.7 MΩ), SRAM on/off ∞, other parameters at their released defaults. (Fig. 27, the
+example output screenshot, uses an under-specified 2-bit/100 kΩ/10 MΩ layer-by-layer configuration and was not used.)
+Note the shipped `Param.cpp` default is **SRAM** (`memcelltype = 1`) with a 5-bit ADC; the RRAM rows need
+`memcelltype=2, levelOutput=16`, the SRAM rows `levelOutput=16`.
+
+**What could be run on this CPU.** The manual's flow (`inference.py --inference 1`) emulates ADC/partial-parallel
+effects with thousands of full-size masked convolutions per layer. One test image (all that the C++ trace hook uses —
+`utee/hook.py` records image #1 of batch #1) took ~50 min through conv layer 6 at parallelRead=64 (05:59→06:48)
+and then >70 min inside the 8192×1024 FC layer; parallelRead=32 is ~2× slower,
+so every `--inference 1` run hit the 2-hour background-task limit (RRAM pr64: killed in the FC layer after all 12
+conv-layer traces were written; RRAM pr32 and SRAM pr32: stopped by me when they could no longer finish; logs
+`logs/baseline/*_STOPPED.log`, `*_ABORTED_4threads.log`). Therefore:
+
+* **ideal traces** (`--inference 0`): plain 8-bit WAGE forward (seconds), same 16 trace files, same `./NeuroSIM/main`
+  call (`tools/run_baseline_ideal_traces.sh`). All 8 Table VII rows were run this way.
+* **hybrid traces** (RRAM pr64 only): the 12 faithful `--inference 1` conv-layer traces (98.6 % of VGG8's MACs) +
+  the ideal FC-layer traces. Result: chip area, clock (1.58316 ns) and TOPS are **bit-identical** to the ideal-trace run
+  (synchronous-mode cycle counts and the sensing clock do not depend on data), TOPS/W is +8.7 % (HEAD) / +6.4 %
+  (6a6073d) because the HW-aware activations are sparser (input-bit density of conv layers 3-6: 1.4-10 % vs 8-21 %).
+* **code version**: the branch history starts 2024-10-04 (original V1.4 upload `6a6073d`), i.e. after Table VII was
+  generated. All rows were also re-run with the C++ of `6a6073d` (`tools/run_baseline_oldcode.sh`; Param.cpp is
+  identical in both commits), which predates the 2024-10-31 SubArray floorplan change (`4b95797`).
+* **accuracy** is NOT reproduced: only 1 image was classified per run (CPU budget); that number is reported in the CSV
+  but marked not comparable.
+
+| config | metric | Table VII | HEAD 8a88abf, ideal traces | 6a6073d, ideal traces | HEAD, hybrid traces | 6a6073d, hybrid traces |
+|---|---|---|---|---|---|---|
+| RRAM 22nm pr32 | area mm² | 381.9 | 86.61 (−77.3 %) | 345.2 (−9.6 %) | – | – |
+| RRAM 22nm pr32 | TOPS | 6.25 | 7.886 (+26.2 %) | 7.886 (+26.2 %) | – | – |
+| RRAM 22nm pr32 | TOPS/W | 11.25 | 20.92 (+86.0 %) | 20.08 (+78.5 %) | – | – |
+| RRAM 22nm pr32 | TOPS/mm² | 0.01 | 0.0911 | 0.0229 | – | – |
+| RRAM 22nm pr64 | area mm² | 378.06 | 85.90 (−77.3 %) | 341.3 (−9.7 %) | 85.90 (−77.3 %) | 341.3 (−9.7 %) |
+| RRAM 22nm pr64 | TOPS | 8.16 | 9.496 (+16.4 %) | 9.383 (+15.0 %) | 9.496 (+16.4 %) | 9.383 (+15.0 %) |
+| RRAM 22nm pr64 | TOPS/W | 19.88 | 33.40 (+68.0 %) | 31.41 (+58.0 %) | 36.32 (+82.7 %) | 33.43 (+68.2 %) |
+| RRAM 22nm pr64 | TOPS/mm² | 0.02 | 0.1105 | 0.0275 | 0.1105 | 0.0275 |
+| SRAM 22nm pr32 | area mm² | 85.97 | 79.71 (−7.3 %) | 79.71 (−7.3 %) | – | – |
+| SRAM 22nm pr32 | TOPS / TOPS/W | 6.06 / 8.76 | 7.724 (+27.5 %) / 15.16 (+73.0 %) | 7.724 / 15.13 | – | – |
+| SRAM 22nm pr64 | area mm² | 84.39 | 78.13 (−7.4 %) | 78.13 (−7.4 %) | – | – |
+| SRAM 22nm pr64 | TOPS / TOPS/W | 8.01 / 17.13 | 9.318 (+16.3 %) / 26.46 (+54.5 %) | 9.318 / 26.43 | – | – |
+| SRAM 5nm pr32 | area / TOPS / TOPS/W | 14.64 / 11.48 / 32.43 | 13.09 (−10.6 %) / 11.98 (+4.4 %) / 44.62 (+37.6 %) | 13.09 / 11.98 / 44.47 | – | – |
+| SRAM 5nm pr64 | area / TOPS / TOPS/W | 14.33 / 11.96 / 54.41 | 12.78 (−10.9 %) / 12.46 (+4.2 %) / 71.51 (+31.4 %) | 12.78 / 12.46 / 71.31 | – | – |
+| SRAM 1nm pr32 | area / TOPS / TOPS/W | 8.34 / 12.27 / 65.08 | 7.764 (−6.9 %) / 12.88 (+4.9 %) / 86.71 (+33.2 %) | 7.764 / 12.88 / 86.19 | – | – |
+| SRAM 1nm pr64 | area / TOPS / TOPS/W | 8.27 / 13.08 / 105.97 | 7.672 (−7.2 %) / 13.70 (+4.8 %) / 134.9 (+27.3 %) | 7.672 / 13.70 / 134.2 | – | – |
+
+(TOPS/mm² in Table VII is rounded to 2 decimals, so its % difference is not meaningful; full per-metric rows incl.
+clock period, pipeline cycle, energies, FPS, memory utilisation and run times are in `baseline_reproduction.csv`.)
+
+**Verdict: partial reproduction.**
+* **Area** reproduces within −7 to −11 % for all 6 SRAM rows, and for the 2 RRAM rows **only with the original V1.4
+  upload** (−9.6/−9.7 %). The current branch head gives 4.4× smaller RRAM chip area: commit `4b95797` (2024-10-31,
+  "area floor planning with less empty area", SubArray.cpp:786-787 etc.) re-floorplans the WL switch matrix and the
+  write level shifters; component areas are unchanged (e.g. RRAM pr64: CIM array 3.61 mm², ADC 5.07 mm², accumulation
+  16.5 mm² in both versions) but ~243 mm² of floorplan whitespace disappears (341 → 86 mm²).
+* **Throughput (TOPS)** is +4-5 % (SRAM 5/1 nm) to +15-27 % (22 nm) higher than published.
+* **Energy efficiency (TOPS/W)** is systematically higher, +27 % to +86 %. Changes made after the table date are in all
+  available code, e.g. the "122923 update" in ProcessingUnit.cpp:682 (Additional Update Note v3: "always turn off unused
+  rows to further save dynamic energy") and the 230920/231030 buffer/latency fixes; these are a plausible but **unverified**
+  explanation (no code from 9/2023 is available to test).
+* **Accuracy** (71 %/43 % RRAM, 77 %/59 % SRAM in Table VII): not reproduced (CPU-infeasible).
 
 ## 5. Per-subarray RRAM sweep (`rram_subarray_sweep*.csv`)
 

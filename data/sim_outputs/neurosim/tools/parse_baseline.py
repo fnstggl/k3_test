@@ -49,8 +49,11 @@ EXTRA = ['clock_period_ns', 'pipeline_cycle_ns', 'read_dynamic_energy_pJ', 'leak
 VARIANTS = [('', 'C++ @HEAD 8a88abf; wrapper --inference 1 traces (HW-aware forward = manual flow; test image #1)'),
             ('_inf0', 'C++ @HEAD 8a88abf; wrapper --inference 0 traces (ideal 8-bit forward; test image #1)'),
             ('_code6a6073d', 'C++ @6a6073d (original 2024-10-04 V1.4 upload); wrapper --inference 1 traces'),
-            ('_inf0_code6a6073d', 'C++ @6a6073d (original 2024-10-04 V1.4 upload); wrapper --inference 0 traces')]
-PARTNER = {'': '_inf0', '_inf0': '', '_code6a6073d': '_inf0_code6a6073d', '_inf0_code6a6073d': '_code6a6073d'}
+            ('_inf0_code6a6073d', 'C++ @6a6073d (original 2024-10-04 V1.4 upload); wrapper --inference 0 traces'),
+            ('_hyb', 'C++ @HEAD 8a88abf; HYBRID traces: --inference 1 for the 6 conv layers (98.6% of MACs), --inference 0 for the 2 FC layers'),
+            ('_hyb_code6a6073d', 'C++ @6a6073d (original upload); HYBRID traces: --inference 1 conv layers + --inference 0 FC layers')]
+PARTNER = {'': '_inf0', '_inf0': '', '_code6a6073d': '_inf0_code6a6073d', '_inf0_code6a6073d': '_code6a6073d',
+           '_hyb': '_inf0', '_hyb_code6a6073d': '_inf0_code6a6073d'}
 
 
 def parse(path):
@@ -85,6 +88,8 @@ for tag, t in TABLE7.items():
         reuse = ''
         if tag.startswith(('sram5', 'sram1')):
             reuse = 'C++ re-run on the sram22_pr%s%s traces (the wrapper never sees technode)' % (tag.split('pr')[1], suf.replace('_code6a6073d', ''))
+        if key not in parsed and 'hyb' in suf:
+            continue
         if key not in parsed:
             stopped = [f for f in sorted(os.listdir(logdir)) if f.startswith(key + '_') and ('STOPPED' in f or 'ABORTED' in f)]
             if stopped:
@@ -111,6 +116,10 @@ for tag, t in TABLE7.items():
         for m in MAIN:
             note = reuse
             if m == 'accuracy_pct':
+                if 'hyb' in suf:
+                    rows.append(dict(config=cfg, trace_source=src, metric=m, expected=exp[m], expected_source=SRC,
+                                     observed='', pct_diff='', notes='not applicable (C++-only re-run on hybrid traces)'))
+                    continue
                 if reuse or not acc:
                     obs = None
                     note = 'not applicable: ' + reuse if reuse else 'accuracy not printed'
@@ -126,6 +135,8 @@ for tag, t in TABLE7.items():
                     note = (note + '; ' if note else '') + 'Table VII rounds TOPS/mm2 to 2 decimals'
                 if obs is not None and other.get(m) is not None and 'inf0' in suf:
                     note = (note + '; ' if note else '') + 'vs --inference 1 run of the same config: %+.3f %%' % (100.0 * (obs - other[m]) / other[m])
+                if obs is not None and other.get(m) is not None and 'hyb' in suf:
+                    note = (note + '; ' if note else '') + 'vs the all---inference-0-trace run of the same code: %+.3f %%' % (100.0 * (obs - other[m]) / other[m])
             rows.append(dict(config=cfg, trace_source=src, metric=m, expected=exp[m], expected_source=SRC,
                              observed=('%.4g' % obs) if obs is not None else '',
                              pct_diff=pct(obs, exp[m]) if (obs is not None and m != 'accuracy_pct') else '', notes=note))
