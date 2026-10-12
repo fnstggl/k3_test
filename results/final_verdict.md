@@ -173,7 +173,7 @@ Every claim above falls into one of five classes. Nothing in classes 4-5 should 
 ### 7.2 Peer-reviewed or preprint simulation results (reproduced here where a simulator was available)
 - 3D-FPIM (MICRO'22) NVSim: reproduced the shipped validation points within 7-20 % using literature geometry (authors' geometry unreleased). arXiv 2511.12860: ~2 us per 8-bit MVM only with shrunken 256 x 2048 x 128 planes and 512 ADCs per plane.
 - CrossSim 3.2.1: tutorial results reproduced within 2 sigma of the seed spread; `k3cim.analog` agrees with CrossSim's AnalogCore to 0.2-0.4 %.
-- NeuroSim V1.4 (built and run here): 22 nm 1T1R RRAM 256 x 256 subarray, 8-bit MVM 0.26-0.82 us and 0.5-2.5 nJ, ~3.4 M cells/mm2 including periphery.
+- NeuroSim V1.4 (built and run here). The manual's Table VII (VGG8/CIFAR-10) baseline reproduces **only partially**: chip area within 7-11 % (RRAM rows only on the original 2024-10-04 code; a later floorplan change shrinks area 77 %), TOPS 4-27 % high, TOPS/W 27-86 % high. Accuracy was not reproduced: the emulated inference took more than 2 h per configuration on this CPU host. A 660-configuration 22 nm 1T1R RRAM subarray sweep gives 97-194 ns and 0.14-5.1 nJ per 8-bit MVM (128x128 to 1024x1024), ADC energy 0.035-1.4 pJ at 4-8 bits, and ~3.4-3.6 M weights/mm2 including periphery. That density is why F needs ~53,000 dies. The model's RRAM timing (0.11-0.82 us per MVM) lies within and above that range (`data/sim_outputs/neurosim/README.md`, `results/simulator_baselines.csv`).
 - LLM-on-the-Palm (ICCAD'25): one BF16 MAC unit per Z-NAND plane.
 
 ### 7.3 Independently derived bounds (this study; `results/first_principles.md`, `results/workload.md` §9)
@@ -205,6 +205,7 @@ Protocol: a 3D NAND CIM test vehicle (vendor test mode or an academic 3D NAND CI
 - **MXFP8 activation scope**: the model card says MXFP8 activation QAT, but the config's `input_activations` is null; which matmuls were trained with MXFP8 inputs is unverified, so the budget uses MXFP8 on every input.
 - **Costs**: packaging, assembly, test, board, power delivery and the NRE of a custom NAND lot have no manufacturing basis here and are reported as unknown. NAND $/mm2 is market-implied (wafer-equivalent selling price), not fab cost.
 - **Drafter**: no public K3 drafter checkpoint; speculative numbers use the DSpark acceptance measured on GPUs.
+- **NeuroSim Table VII**: only partially reproduced (area within ~10 % on the original V1.4 code, TOPS/W 27-86 % high, accuracy rows not completed within the CPU budget). NeuroSim results are therefore used only for RRAM subarray latency, energy and area, never for accuracy.
 - **Numerics beyond layer 3**: the real forward pass covers layers 0-3 (16 tokens); later-layer statistics are assumed similar.
 - **Prefill**: weight-stationary CIM is 20-50x slower than GPUs at prefill (`results/gpu_comparison.md` §5); long prompts need a GPU/NPU prefill partner, which is outside the unit cost.
 

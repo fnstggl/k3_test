@@ -298,9 +298,13 @@ def simulator_baselines():
     ns = os.path.join(so, "neurosim", "baseline_reproduction.csv")
     if os.path.exists(ns):
         for r in csv.DictReader(open(ns)):
-            rows.append({"simulator": "NeuroSim V1.4", "baseline": "user manual Table VII (VGG8/CIFAR-10)",
+            if not r.get("observed"):
+                continue          # runs that did not complete are listed (with reasons) in the NeuroSim README
+            rows.append({"simulator": "NeuroSim V1.4",
+                         "baseline": f"user manual Table VII (VGG8/CIFAR-10): {r.get('config', '')} | {r.get('trace_source', '')[:90]}",
                          "metric": r.get("metric"), "published": r.get("expected"), "reproduced": r.get("observed"),
-                         "pct_diff": r.get("pct_diff"), "verdict": r.get("verdict", "")})
+                         "pct_diff": r.get("pct_diff"),
+                         "verdict": (r.get("notes") or "")[:200]})
     write_csv(os.path.join(RES, "simulator_baselines.csv"), rows)
 
 
