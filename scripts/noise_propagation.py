@@ -42,6 +42,12 @@ def main():
         cases += [(f"noise_experts_only_r{r}", "experts", r), (f"noise_all_linears_r{r}", "all", r)]
     if "--quick" in sys.argv:
         cases = cases[:3]
+    out_path = OUT
+    if "--only" in sys.argv:          # run a subset (e.g. in parallel processes), merged with --merge
+        keep = sys.argv[sys.argv.index("--only") + 1].split(",")
+        cases = [c for c in cases if c[0] in keep]
+    if "--out" in sys.argv:
+        out_path = sys.argv[sys.argv.index("--out") + 1]
     for name, mode, r in cases:
         rng = np.random.default_rng(1234)
         state = {"in_expert": False}
@@ -87,11 +93,31 @@ def main():
         rows.append(row)
         print(row, flush=True)
         keys = list(rows[0].keys())
-        with open(OUT, "w", newline="") as f:
+        with open(out_path, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=keys)
             w.writeheader()
             w.writerows(rows)
 
 
+def merge(paths):
+    """Merge partial CSVs (from --only/--out runs) into results/noise_propagation.csv in canonical case order."""
+    order = ["mxfp8_inputs_all_linears"] + [f"noise_{m}_r{r}" for r in (0.005, 0.01, 0.02, 0.04, 0.08)
+                                            for m in ("experts_only", "all_linears")]
+    rows = {}
+    for pth in paths:
+        if os.path.exists(pth):
+            for r in csv.DictReader(open(pth)):
+                rows[r["case"]] = r
+    out = [rows[c] for c in order if c in rows]
+    with open(OUT, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(out[0].keys()))
+        w.writeheader()
+        w.writerows(out)
+    print("merged", len(out), "cases into", OUT)
+
+
 if __name__ == "__main__":
-    main()
+    if "--merge" in sys.argv:
+        merge(sys.argv[sys.argv.index("--merge") + 1:])
+    else:
+        main()

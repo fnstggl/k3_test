@@ -39,10 +39,17 @@ curl -L -o .../hf_cifar10/test-00000-of-00001.parquet https://huggingface.co/dat
 python -I tools/make_cifar_npz.py <parquet> /home/user/ext/datasets/hf_cifar10/cifar10_test_uint8.npz
 # CPU patch to the wrapper (see §3)
 sed -i "s/device='cuda')/device=remainderQ.device)/" Inference_pytorch/modules/quantization_cpu_np_infer.py
-# Table VII baseline (§4): per config, Param.cpp knobs via tools/set_param.py, make, then in a per-config copy of Inference_pytorch/:
-python tools/run_wrapper.py --threads 2 --n_images 1 --dataset cifar10 --model VGG8 --mode WAGE --inference 1 \
+# Table VII baseline (§4): per config, Param.cpp knobs via tools/set_param.py + make in a per-config copy
+# /home/user/ext/wrap_copies/<tag>/ of Inference_pytorch/, then in that copy:
+python tools/run_wrapper.py --threads 2 --n_images 1 --dataset cifar10 --model VGG8 --mode WAGE --inference {1|0} \
        --cellBit 1 --subArray 128 --parallelRead {32|64} --ADCprecision 4 --onoffratio {17|inf} --batch_size 1
 #   (inference.py then runs ./NeuroSIM/main NetWork_VGG8.csv 8 8 128 {32|64} <16 trace files> itself)
+#   --inference 1: rram22_pr64, rram22_pr32, sram22_pr32 started; none finished (see §4)
+bash tools/run_baseline_ideal_traces.sh /home/user/ext/NeuroSim_V1.4 /home/user/ext/venv_neurosim/bin/python .   # --inference 0, all 8 rows
+bash tools/run_baseline_oldcode.sh /home/user/ext/NeuroSim_V1.4 . _inf0       # same traces, C++ of commit 6a6073d
+bash tools/run_baseline_hybrid.sh /home/user/ext . rram22_pr64                 # faithful conv traces + ideal FC traces
+python3 tools/parse_baseline.py logs/baseline baseline_reproduction.csv
+# RRAM 7 nm guard check (§6) -> logs/rram_7nm_guard_check.log
 # per-subarray sweep (§5): driver build + 660 configurations
 python3 tools/sweep.py --build /home/user/ext/neurosim_driver_build --pristine /home/user/ext/Param.cpp.pristine --out .
 python3 tools/sweep.py ... --collect-only          # regenerate CSVs from logs/sweep/*.log
@@ -50,9 +57,10 @@ python3 tools/sweep.py ... --collect-only          # regenerate CSVs from logs/s
 bash tools/crosscheck_main.sh /home/user/ext/neurosim_driver_build /home/user/ext/Param.cpp.pristine /home/user/ext/NeuroSim_V1.4 .
 ```
 
-`run_neurosim_sweep.sh` repeats all of this from scratch (`--with-baseline` adds the slow Table VII runs).
-One attempted RRAM-pr32 wrapper run with 4 torch threads thrashed on the shared CPU and was aborted by me
-after 18 min (`logs/baseline/rram22_pr32_ABORTED_4threads.log`); it was rerun with 2 threads.
+`run_neurosim_sweep.sh` repeats all of this from scratch (`--with-baseline` adds the ideal-trace and old-code Table VII
+runs, `--with-baseline-faithful` also the multi-hour `--inference 1` runs). One RRAM-pr32 `--inference 1` run with 4 torch
+threads thrashed on the shared CPU and was aborted after 18 min (`logs/baseline/rram22_pr32_ABORTED_4threads.log`); the
+restarted 2-thread runs are documented in §4.
 
 ## 3. Source modifications
 
@@ -82,7 +90,7 @@ Note the shipped `Param.cpp` default is **SRAM** (`memcelltype = 1`) with a 5-bi
 effects with thousands of full-size masked convolutions per layer. One test image (all that the C++ trace hook uses —
 `utee/hook.py` records image #1 of batch #1) took ~50 min through conv layer 6 at parallelRead=64 (05:59→06:48)
 and then >70 min inside the 8192×1024 FC layer; parallelRead=32 is ~2× slower,
-so every `--inference 1` run hit the 2-hour background-task limit (RRAM pr64: killed in the FC layer after all 12
+so no `--inference 1` run could finish within the 2-hour background-task limit (RRAM pr64: killed in the FC layer after all 12
 conv-layer traces were written; RRAM pr32 and SRAM pr32: stopped by me when they could no longer finish; logs
 `logs/baseline/*_STOPPED.log`, `*_ABORTED_4threads.log`). Therefore:
 
@@ -129,7 +137,7 @@ clock period, pipeline cycle, energies, FPS, memory utilisation and run times ar
 * **Throughput (TOPS)** is +4-5 % (SRAM 5/1 nm) to +15-27 % (22 nm) higher than published.
 * **Energy efficiency (TOPS/W)** is systematically higher, +27 % to +86 %. Changes made after the table date are in all
   available code, e.g. the "122923 update" in ProcessingUnit.cpp:682 (Additional Update Note v3: "always turn off unused
-  rows to further save dynamic energy") and the 230920/231030 buffer/latency fixes; these are a plausible but **unverified**
+  rows to further save dynamic energy") and the 231030 Buffer.cpp fix ("cap_draintotal added twice"); these are a plausible but **unverified**
   explanation (no code from 9/2023 is available to test).
 * **Accuracy** (71 %/43 % RRAM, 77 %/59 % SRAM in Table VII): not reproduced (CPU-infeasible).
 
@@ -339,8 +347,9 @@ temperature ≠ 300 K (≥22 nm only).
 | `run_neurosim_sweep.sh` | rebuild from scratch + regenerate the sweep CSVs (`--with-baseline`, `--quick`) |
 | `tools/subarray_driver.cpp` | single-subarray MVM driver (links unmodified NeuroSim objects) |
 | `tools/sweep.py`, `tools/set_param.py` | sweep orchestration / Param.cpp knob rewriting |
-| `tools/run_baseline.sh`, `tools/run_wrapper.py`, `tools/parse_baseline.py`, `tools/make_cifar_npz.py` | Table VII reproduction |
+| `tools/run_baseline.sh` (faithful `--inference 1`), `tools/run_baseline_ideal_traces.sh`, `tools/run_baseline_oldcode.sh`, `tools/run_baseline_hybrid.sh`, `tools/run_wrapper.py`, `tools/parse_baseline.py`, `tools/make_cifar_npz.py` | Table VII reproduction |
 | `tools/crosscheck_main.sh` | driver vs stock main.cpp cross-check |
 | `logs/sweep/*.log` | stdout of all 660 driver runs (knobs, command, full SubArray module report, RESULT_JSON) |
-| `logs/baseline/*.log` | stdout of the wrapper + stock NeuroSim runs, per-config build logs |
+| `logs/baseline/*.log` | stdout of every wrapper / stock NeuroSim run (`<tag>.log` = HEAD + `--inference 1`, `_inf0` = ideal traces, `_code6a6073d` = original-upload C++, `_hyb` = hybrid traces, `_STOPPED`/`_ABORTED` = incomplete runs), per-config build logs |
+| `logs/rram_7nm_guard_check.log` | stock `main` and driver refusing RRAM at 7 nm |
 | `logs/build_stock_neurosim.log`, `logs/crosscheck_driver_vs_main.log`, `logs/sweep_*.log` | build / cross-check / sweep summaries |

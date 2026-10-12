@@ -251,10 +251,12 @@ def plot_capacity(cost):
         ax.text(i, f(r["total_mm2"]) * 1.12, f"{int(float(r['dies']))} dies\n{f(r['effective_bits_per_weight']):.1f} b/w",
                 ha="center", fontsize=7, color=INK2)
     ax.axhline(1522 * 43.54 / 1522 * 12.5, color=MUTED, linewidth=0.8, linestyle=(0, (4, 3)))
-    ax.text(-0.4, 1522 * 43.54 / 1522 * 12.5 * 1.08, "12.5 commodity 1Tb TLC dies (1.56 TB as plain storage)", fontsize=7, color=MUTED)
+    ax.text(-0.4, 1522 * 43.54 / 1522 * 12.5 * 1.1, "12.5 commodity 1Tb TLC dies (1.56 TB as plain storage)", fontsize=7,
+            color=INK2, zorder=5, bbox=dict(facecolor=SURFACE, edgecolor="none", pad=1.5))
     ax.set_xticks(xs)
     ax.set_xticklabels([r["arch_id"] for r in uniq], fontsize=8)
     ax.set_yscale("log")
+    ax.set_ylim(top=max(f(r["total_mm2"]) for r in uniq) * 2.5)
     fig.tight_layout()
     fig.savefig(os.path.join(PLOTS, "capacity_area.png"), dpi=150)
     plt.close(fig)

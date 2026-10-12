@@ -2,8 +2,11 @@
 # Rebuild DNN+NeuroSim V1.4 from scratch and regenerate the per-subarray RRAM sweep CSVs.
 #
 #   ./run_neurosim_sweep.sh                 # clone/verify + build + driver sweep (~10-20 min on 4 cores)
-#   ./run_neurosim_sweep.sh --with-baseline # additionally reproduce Table VII (VGG8/CIFAR-10;
-#                                           # several hours on a 4-core CPU, see README)
+#   ./run_neurosim_sweep.sh --with-baseline # + Table VII with ideal (--inference 0) traces, C++ at HEAD and at the
+#                                           #   original V1.4 upload 6a6073d (~1 h on 4 cores)
+#   ./run_neurosim_sweep.sh --with-baseline-faithful
+#                                           # + the manual's --inference 1 flow for all configs and the hybrid re-run
+#                                           #   (>2 h of CPU per config on a 4-core host, see README section 4)
 #   ./run_neurosim_sweep.sh --quick         # tiny sweep subset (smoke test)
 #
 # Environment overrides: EXT (default /home/user/ext), NEUROSIM_COMMIT (default 8a88abf8...).
@@ -19,6 +22,7 @@ WITH_BASELINE=0; QUICK=""
 for a in "$@"; do
   case $a in
     --with-baseline) WITH_BASELINE=1 ;;
+    --with-baseline-faithful) WITH_BASELINE=2 ;;
     --quick) QUICK=--quick ;;
     *) echo "unknown option $a"; exit 2 ;;
   esac
@@ -55,7 +59,7 @@ echo "[run] driver objects built in $BUILD/src"
 python3 "$TOOLS/sweep.py" --build "$BUILD" --pristine "$EXT/Param.cpp.pristine" --out "$OUT" $QUICK 2>&1 | tee "$OUT/logs/sweep_driver_summary.log"
 
 # 5. Optional: Table VII reproduction through the stock PyTorch wrapper + C++ main.
-if [[ $WITH_BASELINE == 1 ]]; then
+if [[ $WITH_BASELINE -ge 1 ]]; then
   VENV=$EXT/venv_neurosim
   [[ -x $VENV/bin/python ]] || { python3 -m venv "$VENV"; "$VENV/bin/pip" install --quiet torch torchvision --index-url https://download.pytorch.org/whl/cpu; "$VENV/bin/pip" install --quiet pyarrow; }
   NPZ=$EXT/datasets/hf_cifar10/cifar10_test_uint8.npz
@@ -69,6 +73,13 @@ if [[ $WITH_BASELINE == 1 ]]; then
   # CPU patch for the wrapper (see README / neurosim_changes.patch): hard-coded device='cuda'.
   sed -i "s/torch.full(remainderQ.size(),self.vari, device='cuda')/torch.full(remainderQ.size(),self.vari, device=remainderQ.device)/g" \
     "$REPO/Inference_pytorch/modules/quantization_cpu_np_infer.py"
-  bash "$TOOLS/run_baseline.sh" "$REPO" "$VENV/bin/python" "$OUT" "${N_IMAGES:-1}"
+  bash "$TOOLS/run_baseline_ideal_traces.sh" "$REPO" "$VENV/bin/python" "$OUT"
+  bash "$TOOLS/run_baseline_oldcode.sh" "$REPO" "$OUT" _inf0
+  if [[ $WITH_BASELINE == 2 ]]; then
+    bash "$TOOLS/run_baseline.sh" "$REPO" "$VENV/bin/python" "$OUT" "${N_IMAGES:-1}"   # faithful --inference 1 runs
+    bash "$TOOLS/run_baseline_oldcode.sh" "$REPO" "$OUT" ""
+    [[ -f $EXT/wrap_copies/rram22_pr64/layer_record_VGG8/inputConv7_.csv ]] && bash "$TOOLS/run_baseline_hybrid.sh" "$EXT" "$OUT" rram22_pr64
+  fi
+  python3 "$TOOLS/parse_baseline.py" "$OUT/logs/baseline" "$OUT/baseline_reproduction.csv"
 fi
 echo "[run] done. CSVs in $OUT"

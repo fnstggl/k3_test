@@ -9,6 +9,17 @@ compute architectures, compared with GPUs.
 [`results/first_principles.md`](results/first_principles.md) ·
 [`results/workload.md`](results/workload.md) · [`results/gpu_comparison.md`](results/gpu_comparison.md)
 
+## Headline results (details and caveats in `results/final_verdict.md`)
+
+| question | answer (realistic scenario, volume silicon at normalized prices, packaging unknown) |
+|---|---|
+| Commodity NAND (digital or analog on commodity planes)? | 0.2-25 tok/s: the commodity plane's 10-50 µs access sits on a 698-deep dependency chain |
+| Redesigned small-plane analog 3D NAND + attention engine, 128K context | 100 tok/s for ~$880; 500 tok/s for $1,477 (marginal precision) / $2,182 (within budget); ~1,000 tok/s only with optimistic array physics |
+| 1M context at 500 tok/s | infeasible in every scenario (2.6 PFLOP/s + 7-15 TB/s of attention) |
+| Accuracy on real K3 tensors | 1-2-bit cells + calibrated unit-LSB ADC reproduce exact integer sums under SONOS-class noise; 4-bit cells need ~4x tighter programming; no 3D-NAND string measurement exists |
+| Under $500? | only at 32K context with three unproven levers; ~$850 floor at 128K (attention engine ~$430) |
+| GPU reference | 101 tok/s measured on 8x B300 (188 with speculation); ~330 tok/s software ceiling; 28-34 J/token vs 0.3-0.7 J/token for the CIM designs |
+
 ## What is in here
 
 | path | content |
