@@ -150,7 +150,10 @@ class Scheduler:
             return OpCost(lat, op.elems * p["orch_pj_per_op"] * 1e-12, {"sample": lat})
         # norms / reductions / elementwise. Global reductions need the full vector at one place.
         n = op.elems
-        lat = p["orch_op_latency_s"] + n / p["orch_vec_ops"]
+        fixed = p["orch_op_latency_s"]
+        if op.kind in ("add", "act", "headnorm", "conv") and p["family"] != "gpu":
+            fixed *= 0.25     # elementwise: fused into the orchestrator datapath, no global gather/sync
+        lat = fixed + n / p["orch_vec_ops"]
         if op.kind in ("norm", "attnres", "combine", "router_topk") and p.get("fold_norm_scale", False) \
                 and op.kind == "norm":
             lat = p["orch_op_latency_s"]   # rms applied post-MVM (scalar), off the critical path
@@ -197,7 +200,13 @@ class Scheduler:
                 conv_per_array_per_step / adcs) * t_conv
         else:
             t_steps = steps * (p["t_step_fixed_s"] + t_int + math.ceil(conv_per_array_per_step / adcs) * t_conv)
-        wl = p["t_wl_s"] * (p.get("wl_exposed_frac_dense", 0.0) if op.always_active else p.get("wl_exposed_frac_expert", 1.0))
+        if op.always_active:
+            wl_frac = p.get("wl_exposed_frac_dense", 0.0)
+        elif op.name.endswith("expert_w2"):
+            wl_frac = 0.0     # w2 word lines are biased while w1/w3 compute (expert ids already known)
+        else:
+            wl_frac = p.get("wl_exposed_frac_expert", 1.0)
+        wl = p["t_wl_s"] * wl_frac
         t_arr = wl + t_steps
         t_array_total = rounds * t_arr
         # communication

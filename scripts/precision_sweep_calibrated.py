@@ -67,6 +67,12 @@ def main():
                                  "w_align_extra_bits": extra, "verdict": ps.verdict(st["rel_rms_err"] / budget)})
             print(f"{name} C={C} done ({time.time() - t0:.0f}s)", flush=True)
     path = ps.OUT
+    import time as _t
+    while not os.path.exists(path) or any("precision_sweep.py" in open(f"/proc/{d}/cmdline").read()
+                                            for d in os.listdir("/proc") if d.isdigit()
+                                            and os.path.exists(f"/proc/{d}/cmdline")
+                                            and int(d) != os.getpid()):
+        _t.sleep(20)   # main sweep still running: wait so its final write cannot overwrite our rows
     old = list(csv.DictReader(open(path))) if os.path.exists(path) else []
     old = [r for r in old if r.get("sweep") != "A_ideal_device_calibrated_range"]
     allrows = old + rows

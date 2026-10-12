@@ -51,3 +51,35 @@ def test_cost_basis():
 
 def test_adc_time():
     assert adc_time_s(8, {"adc_bit_cycle_s": 2e-9}) == 20e-9
+
+
+def test_spec_decoding_fit_and_calibration():
+    from k3cim.scheduler import fit_alpha, spec_tokens_per_step, speculative_tok_per_s
+    a = fit_alpha(3.84, 7)
+    assert abs(spec_tokens_per_step(a, 7) - 3.84) < 1e-6
+    t, _ = speculative_tok_per_s(Scheduler(gpu("real")), 2048, 7)
+    assert abs(t - 188.0) / 188.0 < 0.05          # measured DSpark result on DGX B300
+
+
+def test_prefill_grows_superlinearly_with_prompt():
+    from k3cim.scheduler import prefill_seconds
+    sc = Scheduler(gpu("real"))
+    t1, _ = prefill_seconds(sc, 32768)
+    t2, _ = prefill_seconds(sc, 131072)
+    assert t2 > 4 * t1                             # causal attention is quadratic
+
+
+def test_attention_engine_costs_ordered():
+    from k3cim.cost import orchestrator_cost
+    costs = []
+    for e in ("edge", "mid", "mid2", "mid3", "high", "xhigh"):
+        a = analog_nand("real", "E")
+        a.update(orchestrator("real", e))
+        costs.append(orchestrator_cost(a, 131072, "normalized")[0])
+    assert costs == sorted(costs)
+
+
+def test_rram_neurosim_density_is_capacity_prohibitive():
+    from k3cim.architectures import rram_3d
+    c = cost_estimate(rram_3d("real"))
+    assert c["dies"] > 10000                       # ~3.4 M cells/mm2 incl. periphery (NeuroSim)
