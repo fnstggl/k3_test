@@ -57,8 +57,10 @@ python scripts/precision_sweep_calibrated.py # same with ADC range calibrated on
 python scripts/precision_device_grid.py      # device-only error grid
 python scripts/analyze_k3_numerics.py        # MX-scale statistics, BF16 re-quantisation, activation stats
 python scripts/noise_propagation.py          # analog-like noise through real layers 0-3 (routing stability)
+#   (cases can be split: --only <case,...> --out part.csv, then --merge part1.csv part2.csv ...)
 python scripts/dse.py                        # design-space exploration -> data/dse_results.csv
 python scripts/requirements_table.py         # cheapest design per target/context/scenario -> results/what_it_takes.csv
+python scripts/summarize_dse.py              # per-family fastest / cheapest summary -> results/dse_summary.csv
 python scripts/run_all.py                    # all results/*.csv, workload.md, gpu_comparison.md
 python scripts/first_principles.py           # floors + step ladder -> results/first_principles.md, step_ladder.csv
 python scripts/make_plots.py                 # results/plots/*.png
