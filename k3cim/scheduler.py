@@ -107,6 +107,10 @@ class Scheduler:
         return max(1, math.ceil(self.w_bits(op) / self.p["cell_bits"]))
 
     # ------------------------------------------------------------- comms
+    def kv_bytes_at(self, L):
+        """MLA latent KV bytes at context L in this architecture's KV format (arch kv_bytes per value)."""
+        return self.wl.kv_cache_bytes(L) * self.p.get("kv_bytes", 2.0) / self.wl.kv_bytes
+
     def t_link(self, bits, kind):
         p = self.p
         return p[f"{kind}_latency_s"] + bits / p[f"{kind}_bw_bps"]
@@ -234,6 +238,7 @@ class Scheduler:
             e_wl = e_bl = e_cell = e_dig = e_drv = 0.0
         e = e_conv + e_wl + e_bl + e_cell + e_dig + e_drv + e_com
         bd = {"t_in": t_in, "t_array": t_array_total, "t_reduce": t_red, "t_out": t_out,
+              "t_wl_round": wl, "t_steps_round": t_steps, "in_bits": in_bits, "out_bits": out_bits,
               "rounds": rounds, "tiles": tiles, "conversions": conversions, "steps": steps,
               "e_adc": e_conv, "e_wl": e_wl, "e_bl": e_bl, "e_cell": e_cell, "e_digital": e_dig,
               "e_driver": e_drv, "e_comm": e_com}
@@ -351,6 +356,9 @@ class Scheduler:
         static_w = p.get("static_power_w", 0.0)
         if p["family"] in ("analog_cim", "digital_nvm"):
             static_w = p.get("orch_static_w", 10.0) + p.get("dies_total", 0) * p.get("nvm_die_static_w", 0.005)
+        if p.get("kv_in_sram"):
+            from .architectures import SRAM_LEAK_W_PER_GB
+            static_w += SRAM_LEAK_W_PER_GB * (self.kv_bytes_at(L) + self.wl.kda_state_bytes_total()) / 1e9
         e_static = static_w * t_tok
         out = {"context": L, "t_token_s": t_tok, "tok_per_s": 1.0 / t_tok, "t_critical_path_s": t_cp,
                "bounds": bounds, "energy_j_per_token": e_dyn + e_static, "e_dynamic_j": e_dyn,
@@ -384,7 +392,7 @@ class Scheduler:
         # report them as bounds too for transparency
         att_macs = sum(o.K * o.N * L for o in wl.ops if o.kind in ("attn_score", "attn_value"))
         b["attention_compute"] = 2 * att_macs / p["attn_flops"]
-        b["kv_bandwidth"] = wl.kv_cache_bytes(L) / p["kv_bw_Bps"]
+        b["kv_bandwidth"] = self.kv_bytes_at(L) / p["kv_bw_Bps"]
         if p.get("power_cap_w"):
             pass
         return b
@@ -505,6 +513,136 @@ def speculative_tok_per_s(sched: "Scheduler", L, k, alpha=None, t_draft_per_toke
         else:
             t = max(t, (den_b + D * exp_b) / p["page_bytes"] * p["t_read_s"] / p["planes_total"])
     return spec_tokens_per_step(alpha, k) / t, t
+
+
+# Measured on real K3 routing (layers 1-3, 16-token text, data/k3/activations/k3_layers0-3.npz):
+# for a window of V consecutive tokens, mean over windows and layers of
+#   distinct experts / 16           and   max number of the V tokens routed to one expert.
+# Random routing would give D = 896(1-(1-16/896)^V)/16 and max-load ~1-2; real routing reuses
+# experts across neighbouring tokens (adjacent-token overlap 1.6-4.9 of 16 vs 0.29 random).
+ROUTING_LOCALITY_MEASURED = {1: (1.0, 1.0), 2: (1.81, 1.88), 4: (3.26, 3.11), 8: (5.76, 5.50)}
+
+
+def _interp_locality(V):
+    ks = sorted(ROUTING_LOCALITY_MEASURED)
+    if V in ROUTING_LOCALITY_MEASURED:
+        return ROUTING_LOCALITY_MEASURED[V]
+    if V > ks[-1]:
+        d, m = ROUTING_LOCALITY_MEASURED[ks[-1]]
+        return d * V / ks[-1], m * V / ks[-1]
+    lo = max(k for k in ks if k < V)
+    hi = min(k for k in ks if k > V)
+    f = (V - lo) / (hi - lo)
+    a, b = ROUTING_LOCALITY_MEASURED[lo], ROUTING_LOCALITY_MEASURED[hi]
+    return a[0] + f * (b[0] - a[0]), a[1] + f * (b[1] - a[1])
+
+
+def speculative_cim(sched: "Scheduler", L, k, dense_replicas=1, alpha=None, t_draft_per_token=None,
+                    routing="measured"):
+    """Speculative decoding on a weight-stationary analog CIM (extension; hypothetical drafter).
+
+    One verification step processes V = k+1 token vectors through every layer:
+      * always-active (dense) arrays: ceil(V / dense_replicas) vector ops per array; the word-line
+        selection is kept, only the input/integration/conversion steps repeat;
+      * routed experts: the union of the V tokens' experts is active (more slot conflicts) and an
+        expert chosen by m of the V tokens performs m vector ops in series (m = measured max load);
+      * activation links carry V vectors; attention compute x V (KV read once); KDA recurrence x V;
+      * ADC throughput and attention-compute bounds x V.
+    The drafter defaults to an EAGLE-class one-layer head run on the same hardware: one average
+    K3 layer + the LM head per draft token (assumption - no such K3 drafter is public; acceptance
+    alpha is fitted to the measured DSpark acceptance on K3, tau = 3.84 at k = 7).
+    Returns dict(tok_per_s, t_step_s, tau, V, J_per_token, details).
+    """
+    global ALPHA_DSPARK
+    if alpha is None:
+        if ALPHA_DSPARK is None:
+            ALPHA_DSPARK = fit_alpha(3.84, 7)
+        alpha = ALPHA_DSPARK
+    p, wl = sched.p, sched.wl
+    assert p["family"] == "analog_cim"
+    V = k + 1
+    if routing == "measured":
+        Drel, m = _interp_locality(V)
+    else:
+        Drel = 896.0 * (1 - (1 - 16.0 / 896.0) ** V) / 16.0
+        m = 1.0 + (V - 1) * 16.0 / 896.0
+    base = sched.evaluate(L, detail=True)
+    costs1 = base["costs"]
+    reps = max(1, int(dense_replicas))
+    # expert slot conflicts with 16*Drel distinct active experts
+    tpe = p.get("tiles_per_expert")
+    if tpe is None:
+        tpe = math.ceil(2 * 3584 * 3072 * math.ceil(p["expert_w_mag_bits"] / p["cell_bits"]) * 2
+                        / (p["contributors"] * p["array_cols"]))
+    from .architectures import structured_expert_rounds
+    r1 = p.get("expert_rounds_override") or 1.0
+    rV = max(r1, structured_expert_rounds(int(round(16 * Drel)), tpe, p.get("expert_planes", p["planes"]), 896))
+    costs = {}
+    for o in wl.ops:
+        c = costs1[o.name]
+        lat = c.latency
+        b = c.breakdown
+        if o.kind == "linear" and "t_steps_round" in b:
+            f = p.get("bcast_fanout_share", 1.0)
+            extra_in = (V - 1) * b["in_bits"] / f / p["die_in_bw_bps"]
+            den = max(1, min(p.get("dies_total", p["dies_per_op"]), b["tiles"]))
+            extra_out = (V - 1) * b["out_bits"] * (1.0 / den / p["die_out_bw_bps"] + 1.0 / p["orch_in_bw_bps"])
+            if o.always_active:
+                vec = math.ceil(V / reps)
+                lat = lat + (vec - 1) * b["rounds"] * b["t_steps_round"]
+            else:
+                rounds = b["rounds"] * rV / r1
+                lat = lat + (rounds - b["rounds"]) * (b["t_wl_round"] + b["t_steps_round"]) \
+                    + (m - 1) * b["t_steps_round"]
+            lat += extra_in + extra_out
+        elif o.kind in ("attn_score", "attn_value"):
+            lat = lat + (V - 1) * b.get("attn_compute", 0.0)
+        elif o.kind == "kda_recurrent":
+            lat = lat + (V - 1) * b.get("kda_compute", 0.0)
+        elif o.kind in ("norm", "attnres", "router_topk", "combine", "softmax"):
+            lat = lat * (1 + 0.25 * (V - 1))
+        costs[o.name] = lat
+    t_cp, _ = wl.critical_path_ops(lambda o: costs[o.name])
+    t_cp += p.get("per_layer_sync_s", 0.0) * wl.nL + p.get("per_token_overhead_s", 0.0)
+    if t_draft_per_token is None:
+        lm = sum(costs1[o.name].latency for o in wl.ops if o.name.startswith("lm_head"))
+        t_draft_per_token = (base["t_critical_path_s"] - lm) / wl.nL + lm
+    t_draft = k * t_draft_per_token
+    bounds = {kk: v * (V if kk in ("adc_throughput", "attention_compute") else 1.0)
+              for kk, v in base["bounds"].items()}
+    t_step = max([t_cp + t_draft] + list(bounds.values()))
+    tau = spec_tokens_per_step(alpha, k)
+    static_w = p.get("orch_static_w", 10.0) + p.get("dies_total", 0) * p.get("nvm_die_static_w", 0.005)
+    e_step = base["e_dynamic_j"] * (V + k * 1.0 / wl.nL) + static_w * t_step
+    return {"tok_per_s": tau / t_step, "t_step_s": t_step, "tau": tau, "V": V, "k": k,
+            "dense_replicas": reps, "t_critical_path_s": t_cp, "t_draft_s": t_draft,
+            "J_per_token": e_step / tau, "bounds": bounds, "expert_rounds_V": rV, "max_load": m}
+
+
+def with_dense_replicas(arch, R):
+    """Copy of an analog-CIM architecture with R copies of every always-active (dense) weight."""
+    from .architectures import weight_cells
+    a = dict(arch)
+    if R <= 1:
+        return a
+    wl = K3Workload(fold_mla=arch.get("fold_mla", False))
+    cb = arch["cell_bits"]
+    dense_cells = 0
+    for o in wl.linear_ops():
+        if o.wdtype != "mxfp4":
+            dense_cells += o.stored_weights * math.ceil(arch["dense_w_mag_bits"] / cb) * 2
+    dense_cells *= 1.08
+    cpp = arch["array_rows"] * arch["array_cols"] * arch["array_stacks"]
+    add_planes = math.ceil((R - 1) * dense_cells / cpp)
+    a["expert_planes"] = arch.get("expert_planes", arch["planes"])
+    a["planes"] = arch["planes"] + add_planes
+    a["arrays_total"] = arch["arrays_total"] + add_planes
+    a["cells_total"] = arch["cells_total"] + (R - 1) * dense_cells
+    ppd = arch.get("planes_per_die", 256)
+    a["dies_total"] = max(1, math.ceil(a["planes"] / ppd))
+    a["dense_replicas"] = R
+    a["name"] = f"{arch['name']}_x{R}dense"
+    return a
 
 
 def prefill_seconds(sched: "Scheduler", T, reuse_tokens_per_read=64):

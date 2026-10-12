@@ -142,6 +142,16 @@ reg("nvm_die_static_w", 0.02, 0.005, 0.002, "W/die", "assumption",
     "active-idle power of a memory die with charge pumps kept up for us-scale ops (standby ICC2 is uA-level)")
 reg("dies_per_package", 8, 16, 16, "dies", "vendor_spec/assumption", "BGA316 allows up to 32 dies (arXiv 2511.12860); HBM-like stacks 8-16")
 
+# =============================================================================== SRAM-KV attention engines (hypothetical)
+reg("sram_kv_pj_per_bit", 0.2, 0.2, 0.2, "pJ/bit", "assumption",
+    "on-die SRAM read incl. local wiring, 0.1-0.3 pJ/bit typical for 5/3nm macros; used by engines sram_a/b/c")
+reg("sram_leak_w_per_gb", 5.0, 5.0, 5.0, "W/GB", "assumption",
+    "retention-biased HD SRAM leakage ~5 mW/MB (unsourced); charged per GB of KV+KDA state held on die")
+reg("fp8_attn_pj_per_flop", 0.25, 0.25, 0.25, "pJ/FLOP", "assumption",
+    "FP8 attention math at half the BF16 energy; FP8 KV/attention unvalidated for K3")
+reg("fp8_attn_area_factor", 0.5, 0.5, 0.5, "x", "assumption",
+    "FP8 tensor datapath area per FLOP/s relative to BF16 (B200: FP8 dense = 2x BF16 dense throughput)")
+
 # =============================================================================== costs (USD) -- unknown unless sourced
 reg("nand_wafer_cost_usd", None, None, None, "USD/300mm wafer", "unknown", "filled from cost_parameters_sourced.csv")
 reg("nand_cost_per_gb_usd", None, None, None, "USD/GB", "unknown", "filled from cost_parameters_sourced.csv")

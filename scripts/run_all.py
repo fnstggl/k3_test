@@ -6,7 +6,8 @@ Prerequisites (each is its own script, see README):
   scripts/precision_sweep.py, scripts/precision_device_grid.py, scripts/sims/*.py, scripts/dse.py
 This script only reads their outputs and writes:
   results/workload.md, results/physical_assumptions.csv, results/architecture_comparison.csv,
-  results/latency_breakdown.csv, results/energy_breakdown.csv, results/cost_model.csv
+  results/latency_breakdown.csv, results/energy_breakdown.csv, results/cost_model.csv,
+  results/latency_sensitivity.csv, results/simulator_baselines.csv, results/gpu_comparison.md
 """
 import csv
 import json
@@ -21,6 +22,7 @@ from k3cim import params as PR  # noqa: E402
 from k3cim.architectures import (analog_nand, digital_nand, fenand, gpu, orchestrator,  # noqa: E402
                                  rram_3d)
 from k3cim.cost import cost_estimate, prototype_cost  # noqa: E402
+from k3cim.report_gpu import generate as gen_gpu_report  # noqa: E402
 from k3cim.report_workload import generate as gen_workload  # noqa: E402
 from k3cim.scheduler import Scheduler  # noqa: E402
 from k3cim.workload import K3Workload  # noqa: E402
@@ -235,6 +237,7 @@ def main():
     write_csv(os.path.join(RES, "latency_breakdown.csv"), lat_rows)
     write_csv(os.path.join(RES, "energy_breakdown.csv"), en_rows)
     write_csv(os.path.join(RES, "cost_model.csv"), cost_rows)
+    gen_gpu_report()
     print("done")
 
 

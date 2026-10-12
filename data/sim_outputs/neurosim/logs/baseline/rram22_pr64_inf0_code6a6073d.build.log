@@ -1,0 +1,5 @@
+[set_param] Param.cpp:61  memcelltype = 1  ->  2
+[set_param] Param.cpp:127  technode = 22  ->  22
+[set_param] Param.cpp:258  levelOutput = 32  ->  16
+[set_param] Param.cpp:259  cellBit = 1  ->  1
+g++ -fopenmp -O3 -std=c++0x -w	 Adder.o AdderTree.o BitShift

@@ -123,11 +123,18 @@ def orchestrator_cost(arch, context, price):
         sram_mm2 = kda_gb * 8e3 / SRAM_MBIT_PER_MM2
     else:
         kv_gb += kda_gb
-    logic_mm2 = 40.0 + flops / 1e12 * LOGIC_MM2_PER_TFLOP + sram_mm2
+    if arch.get("kv_in_sram"):
+        # KV cache held on-die: SRAM area sized to the context, no external DRAM
+        sram_mm2 += kv_gb * 8e3 / SRAM_MBIT_PER_MM2
+    logic_mm2 = 40.0 + flops / 1e12 * LOGIC_MM2_PER_TFLOP * arch.get("attn_area_factor", 1.0) + sram_mm2
     n_dies = max(1, math.ceil(logic_mm2 / 800.0))
     die_mm2 = logic_mm2 / n_dies
     logic_usd = n_dies * die_mm2 * logic_usd_per_mm2("N5") / poisson_yield(die_mm2, 0.1)
     bw = arch["kv_bw_Bps"]
+    if arch.get("kv_in_sram"):
+        return logic_usd, {"attention_engine_mm2": logic_mm2, "attention_engine_dies": n_dies,
+                           "attention_engine_usd": logic_usd, "kv_state_GB": kv_gb,
+                           "kv_mem": f"on-die SRAM {sram_mm2:.0f} mm2", "kv_mem_usd": 0.0}
     opts = []
     stacks = max(math.ceil(bw / HBM_STACK["bw"]), math.ceil(kv_gb / HBM_STACK["gb"]), 1)
     opts.append((stacks * HBM_STACK["gb"] * HBM_USD_PER_GB[price], f"{stacks} HBM3E stacks ({stacks * HBM_STACK['gb']:.0f} GB)"))

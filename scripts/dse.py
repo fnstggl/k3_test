@@ -72,7 +72,7 @@ def main():
     wls = {s: K3Workload(fold_mla=(s == "opt")) for s in ("pess", "real", "opt")}
     rows = []
     t0 = time.time()
-    engines = ["edge", "mid", "mid2", "mid3", "high", "xhigh"]
+    engines = ["edge", "mid", "mid2", "mid3", "high", "xhigh", "sram_a", "sram_b", "sram_c"]
     for s in ("pess", "real", "opt"):
         wl = wls[s]
         # ---------------- analog NAND (redesigned arrays), B/C/D/E

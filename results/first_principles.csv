@@ -1,0 +1,33 @@
+section,item,value,unit
+workload,expert_weights,2722740830208,
+workload,dense_weights,55553720320,
+workload,expert_macs,48620371968,
+workload,dense_macs,55553720320,
+workload,depth,698,
+workload,sync,1396,
+workload,att_flops_per_ctx_token,5013504,
+workload,kv_bytes_per_ctx_token,27648.0,
+workload,kda_state_bytes,449372160.0,
+stage_budget,us_per_stage_at_100,14.326647564469914,us
+stage_budget,us_per_stage_at_500,2.865329512893983,us
+stage_budget,us_per_stage_at_1000,1.4326647564469914,us
+storage_floor,"3D NAND QLC (digital storage density, 28.5 Gb/mm2)",52.486727780647264,USD normalized
+storage_floor,DRAM (DDR5/LPDDR5X $/GB),4511.237520384,USD normalized
+storage_floor,HBM3E ($/GB),18044.950081536,USD normalized
+storage_floor,SRAM (N3E HD macro 31.8 Mib/mm2),109325.99856167809,USD normalized
+throughput_floor,sense_amps_tR3us_at_100,199486432.0512,
+throughput_floor,adcs_needed_E_C128_at_100,23004.749824000002,
+throughput_floor,sense_amps_tR3us_at_500,997432160.256,
+throughput_floor,adcs_needed_E_C128_at_500,115023.74912000001,
+throughput_floor,sense_amps_tR3us_at_1000,1994864320.512,
+throughput_floor,adcs_needed_E_C128_at_1000,230047.49824000002,
+energy_floor,stream weights out of NAND pages (sense + page buffer),3.0439213874999997,J/token
+energy_floor,move streamed weights over a die link,0.332477386752,J/token
+energy_floor,digital MAC for every weight (BF16-class),0.104174092288,J/token
+energy_floor,"analog: ADC conversions (E, C=128, MLC, 8b ADC)",0.009569975926784,J/token
+energy_floor,analog: word-line/string setup per array op,0.00219039366,J/token
+energy_floor,"attention math at 128K (BF16, 0.5 pJ/FLOP)",0.328564998144,J/token
+energy_floor,"KV read at 128K (BF16 latent, 4.0 pJ/bit)",0.115964116992,J/token
+energy_floor,"attention math at 1024K (BF16, 0.5 pJ/FLOP)",2.628519985152,J/token
+energy_floor,"KV read at 1024K (BF16 latent, 4.0 pJ/bit)",0.927712935936,J/token
+energy_floor,KDA state read+write (SRAM),0.00718995456,J/token

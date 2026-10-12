@@ -41,3 +41,4 @@ quantize layer  Conv0_
 quantize layer  Conv1_
 quantize layer  Conv3_
 quantize layer  Conv4_
+quantize layer  Conv6_

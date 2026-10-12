@@ -47,7 +47,20 @@ ATTN_ENGINES = {
                  kv_pj_per_bit=3.5, kda_flops=100e12, kv_mem="HBM3E (B200-class)", kda_in="HBM"),
     "xhigh": dict(orch_static_w=600.0, attn_flops=4000e12, kv_bw_Bps=32e12, kda_state_bw_Bps=32e12, kda_state_pj_per_bit=3.5,
                   kv_pj_per_bit=3.5, kda_flops=400e12, kv_mem="HBM3E (4x B200-class)", kda_in="HBM"),
+    # Hypothetical 'bandwidth, not capacity' engines: the MLA latent KV cache held in on-die SRAM in FP8
+    # (K3 was released with BF16 KV; FP8 KV and FP8 attention math are unvalidated for K3 -> assumption).
+    # SRAM sized to the context in the cost model; leakage charged per GB of SRAM in the scheduler.
+    "sram_a": dict(orch_static_w=10.0, attn_flops=600e12, kv_bw_Bps=20e12, kda_state_bw_Bps=10e12,
+                   kda_state_pj_per_bit=0.5, kv_pj_per_bit=0.2, kda_flops=50e12, kv_mem="on-die SRAM (FP8 KV)",
+                   kda_in="SRAM 449MB", kv_bytes=1.0, kv_in_sram=True, attn_pj_per_flop=0.25, attn_area_factor=0.5),
+    "sram_b": dict(orch_static_w=20.0, attn_flops=1500e12, kv_bw_Bps=40e12, kda_state_bw_Bps=10e12,
+                   kda_state_pj_per_bit=0.5, kv_pj_per_bit=0.2, kda_flops=100e12, kv_mem="on-die SRAM (FP8 KV)",
+                   kda_in="SRAM 449MB", kv_bytes=1.0, kv_in_sram=True, attn_pj_per_flop=0.25, attn_area_factor=0.5),
+    "sram_c": dict(orch_static_w=40.0, attn_flops=4000e12, kv_bw_Bps=80e12, kda_state_bw_Bps=20e12,
+                   kda_state_pj_per_bit=0.5, kv_pj_per_bit=0.2, kda_flops=200e12, kv_mem="on-die SRAM (FP8 KV)",
+                   kda_in="SRAM 449MB", kv_bytes=1.0, kv_in_sram=True, attn_pj_per_flop=0.25, attn_area_factor=0.5),
 }
+SRAM_LEAK_W_PER_GB = PR.get("sram_leak_w_per_gb", "real")   # assumption, see params.py
 
 
 def orchestrator(s, engine=None):
@@ -167,7 +180,7 @@ def analog_nand(s, encoding="B", silicon="redesigned_array", contributors=None, 
         e_wl_per_op_j=g("pim_e_wl_per_op_j", s), e_bl_per_step_j=g("pim_e_bl_per_step_j", s),
         e_input_driver_per_bit_j=g("pim_e_input_driver_j", s),
         arrays_total=planes, arrays_per_stage_limit=planes, expert_arrays_per_layer=planes,
-        expert_rounds_override=rounds, dies_per_op=max(1, planes // 256),
+        expert_rounds_override=rounds, tiles_per_expert=tiles_per_expert, dies_per_op=max(1, planes // 256),
         dies_total=max(1, math.ceil(planes / (256 if silicon != "modified_periphery" else 4))),
         bcast_fanout_share=1.0, cells_total=cells, planes=planes, planes_per_die=256 if silicon != "modified_periphery" else 4,
         density_gb_mm2=g("pim_density_gb_mm2", s), adc_util_max=0.5,

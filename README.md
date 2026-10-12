@@ -6,6 +6,7 @@ Kimi K3** (2.78 T parameters, 104 B active, MXFP4 experts + BF16 dense weights, 
 compute architectures, compared with GPUs.
 
 **Read first:** [`results/final_verdict.md`](results/final_verdict.md) ·
+[`results/first_principles.md`](results/first_principles.md) ·
 [`results/workload.md`](results/workload.md) · [`results/gpu_comparison.md`](results/gpu_comparison.md)
 
 ## What is in here
@@ -41,11 +42,14 @@ python scripts/sims/crosssim_seed_spread.py
 python scripts/sims/crosssim_crossval.py     # k3cim.analog vs CrossSim AnalogCore
 python scripts/sims/run_fpim.py --fpim ext/3D-FPIM/3DFPIM-NVSim   # 3D-FPIM baseline + K3 plane configs
 python scripts/precision_sweep.py            # real-tensor analog precision sweep -> results/precision_sweep.csv
+python scripts/precision_sweep_calibrated.py # same with ADC range calibrated on held-out tokens (merged into the CSV)
 python scripts/precision_device_grid.py      # device-only error grid
 python scripts/analyze_k3_numerics.py        # MX-scale statistics, BF16 re-quantisation, activation stats
 python scripts/noise_propagation.py          # analog-like noise through real layers 0-3 (routing stability)
 python scripts/dse.py                        # design-space exploration -> data/dse_results.csv
-python scripts/run_all.py                    # all results/*.csv and workload.md
+python scripts/requirements_table.py         # cheapest design per target/context/scenario -> results/what_it_takes.csv
+python scripts/run_all.py                    # all results/*.csv, workload.md, gpu_comparison.md
+python scripts/first_principles.py           # floors + step ladder -> results/first_principles.md, step_ladder.csv
 python scripts/make_plots.py                 # results/plots/*.png
 pytest tests
 ```

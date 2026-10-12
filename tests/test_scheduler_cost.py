@@ -83,3 +83,47 @@ def test_rram_neurosim_density_is_capacity_prohibitive():
     from k3cim.architectures import rram_3d
     c = cost_estimate(rram_3d("real"))
     assert c["dies"] > 10000                       # ~3.4 M cells/mm2 incl. periphery (NeuroSim)
+
+
+def _e_design(s="real", engine="mid", pool=2048):
+    a = analog_nand(s, "E", contributors=128, cell_bits=2, adc_bits=8)
+    a.update(adc_sharing="die_pool", adc_pool_per_die=pool, int_cap_area_m2=8e-12)
+    a.update(orchestrator(s, engine))
+    return a
+
+
+def test_speculative_cim_k0_like_baseline_and_replicas_help():
+    from k3cim.scheduler import speculative_cim, with_dense_replicas
+    from k3cim.workload import K3Workload
+    wl = K3Workload()
+    a = _e_design()
+    base = Scheduler(a, wl).evaluate(32768)["tok_per_s"]
+    r0 = speculative_cim(Scheduler(a, wl), 32768, 0)        # no drafts: one token per step
+    assert abs(r0["tok_per_s"] - base) / base < 0.02
+    one = speculative_cim(Scheduler(a, wl), 32768, 3, dense_replicas=1)
+    b = with_dense_replicas(a, 4)
+    four = speculative_cim(Scheduler(b, wl), 32768, 3, dense_replicas=4)
+    assert four["t_critical_path_s"] < one["t_critical_path_s"]
+    assert b["planes"] > a["planes"] and cost_estimate(b)["memory_silicon_usd"] > cost_estimate(a)["memory_silicon_usd"]
+
+
+def test_measured_routing_locality_is_worse_than_random_for_cim():
+    from k3cim.scheduler import speculative_cim
+    from k3cim.workload import K3Workload
+    wl = K3Workload()
+    a = _e_design()
+    meas = speculative_cim(Scheduler(a, wl), 32768, 7, routing="measured")
+    rand = speculative_cim(Scheduler(a, wl), 32768, 7, routing="random")
+    assert meas["max_load"] > rand["max_load"]
+
+
+def test_sram_kv_engine_cost_scales_with_context_and_uses_fp8_kv():
+    a = _e_design(engine="sram_b")
+    c128 = cost_estimate(a, 131072)["orchestrator_and_kv_usd"]
+    c1m = cost_estimate(a, 1048576)["orchestrator_and_kv_usd"]
+    assert c1m > 3 * c128
+    sc = Scheduler(a)
+    assert abs(sc.kv_bytes_at(131072) - 576 * 24 * 131072 * 1.0) < 1.0
+    # leakage of the on-die KV SRAM is charged: static share grows with context
+    r1, r2 = sc.evaluate(32768), sc.evaluate(1048576)
+    assert r2["e_static_j"] / r2["t_token_s"] > r1["e_static_j"] / r1["t_token_s"]
