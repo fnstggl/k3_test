@@ -135,7 +135,21 @@ SLC and MLC sums come back exact because the per-cell error is far below half an
 
 ### 4.1 End-to-end noise propagation
 
-NOISE_PLACEHOLDER
+The per-MVM error budgets above are local. To see how analog-like error compounds, `scripts/noise_propagation.py` re-runs the real layers 0-3 on the same 16 tokens with zero-mean Gaussian error of relative size r added to every matrix-vector output, either on all linears or only on routed experts. It then measures the deviation of each layer's output from the BF16 reference and how many of the 16 routed experts per token stay the same. The comparison case puts MXFP8 quantisation on every linear input: that is what K3's quantisation-aware training is meant to absorb (`results/noise_propagation.csv`).
+
+| case | layer-3 output error (non-BOS tokens) | experts kept, layers 1/2/3 | tokens with any routing change at layer 3 |
+|---|---:|---|---:|
+| **MXFP8 inputs on all linears (reference)** | **7.8 %** | 97.3 / 96.9 / 96.5 % | 56 % |
+| noise r = 0.5 % on all linears | 4.5 % | 99.6 / 99.2 / 98.4 % | 19 % |
+| r = 1 % on all linears | 5.6 % | 98.4 / 98.8 / 97.3 % | 38 % |
+| r = 2 % on all linears | 6.0 % | 98.8 / 98.4 / 97.7 % | 31 % |
+| r = 4 % on all linears | 8.8 % | 96.5 / 96.1 / 95.3 % | 62 % |
+| r = 8 % on all linears | 14.9 % | 94.9 / 94.1 / 92.6 % | 81 % |
+| r = 2 % / 4 % / 8 % on experts only | 2.9 / 4.4 / 7.9 % | ≥ 96 % | 6 / 19 / 56 % |
+
+Uncorrelated error of up to ~2 % per MVM on every linear, or up to ~8 % on the routed experts alone, perturbs the first four layers no more than MXFP8 quantisation does. The "marginal" threshold (error ≤ 1.1 % dense / 2.7 % expert per MVM) sits inside that envelope, so on this evidence it is conservative rather than optimistic. Routing is the sensitive path: even the reference flips at least one of 16 experts for about half the tokens.
+
+Caveats: 4 of 93 layers, 16 tokens, one noise seed. Hence the non-monotonic small-r rows, where discrete routing flips dominate. Analog error is also not purely uncorrelated (gain drift is correlated; this is why ADC-reference trimming matters, §4). And output deviation is not task accuracy: the GPU noise-injection run in §8 is what turns this into an accuracy statement.
 
 
 ## 5. Cost: where the money goes and what $500 takes (`results/cost_model.csv`, `results/first_principles.md` §3, §8)
