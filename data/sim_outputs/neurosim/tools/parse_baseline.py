@@ -49,8 +49,16 @@ for tag, t in TABLE7.items():
     path = os.path.join(logdir, tag + '.log')
     cfg = '%s %dnm on/off=%s ADC=%db parallelRead=%d 1b/cell 128x128 XY-bus' % t[:5]
     if not os.path.exists(path):
+        stopped = [f for f in sorted(os.listdir(logdir)) if f.startswith(tag + '_') and ('STOPPED' in f or 'ABORTED' in f)]
+        src_tag = 'sram22_' + tag.split('_')[1] if tag.startswith(('sram5', 'sram1')) else None
+        if stopped:
+            why = 'NOT COMPLETED: wrapper run stopped before finishing (CPU-time budget on the shared 4-core host); see logs/baseline/' + stopped[-1]
+        elif src_tag and not os.path.exists(os.path.join(logdir, src_tag + '.log')):
+            why = 'NOT RUN: needs the %s traces, whose wrapper run was not completed' % src_tag
+        else:
+            why = 'NOT RUN (no log)'
         for m, e in zip(['accuracy_pct', 'chip_area_mm2', 'tops', 'tops_per_w', 'tops_per_mm2'], t[5:]):
-            rows.append(dict(config=cfg, metric=m, expected=e, expected_source=SRC, observed='', pct_diff='', notes='NOT RUN (no log)'))
+            rows.append(dict(config=cfg, metric=m, expected=e, expected_source=SRC, observed='', pct_diff='', notes=why))
         continue
     txt = open(path, errors='replace').read()
     got = {}

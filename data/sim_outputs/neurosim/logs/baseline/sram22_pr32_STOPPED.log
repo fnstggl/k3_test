@@ -41,3 +41,4 @@ quantize layer  Conv0_
 quantize layer  Conv1_
 quantize layer  Conv3_
 quantize layer  Conv4_
+# STOPPED by operator at 06:39:30 after completing VGG8 layers 1-4 (see layer timings): parallelRead=32 runs need >2 h of CPU on this shared host; stopped to give CPU to the RRAM rows. No hardware numbers were produced for SRAM pr32 (and therefore none for the SRAM 5 nm / 1 nm pr32 rows).

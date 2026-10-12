@@ -192,13 +192,14 @@ Ron/numRowParallel and the ADC level count (MultilevelSenseAmp.cpp:88-94), not o
 | 1024 | 8 | 4 | 524288 | 3.868 | 247.6 | 9740.1 | 18.6 | 0.752 | 449.1 | 128081 | 1.923 |
 
 Other findings (all from the CSVs):
-* **ADC sharing dominates latency.** numColMuxed = 1 (one flash ADC per column) cuts latency ~8× (e.g. 512×512, 6 b,
-  4 b/cell: 139.5 → 15.0 ns/MVM) and energy 2× (WL re-drive per mux phase disappears: 1705 → 835 pJ) at 3.1× subarray
-  area (36 316 → 113 167 µm²). numColMuxed = 2 and 4 are **not usable** in this model: the 1- and 2-address-bit mux
-  decoders (RowDecoder.cpp:73-81 instantiates no NAND/NOR gates for 1 bit) give 2-12 ns decoder delays that set the
-  clock; these rows are flagged in `notes`.
-* **SAR vs flash:** SAR is 2.4-5.3× slower per MVM (its conversion takes (b+1) ns × β vs ~1-4 ns for the flash
-  LUT), e.g. 128×128 5 b: 545.5 vs 106.5 ns/MVM. SAR energy/conversion is 1.3-17× the flash value at 4-6 b and
+* **ADC sharing dominates latency.** numColMuxed = 1 (one flash ADC per column) cuts latency 8.2-11.9× and energy
+  1.1-4.7× (the WL re-drive per mux phase disappears; largest gain at low ADC precision) for 2.3-5.2× subarray area,
+  e.g. 512×512, 6 b, 4 b/cell: 139.5 → 15.0 ns/MVM, 1705 → 835 pJ, 36 316 → 113 167 µm². numColMuxed = 16 behaves
+  as expected (mux delay ≤0.44 ns). numColMuxed = 2 and 4 are **not usable** in this model: the 1- and 2-address-bit
+  mux decoders (for 1 bit, RowDecoder.cpp:73-81 instantiates no NAND/NOR gates) report 0.6-49 ns delays that set the
+  clock (sensing cycles up to 71 ns); these rows are flagged in `notes`.
+* **SAR vs flash:** SAR is 2.4-5.3× slower per MVM (its conversion takes (b+1) ns, ×β = 1.4, vs 0.9-2.9 ns for
+  the ≤8-b flash LUT), e.g. 128×128 5 b: 545.5 vs 106.5 ns/MVM. SAR energy/conversion is 1.3-17× the flash value at 4-6 b and
   0.2-4× at 7-8 b (crossover ≈7-8 b, later for larger arrays), e.g. 128×128: 0.18 vs 0.075 pJ at 5 b, 0.28 vs 1.42 pJ at 8 b.
 * **Crossbar (accesstype 4) vs 1T1R:** latency within ±8 %, energy 10-60 % lower (no access-transistor gate load on
   the WL), area 0.71-1.38× (the 2F-pitch array forces a tall, narrow periphery-dominated floorplan for small arrays);
@@ -207,9 +208,9 @@ Other findings (all from the CSVs):
   of subarray energy at 4-5 b (e.g. 1024×1024, 6 b: array_wl 3027 + WL switch 274 pJ vs ADC 1592 pJ of 5138 pJ);
   the ADC is ≥60 % at 8 b for every size (≥72 % at 7 b for ≤256 rows). In NeuroSim the WL energy is re-spent for every
   column-mux phase (SubArray.cpp:1892-1899, `readDynamicEnergyArray *= numColMuxed`).
-* **Write-path level shifters are the largest single area item** (writeVoltage = 2 V > 1.5 V): 24-62 % of the
+* **Write-path level shifters are the largest single area item** (writeVoltage = 2 V > 1.5 V): 23-62 % of the
   subarray area in the 22 nm 1T1R flash sweep, e.g. 256×256, 5 b, 4 b/cell: 7689 of 14 371 µm² (array 1523 µm², ADC 1983 µm²).
-* **9-10-bit flash ADC rows are extrapolations** (sensing cycle 6-38 ns, nJ-scale energy): the reference resistances
+* **9-10-bit flash ADC rows are extrapolations** (sensing cycle 5.7-38 ns, nJ-scale energy): the reference resistances
   reach Ron·2^(b−1)/numRowParallel, far outside the default range of the Cadence-fitted LUTs
   (MultilevelSenseAmp.cpp:714-1158). Flagged in `notes`.
 * Derived (arithmetic on CSV values, not a NeuroSim output): 512×512, 4 b/cell, 6 b ADC, 1T1R holds 3.6 M 8-bit
