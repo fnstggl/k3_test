@@ -111,7 +111,8 @@ def energy_floor_rows(wl, inv):
 # ----------------------------------------------------------------------------- step ladder
 def ladder(knobs):
     """Each rung changes ONE physical thing relative to the previous rung."""
-    C, cb, ab = knobs["C"], knobs["cell_bits"], knobs["adc_bits"]
+    C, cb, ab, enc = knobs["C"], knobs["cell_bits"], knobs["adc_bits"], knobs["enc"]
+    bpp = {"B": 1, "C": 2, "D": 4, "E": 8}[enc]
     pm = PrecisionModel()
     rungs = []
 
@@ -140,16 +141,16 @@ def ladder(knobs):
                   "real", lambda: an("real", "B", 0, "mid", silicon="modified_periphery")))
     rungs.append(("R4", "R3", f"small analog planes (256x2048), C={C}, {cb}-bit cells, 1-bit input steps (B)",
                   "real", lambda: an("real", "B", 512, "mid")))
-    rungs.append(("R5", "R4", "one-pass time-encoded input, analog accumulation of all 8 input bits (E)",
-                  "real", lambda: an("real", "E", 512, "mid")))
+    rungs.append(("R5", "R4", f"{bpp} input bits per step, time-encoded ({enc})" if enc != "B" else "(same encoding)",
+                  "real", lambda: an("real", enc, 512, "mid")))
     rungs.append(("R6", "R5", "4x larger die-level ADC pool (2048/die, BL-held samples)",
-                  "real", lambda: an("real", "E", 2048, "mid")))
+                  "real", lambda: an("real", enc, 2048, "mid")))
     rungs.append(("R7a", "R6", "attention engine sized for 128K with HBM (1.5 PFLOP/s, 5 HBM3E stacks)",
-                  "real", lambda: an("real", "E", 2048, "mid3")))
+                  "real", lambda: an("real", enc, 2048, "mid3")))
     rungs.append(("R7b", "R6", "instead: KV cache in on-die SRAM, FP8 KV + FP8 attention math (1.5 PFLOP/s)",
-                  "real", lambda: an("real", "E", 2048, "sram_b")))
+                  "real", lambda: an("real", enc, 2048, "sram_b")))
     rungs.append(("R8", "R7b", "optimistic array physics (0.3 us WL setup, 32 ns steps), folded MLA, folded norms",
-                  "opt", lambda: an("opt", "E", 2048, "sram_b")))
+                  "opt", lambda: an("opt", enc, 2048, "sram_b")))
     out = []
     wls = {s: K3Workload(fold_mla=(s == "opt")) for s in ("real", "opt")}
     for rid, parent, desc, s, mk in rungs:
@@ -206,30 +207,104 @@ def ladder(knobs):
     return out
 
 
-def choose_knobs():
-    """Cheapest real-scenario E design whose precision verdict is not 'exceeds' (from the DSE)."""
+def cost_ladder():
+    """At a fixed target (500 tok/s, realistic array physics) apply cost levers one at a time.
+
+    L0  cheapest realistic design meeting the target with precision not 'exceeds' (from the DSE)
+    L1  4-bit (QLC) cells at C=32 - needs ~4x tighter program-verify than the 40 nm SONOS data
+        (results/precision_sweep.csv, sweep C program_verify: 1.17x -> 0.25x budget); hypothetical
+    L2  + small-plane cell density equal to commodity QLC (28.5 Gb/mm2 instead of 12.84)
+    L3  + 4x larger dies (1024 planes, 4x ADC pool per die): fewer dies, less fixed per-die overhead
+    """
     path = os.path.join(ROOT, "data", "dse_results.csv")
-    default = {"C": 128, "cell_bits": 2, "adc_bits": 8}
+    if not os.path.exists(path):
+        return []
+    rows = list(csv.DictReader(open(path)))
+    out = []
+    for ctx, L, ckey in (("32k", 32768, "silicon_usd_normalized_32k"), ("128k", 131072, "silicon_usd_normalized_128k")):
+        def cheapest(pred):
+            best = None
+            for r in rows:
+                if r["tag"] != "nand_analog_redesigned" or r["scenario"] != "real" or not pred(r):
+                    continue
+                t, c = float(r[f"tok_s_{ctx}"]), float(r[ckey])
+                if t >= 500 and (best is None or c < best[0]):
+                    best = (c, r)
+            return best[1] if best else None
+
+        budget = PrecisionModel().budget
+
+        def tight_prog_ok(r, factor=4.0):
+            """Precision if programming sigma were `factor` x tighter: device error / factor, ADC/quantisation
+            error unchanged (sweep C: 4x tighter program-verify took QLC from 1.17x to 0.25x budget)."""
+            worst = 0.0
+            for kind, tname in (("expert", "L1.expert.w1"), ("dense", "L0.kda.q_proj(bf16->mxint8)")):
+                try:
+                    q, d = float(r[f"quant_err_{kind}"]), float(r[f"device_err_{kind}"])
+                except (TypeError, ValueError, KeyError):
+                    return False
+                worst = max(worst, math.sqrt(q * q + (d / factor) ** 2) / budget[tname])
+            return worst <= 1.0
+
+        base = cheapest(lambda r: not r["precision_verdict"].startswith("exceeds"))
+        qlc = cheapest(lambda r: r["cell_bits"] == "4" and tight_prog_ok(r))
+        steps = [("L0", "cheapest realistic design meeting 500 tok/s, precision within/marginal", base, {})]
+        if qlc is not None:
+            steps += [("L1", "4-bit cells, precision with 4x tighter program-verify (hypothetical)", qlc, {}),
+                      ("L2", "+ commodity QLC cell density in small planes (28.5 Gb/mm2)", qlc, {"density": 28.5}),
+                      ("L3", "+ 1024 planes per die, 4x ADC pool per die", qlc, {"density": 28.5, "ppd": 1024})]
+        for sid, desc, r, mod in steps:
+            if r is None:
+                out.append({"context": ctx, "step": sid, "change": desc, "feasible": "no"})
+                continue
+            from run_all import rebuild_arch as rebuild  # noqa: E402  (scripts/run_all.py)
+            a = rebuild(r)
+            if "density" in mod:
+                a["density_gb_mm2"] = mod["density"]
+            if "ppd" in mod:
+                a["planes_per_die"] = mod["ppd"]
+                a["adc_pool_per_die"] = a["adc_pool_per_die"] * mod["ppd"] // 256
+                a["dies_total"] = max(1, math.ceil(a["planes"] / mod["ppd"]))
+            res = Scheduler(a, K3Workload()).evaluate(L)
+            c = cost_estimate(a, L, "normalized")
+            cs = cost_estimate(a, L, "shortage")
+            out.append({"context": ctx, "step": sid, "change": desc, "feasible": "yes",
+                        "design": f"{r['encoding']} C={r['contributors']} {r['cell_bits']}b-cell ADC{r['adc_bits']} "
+                                  f"pool{r['adc_pool_per_die']} {r['attn_engine']}",
+                        "tok_s": res["tok_per_s"], "nand_usd": c.get("memory_silicon_usd"),
+                        "attention_usd": c.get("orchestrator_and_kv_usd"), "silicon_usd": c.get("silicon_usd"),
+                        "silicon_usd_shortage": cs.get("silicon_usd"), "dies": c.get("dies"),
+                        "precision": r["precision_verdict"] if sid == "L0" else "<=1x budget assuming 4x tighter programming"})
+    return out
+
+
+def choose_knobs():
+    """Knobs of the cheapest realistic analog-NAND design meeting 500 tok/s at 128K with a precision
+    verdict that is not 'exceeds' (from the DSE)."""
+    path = os.path.join(ROOT, "data", "dse_results.csv")
+    default = {"enc": "C", "C": 128, "cell_bits": 2, "adc_bits": 6}
     if not os.path.exists(path):
         return default, "default (no DSE)"
     best = None
     for r in csv.DictReader(open(path)):
-        if r["tag"] != "nand_analog_redesigned" or r["encoding"] != "E" or r["scenario"] != "real":
+        if r["tag"] != "nand_analog_redesigned" or r["scenario"] != "real":
             continue
         if not r.get("precision_verdict", "").startswith(("within", "marginal")):
             continue
         try:
-            c = float(r["memory_silicon_usd_normalized"])
+            t, c = float(r["tok_s_128k"]), float(r["silicon_usd_normalized_128k"])
         except (TypeError, ValueError):
             continue
-        key = (r["precision_verdict"] != "within_budget", c)
-        if best is None or key < best[0]:
-            best = (key, r)
+        if t < 500:
+            continue
+        if best is None or c < best[0]:
+            best = (c, r)
     if best is None:
-        return default, "default (no E design within precision budget)"
+        return default, "default (no analog design meets 500 tok/s at 128K)"
     r = best[1]
-    return ({"C": int(r["contributors"]), "cell_bits": int(r["cell_bits"]), "adc_bits": int(r["adc_bits"])},
-            f"cheapest E memory silicon with verdict {r['precision_verdict']} in the DSE")
+    return ({"enc": r["encoding"], "C": int(r["contributors"]), "cell_bits": int(r["cell_bits"]),
+             "adc_bits": int(r["adc_bits"])},
+            f"knobs of the cheapest realistic analog design meeting 500 tok/s at 128K, verdict {r['precision_verdict']}")
 
 
 def main():
@@ -347,7 +422,7 @@ def main():
         for r in rows:
             w.writerow({k: (f"{v:.6g}" if isinstance(v, float) else v) for k, v in r.items()})
     md += ["## 7. Step-function ladder (one physical change per rung)", "",
-           f"Analog knobs: C={knobs['C']}, {knobs['cell_bits']}-bit cells, {knobs['adc_bits']}-bit ADC ({why}). "
+           f"Analog knobs: encoding {knobs['enc']}, C={knobs['C']}, {knobs['cell_bits']}-bit cells, {knobs['adc_bits']}-bit ADC ({why}). "
            "Silicon cost = volume silicon, normalized pricing, KV sized for 128K; packaging/board/NRE excluded (unknown).", "",
            "| rung | from | change | tok/s 32K | tok/s 128K | tok/s 1M | J/tok 128K | silicon $ (128K) | limiter 128K | precision |",
            "|---|---|---|---:|---:|---:|---:|---:|---|---|"]
@@ -358,13 +433,46 @@ def main():
                   f"{r.get('precision_verdict', '')} |")
     md += ["", "Reading the ladder: the big multipliers are (i) leaving commodity page geometry (R1->R2, R3->R4: "
            "~100x, it is the plane/word-line size that sets latency, not the cell), (ii) summing in the analog domain "
-           "so sensing work drops by C (R2 vs R5 at equal context), and (iii) sizing the attention engine to the "
-           "context (R7). Buying KV bandwidth as on-die SRAM instead of HBM capacity (R7b vs R7a) gives the same "
-           "speed for less than half the silicon cost at 128K, but SRAM cost grows linearly with context. "
+           "so sensing work drops by C (R5 matches R2's speed at half its silicon cost), and (iii) sizing the attention engine to the "
+           "context (R7). Buying KV bandwidth as on-die SRAM instead of HBM capacity (R7b vs R7a) is faster "
+           "for less than half the silicon cost at 128K, but SRAM cost grows linearly with context. "
            "Faster array physics (R8) is the last ~2x. Speculative decoding helps far less on "
            "weight-stationary arrays than on GPUs because each extra verified token is another array operation on "
            "shared (dense) and hot (expert) arrays; real K3 routing reuses experts across neighbouring tokens "
            "(max 4-6 of 8 tokens on one expert in layers 1-3).", ""]
+    cl = cost_ladder()
+    if cl:
+        md += ["## 8. What would it take to reach $500 at 500 tok/s (cost levers, realistic array physics)", "",
+               "Silicon cost at volume, normalized memory pricing, KV memory sized for the context; packaging, board and "
+               "NRE are unknown and excluded.", "",
+               "| context | step | change | design | tok/s | NAND $ | attention+KV $ | total $ | total $ (2026 shortage) | dies |",
+               "|---|---|---|---|---:|---:|---:|---:|---:|---:|"]
+        for r in cl:
+            if r["feasible"] != "yes":
+                md.append(f"| {r['context']} | {r['step']} | {r['change']} | infeasible | | | | | | |")
+                continue
+            md.append(f"| {r['context']} | {r['step']} | {r['change']} | {r['design']} | {r['tok_s']:.0f} | "
+                      f"{r['nand_usd']:,.0f} | {r['attention_usd']:,.0f} | {r['silicon_usd']:,.0f} | "
+                      f"{r['silicon_usd_shortage']:,.0f} | {r['dies']} |")
+        md += ["", "At 32K context the $500 target closes on volume silicon with three hypothetical levers: QLC-grade "
+               "analog precision (programming ~4x tighter than the 40 nm SONOS data), commodity-like cell density in "
+               "small planes, and larger dies. At 2026 shortage memory prices the same silicon costs 4-5x more, and "
+               "packaging of 90-360 dies is unknown. At 128K it does not close: the attention engine alone (1.5 PFLOP/s "
+               "plus ~2.3 GB of on-die FP8 KV and KDA state, ~950 mm2 of 5 nm-class logic+SRAM) costs ~$430, and the "
+               "NAND part bottoms out near $420 because in small planes the CMOS under the array (high-voltage word-line "
+               "drivers, sample capacitors, sense circuits) is larger than the cell stack above it, so die area stops "
+               "tracking cell density. Below $500 at 128K additionally needs a periphery shrink (periphery on a bonded "
+               "logic wafer, drivers shared across planes) and a cheaper KV medium; neither is demonstrated.", ""]
+        keys = []
+        for r in cl:
+            for k in r:
+                if k not in keys:
+                    keys.append(k)
+        with open(os.path.join(RES, "cost_ladder.csv"), "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=keys)
+            w.writeheader()
+            for r in cl:
+                w.writerow({k: (f"{v:.6g}" if isinstance(v, float) else v) for k, v in r.items()})
     with open(os.path.join(RES, "first_principles.md"), "w") as f:
         f.write("\n".join(md) + "\n")
     with open(os.path.join(RES, "first_principles.csv"), "w", newline="") as f:

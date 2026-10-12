@@ -1,0 +1,48 @@
+# HYBRID traces: --inference 1 (faithful) traces for the 6 conv layers from wrap_copies/rram22_pr64 (run killed in FC0), --inference 0 traces for FC0/FC1 from wrap_copies/rram22_pr64_inf0; C++ = /home/user/ext/wrap_copies/rram22_pr64_inf0/NeuroSIM/main
+# command: /home/user/ext/wrap_copies/rram22_pr64_inf0/NeuroSIM/main /home/user/ext/wrap_copies/rram22_pr64_inf0/NeuroSIM/NetWork_VGG8.csv 8 8 128 64 /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/weightConv0_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/inputConv0_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/weightConv1_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/inputConv1_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/weightConv3_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/inputConv3_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/weightConv4_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/inputConv4_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/weightConv6_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/inputConv6_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/weightConv7_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/inputConv7_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/weightFC0_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/inputFC0_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/weightFC1_.csv /home/user/ext/wrap_copies/rram22_pr64_hyb/layer_record_VGG8/inputFC1_.csv 
+User assigned speed-up degree is larger than the upper bound (where no idle period during the whole process) 
+The speed-up degree is auto-assigned as the upper bound (where no idle period during the whole process) 
+------------------------------ FloorPlan --------------------------------
+
+Tile and PE size are optimized to maximize memory utilization ( = memory mapped by synapse / total memory on chip)
+
+Desired Conventional Mapped Tile Storage Size: 1024x1024
+Desired Conventional PE Storage Size: 512x512
+Desired Novel Mapped Tile Storage Size: 9x512x512
+User-defined SubArray Size: 128x128
+
+----------------- # of tile used for each layer -----------------
+layer1: 2
+layer2: 8
+layer3: 4
+layer4: 8
+layer5: 8
+layer6: 8
+layer7: 64
+layer8: 1
+
+----------------- Speed-up of each layer ------------------
+layer1: 16
+layer2: 16
+layer3: 4
+layer4: 4
+layer5: 2
+layer6: 1
+layer7: 1
+layer8: 8
+
+----------------- Utilization of each layer ------------------
+layer1: 0.210938
+layer2: 1
+layer3: 1
+layer4: 1
+layer5: 1
+layer6: 1
+layer7: 1
+layer8: 0.625
+Memory Utilization of Whole Chip: 98.1038 % 
+
+---------------------------- FloorPlan Done ------------------------------
+
+
+

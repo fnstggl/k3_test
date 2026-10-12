@@ -95,21 +95,38 @@ Measured GPU reference: ~28-30 J/token for single-stream K3 on 8x B300 (results/
 
 ## 7. Step-function ladder (one physical change per rung)
 
-Analog knobs: C=128, 2-bit cells, 8-bit ADC (default (no DSE)). Silicon cost = volume silicon, normalized pricing, KV sized for 128K; packaging/board/NRE excluded (unknown).
+Analog knobs: encoding C, C=128, 2-bit cells, 6-bit ADC (knobs of the cheapest realistic analog design meeting 500 tok/s at 128K, verdict marginal). Silicon cost = volume silicon, normalized pricing, KV sized for 128K; packaging/board/NRE excluded (unknown).
 
 | rung | from | change | tok/s 32K | tok/s 128K | tok/s 1M | J/tok 128K | silicon $ (128K) | limiter 128K | precision |
 |---|---|---|---:|---:|---:|---:|---:|---|---|
 | R0 | - | commodity TLC NAND, weights streamed over ONFI to an external accelerator (A0) | 0.228 | 0.228 | 0.228 | 49.8 | 252 | nvm_io_bandwidth | exact_digital |
 | R1 | R0 | compute next to every plane, SLC mode, commodity planes (A1) | 1.24 | 1.24 | 1.24 | 13.8 | 415 | nvm_sense_throughput | exact_digital |
 | R2 | R1 | redesign the array: 256 small low-latency SLC planes per die, digital (A2) | 259 | 144 | 22.1 | 5.87 | 2,520 | critical_path | exact_digital |
-| R3 | R1 | instead: sum currents of many cells on the bit line (analog), commodity planes (B-mp) | 5.35 | 5.23 | 4.36 | 2.65 | 700 | critical_path | unknown(precision study not run) |
-| R4 | R3 | small analog planes (256x2048), C=128, 2-bit cells, 1-bit input steps (B) | 208 | 112 | 21.2 | 0.733 | 1,182 | critical_path | unknown(precision study not run) |
-| R5 | R4 | one-pass time-encoded input, analog accumulation of all 8 input bits (E) | 358 | 145 | 22.1 | 0.623 | 1,182 | critical_path | unknown(precision study not run) |
-| R6 | R5 | 4x larger die-level ADC pool (2048/die, BL-held samples) | 382 | 149 | 22.2 | 0.62 | 1,275 | critical_path | unknown(precision study not run) |
-| R7a | R6 | attention engine sized for 128K with HBM (1.5 PFLOP/s, 5 HBM3E stacks) | 716 | 448 | 99.9 | 0.626 | 3,650 | critical_path | unknown(precision study not run) |
-| R7b | R6 | instead: KV cache in on-die SRAM, FP8 KV + FP8 attention math (1.5 PFLOP/s) | 767 | 538 | 142 | 0.308 | 1,529 | critical_path | unknown(precision study not run) |
-| R8 | R7b | optimistic array physics (0.3 us WL setup, 32 ns steps), folded MLA, folded norms | 1.63e+03 | 1e+03 | 218 | 0.215 | 1,454 | critical_path | unknown(precision study not run) |
-| R9 | R8 | speculative decoding, k=1 drafts, dense weights replicated x2 (hypothetical 1-layer drafter, DSpark-measured acceptance, measured K3 routing locality) | 2.06e+03 | 1.11e+03 | 210 | 0.226 | 1,482 | critical_path+draft | unknown(precision study not run) |
+| R3 | R1 | instead: sum currents of many cells on the bit line (analog), commodity planes (B-mp) | 5.35 | 5.23 | 4.36 | 2.65 | 700 | critical_path | exceeds_budget |
+| R4 | R3 | small analog planes (256x2048), C=128, 2-bit cells, 1-bit input steps (B) | 227 | 117 | 21.4 | 0.669 | 1,169 | critical_path | within_budget |
+| R5 | R4 | 2 input bits per step, time-encoded (C) | 307 | 136 | 21.9 | 0.635 | 1,169 | critical_path | marginal |
+| R6 | R5 | 4x larger die-level ADC pool (2048/die, BL-held samples) | 372 | 147 | 22.2 | 0.626 | 1,223 | critical_path | marginal |
+| R7a | R6 | attention engine sized for 128K with HBM (1.5 PFLOP/s, 5 HBM3E stacks) | 682 | 435 | 99.2 | 0.635 | 3,598 | critical_path | marginal |
+| R7b | R6 | instead: KV cache in on-die SRAM, FP8 KV + FP8 attention math (1.5 PFLOP/s) | 728 | 519 | 141 | 0.316 | 1,477 | critical_path | marginal |
+| R8 | R7b | optimistic array physics (0.3 us WL setup, 32 ns steps), folded MLA, folded norms | 1.54e+03 | 966 | 216 | 0.218 | 1,438 | critical_path | marginal |
+| R9 | R8 | speculative decoding, k=1 drafts, dense weights replicated x2 (hypothetical 1-layer drafter, DSpark-measured acceptance, measured K3 routing locality) | 1.94e+03 | 1.08e+03 | 209 | 0.228 | 1,466 | critical_path+draft | marginal |
 
-Reading the ladder: the big multipliers are (i) leaving commodity page geometry (R1->R2, R3->R4: ~100x, it is the plane/word-line size that sets latency, not the cell), (ii) summing in the analog domain so sensing work drops by C (R2 vs R5 at equal context), and (iii) sizing the attention engine to the context (R7). Buying KV bandwidth as on-die SRAM instead of HBM capacity (R7b vs R7a) gives the same speed for less than half the silicon cost at 128K, but SRAM cost grows linearly with context. Faster array physics (R8) is the last ~2x. Speculative decoding helps far less on weight-stationary arrays than on GPUs because each extra verified token is another array operation on shared (dense) and hot (expert) arrays; real K3 routing reuses experts across neighbouring tokens (max 4-6 of 8 tokens on one expert in layers 1-3).
+Reading the ladder: the big multipliers are (i) leaving commodity page geometry (R1->R2, R3->R4: ~100x, it is the plane/word-line size that sets latency, not the cell), (ii) summing in the analog domain so sensing work drops by C (R5 matches R2's speed at half its silicon cost), and (iii) sizing the attention engine to the context (R7). Buying KV bandwidth as on-die SRAM instead of HBM capacity (R7b vs R7a) is faster for less than half the silicon cost at 128K, but SRAM cost grows linearly with context. Faster array physics (R8) is the last ~2x. Speculative decoding helps far less on weight-stationary arrays than on GPUs because each extra verified token is another array operation on shared (dense) and hot (expert) arrays; real K3 routing reuses experts across neighbouring tokens (max 4-6 of 8 tokens on one expert in layers 1-3).
+
+## 8. What would it take to reach $500 at 500 tok/s (cost levers, realistic array physics)
+
+Silicon cost at volume, normalized memory pricing, KV memory sized for the context; packaging, board and NRE are unknown and excluded.
+
+| context | step | change | design | tok/s | NAND $ | attention+KV $ | total $ | total $ (2026 shortage) | dies |
+|---|---|---|---|---:|---:|---:|---:|---:|---:|
+| 32k | L0 | cheapest realistic design meeting 500 tok/s, precision within/marginal | C C=256 2b-cell ADC8 pool512 sram_a | 542 | 1,003 | 171 | 1,174 | 7,355 | 1055 |
+| 32k | L1 | 4-bit cells, precision with 4x tighter program-verify (hypothetical) | E C=32 4b-cell ADC8 pool2048 sram_a | 548 | 371 | 171 | 542 | 2,828 | 357 |
+| 32k | L2 | + commodity QLC cell density in small planes (28.5 Gb/mm2) | E C=32 4b-cell ADC8 pool2048 sram_a | 548 | 308 | 171 | 479 | 2,380 | 357 |
+| 32k | L3 | + 1024 planes per die, 4x ADC pool per die | E C=32 4b-cell ADC8 pool2048 sram_a | 547 | 247 | 171 | 418 | 1,940 | 90 |
+| 128k | L0 | cheapest realistic design meeting 500 tok/s, precision within/marginal | C C=128 2b-cell ADC6 pool2048 sram_b | 519 | 1,044 | 433 | 1,477 | 7,911 | 1055 |
+| 128k | L1 | 4-bit cells, precision with 4x tighter program-verify (hypothetical) | D C=128 4b-cell ADC8 pool512 sram_b | 505 | 664 | 433 | 1,097 | 5,193 | 699 |
+| 128k | L2 | + commodity QLC cell density in small planes (28.5 Gb/mm2) | D C=128 4b-cell ADC8 pool512 sram_b | 505 | 542 | 433 | 975 | 4,316 | 699 |
+| 128k | L3 | + 1024 planes per die, 4x ADC pool per die | D C=128 4b-cell ADC8 pool512 sram_b | 510 | 417 | 433 | 850 | 3,417 | 175 |
+
+At 32K context the $500 target closes on volume silicon with three hypothetical levers: QLC-grade analog precision (programming ~4x tighter than the 40 nm SONOS data), commodity-like cell density in small planes, and larger dies. At 2026 shortage memory prices the same silicon costs 4-5x more, and packaging of 90-360 dies is unknown. At 128K it does not close: the attention engine alone (1.5 PFLOP/s plus ~2.3 GB of on-die FP8 KV and KDA state, ~950 mm2 of 5 nm-class logic+SRAM) costs ~$430, and the NAND part bottoms out near $420 because in small planes the CMOS under the array (high-voltage word-line drivers, sample capacitors, sense circuits) is larger than the cell stack above it, so die area stops tracking cell density. Below $500 at 128K additionally needs a periphery shrink (periphery on a bonded logic wafer, drivers shared across planes) and a cheaper KV medium; neither is demonstrated.
 

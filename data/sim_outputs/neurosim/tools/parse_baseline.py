@@ -46,8 +46,11 @@ PATS = {
 }
 EXTRA = ['clock_period_ns', 'pipeline_cycle_ns', 'read_dynamic_energy_pJ', 'leakage_energy_pJ', 'fps',
          'cim_array_area_um2', 'adc_area_um2', 'memory_utilization_pct', 'neurosim_runtime_s', 'wall_seconds']
-VARIANTS = [('', 'wrapper --inference 1 (HW-aware forward = manual flow), traces of CIFAR-10 test image #1'),
-            ('_inf0', 'wrapper --inference 0 (ideal 8-bit forward), traces of CIFAR-10 test image #1')]
+VARIANTS = [('', 'C++ @HEAD 8a88abf; wrapper --inference 1 traces (HW-aware forward = manual flow; test image #1)'),
+            ('_inf0', 'C++ @HEAD 8a88abf; wrapper --inference 0 traces (ideal 8-bit forward; test image #1)'),
+            ('_code6a6073d', 'C++ @6a6073d (original 2024-10-04 V1.4 upload); wrapper --inference 1 traces'),
+            ('_inf0_code6a6073d', 'C++ @6a6073d (original 2024-10-04 V1.4 upload); wrapper --inference 0 traces')]
+PARTNER = {'': '_inf0', '_inf0': '', '_code6a6073d': '_inf0_code6a6073d', '_inf0_code6a6073d': '_code6a6073d'}
 
 
 def parse(path):
@@ -81,15 +84,15 @@ for tag, t in TABLE7.items():
         key = tag + suf
         reuse = ''
         if tag.startswith(('sram5', 'sram1')):
-            reuse = 'C++ re-run on the sram22_pr%s%s traces (the wrapper never sees technode)' % (tag.split('pr')[1], suf)
+            reuse = 'C++ re-run on the sram22_pr%s%s traces (the wrapper never sees technode)' % (tag.split('pr')[1], suf.replace('_code6a6073d', ''))
         if key not in parsed:
             stopped = [f for f in sorted(os.listdir(logdir)) if f.startswith(key + '_') and ('STOPPED' in f or 'ABORTED' in f)]
             if stopped:
                 why = ('NOT COMPLETED: run stopped before finishing (CPU-time budget on the shared 4-core host); see '
                        'logs/baseline/' + stopped[-1])
-            elif suf == '':
-                why = ('NOT RUN with --inference 1 (one image needs 1-3 h of CPU per config here); see the '
-                       '--inference 0 row for this config')
+            elif 'inf0' not in suf:
+                why = ('NOT RUN with --inference 1 traces (one image needs 1-3 h of CPU per config here); see the '
+                       '--inference 0 rows for this config')
             else:
                 why = 'NOT RUN (no log)'
             for m in MAIN:
@@ -103,7 +106,7 @@ for tag, t in TABLE7.items():
                 rows.append(dict(config=cfg, trace_source=src, metric=m, expected=exp[m], expected_source=SRC,
                                  observed='', pct_diff='', notes='RUN DID NOT FINISH / FAILED: ' + tail))
             continue
-        other = parsed.get(tag + ('' if suf else '_inf0'), ({}, ''))[0]
+        other = parsed.get(tag + PARTNER[suf], ({}, ''))[0]
         acc = got.get('accuracy')
         for m in MAIN:
             note = reuse
@@ -115,13 +118,13 @@ for tag, t in TABLE7.items():
                     obs = 100.0 * acc[0] / acc[1]
                     note = ('top-1 on only %d test image (full 10k-image --inference 1 run is infeasible on this CPU); '
                             'NOT comparable to Table VII' % acc[1])
-                    if suf:
+                    if 'inf0' in suf:
                         note = 'software accuracy (no HW effects) on %d image; NOT comparable' % acc[1]
             else:
                 obs = got.get(m)
                 if m == 'tops_per_mm2':
                     note = (note + '; ' if note else '') + 'Table VII rounds TOPS/mm2 to 2 decimals'
-                if obs is not None and other.get(m) is not None and suf:
+                if obs is not None and other.get(m) is not None and 'inf0' in suf:
                     note = (note + '; ' if note else '') + 'vs --inference 1 run of the same config: %+.3f %%' % (100.0 * (obs - other[m]) / other[m])
             rows.append(dict(config=cfg, trace_source=src, metric=m, expected=exp[m], expected_source=SRC,
                              observed=('%.4g' % obs) if obs is not None else '',

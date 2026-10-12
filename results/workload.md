@@ -91,6 +91,11 @@ The BF16 *always-active* part (55.6 B params, 111 GB/token) dominates bandwidth;
 
 * one expert = 3 matrices (w1,w3: 3584->3072; w2: 3072->3584) = 33.03 M weights = 17.55 MB (codes 16.52 MB + scales 1.03 MB)
 * 92 MoE layers x 896 experts = 82,432 experts; 16 active per layer per token = 1.8% of each layer's experts
+* real routing (16 tokens of text, layers 1-3): 191 / 171 / 131 distinct experts touched (real forward pass)
+* E2M1 code magnitudes (layer 1, 64 experts): {'0': 253622919, '1': 466299959, '2': 401583943, '3': 319158971, '4': 319252343, '6': 220101640, '8': 109942019, '12': 23967422}; zero fraction 0.120; rms/max 0.306
+* block-exponent spread over 64 contributors: P(spread<=1) = 0.9986, max 2 -> exact integer folding of MX scales needs 5 (p99) / 6 (max) magnitude bits
+* block-exponent spread over 128 contributors: P(spread<=1) = 0.9927, max 3 -> exact integer folding of MX scales needs 5 (p99) / 7 (max) magnitude bits
+* block-exponent spread over 256 contributors: P(spread<=1) = 0.9745, max 3 -> exact integer folding of MX scales needs 6 (p99) / 7 (max) magnitude bits
 
 ## 6. Attention state: KV cache and KDA recurrent state
 

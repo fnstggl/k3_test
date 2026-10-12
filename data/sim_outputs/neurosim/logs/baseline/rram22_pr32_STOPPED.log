@@ -1,4 +1,4 @@
-/home/user/ext/wrap_copies/rram22_pr64/log/default/ADCprecision=4/batch_size=1/cellBit=1/dataset=cifar10/decreasing_lr=140,180/detect=0/grad_scale=8/inference=1/lr=0.01/mode=WAGE/model=VGG8/onoffratio=17.0/parallelRead=64/seed=117/subArray=128/t=0/target=0/v=0/vari=0.0/wl_activate=8/wl_error=8/wl_grad=8/wl_weight=8
+/home/user/ext/wrap_copies/rram22_pr32/log/default/ADCprecision=4/batch_size=1/cellBit=1/dataset=cifar10/decreasing_lr=140,180/detect=0/grad_scale=8/inference=1/lr=0.01/mode=WAGE/model=VGG8/onoffratio=17.0/parallelRead=32/seed=117/subArray=128/t=0/target=0/v=0/vari=0.0/wl_activate=8/wl_error=8/wl_grad=8/wl_weight=8
 =================FLAGS==================
 dataset: cifar10
 model: VGG8
@@ -9,7 +9,7 @@ grad_scale: 8
 seed: 117
 log_interval: 100
 test_interval: 1
-logdir: /home/user/ext/wrap_copies/rram22_pr64/log/default/ADCprecision=4/batch_size=1/cellBit=1/dataset=cifar10/decreasing_lr=140,180/detect=0/grad_scale=8/inference=1/lr=0.01/mode=WAGE/model=VGG8/onoffratio=17.0/parallelRead=64/seed=117/subArray=128/t=0/target=0/v=0/vari=0.0/wl_activate=8/wl_error=8/wl_grad=8/wl_weight=8
+logdir: /home/user/ext/wrap_copies/rram22_pr32/log/default/ADCprecision=4/batch_size=1/cellBit=1/dataset=cifar10/decreasing_lr=140,180/detect=0/grad_scale=8/inference=1/lr=0.01/mode=WAGE/model=VGG8/onoffratio=17.0/parallelRead=32/seed=117/subArray=128/t=0/target=0/v=0/vari=0.0/wl_activate=8/wl_error=8/wl_grad=8/wl_weight=8
 lr: 0.01
 decreasing_lr: 140,180
 wl_weight: 8
@@ -18,7 +18,7 @@ wl_activate: 8
 wl_error: 8
 inference: 1
 subArray: 128
-parallelRead: 64
+parallelRead: 32
 ADCprecision: 4
 cellBit: 1
 onoffratio: 17.0
@@ -42,4 +42,4 @@ quantize layer  Conv1_
 quantize layer  Conv3_
 quantize layer  Conv4_
 quantize layer  Conv6_
-quantize layer  Conv7_
+# STOPPED by operator at 07:11:45 after VGG8 layers 1-5 (Conv0..Conv6; see layer_record timestamps: 06:10, 06:11, 06:17, 06:35, 06:55). Layer 6 (Conv7) alone took 32 min at parallelRead=64 and the 8192x1024 FC layer >23 min, both ~2x at parallelRead=32, so the run could not finish within the 2 h background-task limit (08:09). Replaced by --inference 0 traces (rram22_pr32_inf0).

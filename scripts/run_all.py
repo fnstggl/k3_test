@@ -203,6 +203,9 @@ def main():
                         row[c + "_us"] = v * 1e6
                         tot[c] += v
                 lat_rows.append(row)
+            sync = a.get("per_layer_sync_s", 0.0) * wl.nL + a.get("per_token_overhead_s", 0.0)
+            if sync:
+                tot["cp_sync"] += sync      # per-layer collectives / launch overhead (added outside the op DAG)
             lat_rows.append({"arch_id": aid, "scenario": s, "design": sel_name, "context": L, "layer": "TOTAL",
                              "layer_type": f"token={r['t_token_s'] * 1e3:.3f}ms cp={r['t_critical_path_s'] * 1e3:.3f}ms",
                              **{c + "_us": v * 1e6 for c, v in tot.items()},

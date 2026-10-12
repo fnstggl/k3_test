@@ -72,12 +72,13 @@ def generate(path=os.path.join(ROOT, "results", "gpu_comparison.md")):
           f"{speculative_tok_per_s(sc_, 131072, 7)[0]:.0f} | {lim} |")
     w("\nWith BF16 always-active weights an 8xB300 node is HBM-bound at ~330 tok/s single-stream once synchronisation "
       "drops to ~10 us/layer (persistent 'megakernel' execution, fused MoE dispatch). That is the honest software-only "
-      "competitor for any new silicon: roughly 3x today's measured number on the same $550K hardware.\n")
+      "competitor for any new silicon: roughly 3x today's measured number on the same ~$320K node.\n")
     w("## 3. Best CIM / NVM designs vs GPU (from `architecture_comparison.csv`)\n")
     w("| arch | scenario | design | tok/s 32K | tok/s 128K | tok/s 1M | J/token 128K | W 128K | silicon USD (normalized) | GPU-system USD | precision |\n"
       "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|")
     for r in comp:
-        if r.get("feasible") != "yes" or r["selection"] not in ("fastest_at_128K", "cheapest_meeting_500tok_s_at_128K"):
+        if r.get("feasible") != "yes" or r["selection"] not in ("fastest_at_128K", "cheapest_meeting_500tok_s_at_128K",
+                                                                "cheapest_meeting_100tok_s_at_128K"):
             continue
         if r["scenario"] != "real":
             continue
@@ -90,7 +91,9 @@ def generate(path=os.path.join(ROOT, "results", "gpu_comparison.md")):
     w("\n## 4. Energy per useful operation\n")
     w("A K3 token at 128K context is 2 x 104.2 G weight MACs + 2 x 328.6 G attention MACs = 0.87 TFLOP. "
       "Measured GB300 single-stream energy is 28.4 J/token (GPU boards only) = ~33 pJ/FLOP; under batched load it falls to "
-      "7.9 J/token. See `results/energy_breakdown.csv` for the CIM designs (pJ per weight op and per op incl. attention).\n")
+      "7.9 J/token. The cheapest analog-NAND designs meeting 100 / 500 tok/s at 128K (table above) spend 0.3-0.7 J/token "
+      "(model), 50-100x less per token than the measured single-stream GPU figure, mostly because weights never move; "
+      "see `results/energy_breakdown.csv` for the per-mechanism split (pJ per weight op and per op incl. attention).\n")
     w("## 5. Prefill (time to first token)\n")
     w("| design | 32K prompt | 128K prompt | 1M prompt |\n|---|---:|---:|---:|")
     a = analog_nand("real", "E", adc_bits=8)

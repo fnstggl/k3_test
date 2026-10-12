@@ -1,126 +1,126 @@
 design,parameter,value,context,tok_per_s,J_per_token
-E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",3e-07,32768,375.012,0.194486
-E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",3e-07,131072,147.697,0.583494
-E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",8e-07,32768,361.301,0.195852
-E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",8e-07,131072,145.522,0.584859
-E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-06,32768,332.153,0.19913
-E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-06,131072,140.554,0.588137
-E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",5e-06,32768,276.407,0.207324
-E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",5e-06,131072,129.502,0.596331
-E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-05,32768,150.289,0.248295
-E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-05,131072,92.9549,0.637302
-E_onepass_real,t_step_fixed_s (BL precharge/settle per step),3.2e-08,32768,367.386,0.195213
-E_onepass_real,t_step_fixed_s (BL precharge/settle per step),3.2e-08,131072,146.499,0.584221
-E_onepass_real,t_step_fixed_s (BL precharge/settle per step),6.4e-08,32768,361.301,0.195852
-E_onepass_real,t_step_fixed_s (BL precharge/settle per step),6.4e-08,131072,145.522,0.584859
-E_onepass_real,t_step_fixed_s (BL precharge/settle per step),1.2e-07,32768,351.122,0.19697
-E_onepass_real,t_step_fixed_s (BL precharge/settle per step),1.2e-07,131072,143.842,0.585977
-E_onepass_real,t_step_fixed_s (BL precharge/settle per step),5e-07,32768,294.77,0.204555
-E_onepass_real,t_step_fixed_s (BL precharge/settle per step),5e-07,131072,133.395,0.593562
-E_onepass_real,t_step_fixed_s (BL precharge/settle per step),2e-06,32768,180.451,0.234496
-E_onepass_real,t_step_fixed_s (BL precharge/settle per step),2e-06,131072,103.673,0.623503
-E_onepass_real,adc_bit_cycle_s (SAR bit cycle),5e-10,32768,372.174,0.194761
-E_onepass_real,adc_bit_cycle_s (SAR bit cycle),5e-10,131072,147.255,0.583768
-E_onepass_real,adc_bit_cycle_s (SAR bit cycle),1e-09,32768,368.477,0.195124
-E_onepass_real,adc_bit_cycle_s (SAR bit cycle),1e-09,131072,146.672,0.584132
-E_onepass_real,adc_bit_cycle_s (SAR bit cycle),2e-09,32768,361.301,0.195852
-E_onepass_real,adc_bit_cycle_s (SAR bit cycle),2e-09,131072,145.522,0.584859
-E_onepass_real,adc_bit_cycle_s (SAR bit cycle),5e-09,32768,341.355,0.198034
-E_onepass_real,adc_bit_cycle_s (SAR bit cycle),5e-09,131072,142.176,0.587042
-E_onepass_real,adc_bit_cycle_s (SAR bit cycle),1e-08,32768,312.593,0.201672
-E_onepass_real,adc_bit_cycle_s (SAR bit cycle),1e-08,131072,136.928,0.590679
-E_onepass_real,die link latency (incl. package hop),2e-08,32768,372.576,0.194722
-E_onepass_real,die link latency (incl. package hop),2e-08,131072,147.317,0.583729
-E_onepass_real,die link latency (incl. package hop),8e-08,32768,361.301,0.195852
-E_onepass_real,die link latency (incl. package hop),8e-08,131072,145.522,0.584859
-E_onepass_real,die link latency (incl. package hop),2e-07,32768,340.681,0.198113
-E_onepass_real,die link latency (incl. package hop),2e-07,131072,142.059,0.58712
-E_onepass_real,die link latency (incl. package hop),1e-06,32768,246.786,0.213184
-E_onepass_real,die link latency (incl. package hop),1e-06,131072,122.607,0.602191
-E_onepass_real,orchestrator op latency (global reductions),3e-08,32768,370.318,0.194942
-E_onepass_real,orchestrator op latency (global reductions),3e-08,131072,146.963,0.58395
-E_onepass_real,orchestrator op latency (global reductions),8e-08,32768,361.301,0.195852
-E_onepass_real,orchestrator op latency (global reductions),8e-08,131072,145.522,0.584859
-E_onepass_real,orchestrator op latency (global reductions),3e-07,32768,326.335,0.199854
-E_onepass_real,orchestrator op latency (global reductions),3e-07,131072,139.502,0.588861
-E_onepass_real,orchestrator op latency (global reductions),1e-06,32768,248.311,0.212848
-E_onepass_real,orchestrator op latency (global reductions),1e-06,131072,122.982,0.601855
-E_onepass_real,adc_pool_per_die,128,32768,286.43,0.205615
-E_onepass_real,adc_pool_per_die,128,131072,131.66,0.594623
-E_onepass_real,adc_pool_per_die,256,32768,324.959,0.200029
-E_onepass_real,adc_pool_per_die,256,131072,139.25,0.589036
-E_onepass_real,adc_pool_per_die,512,32768,348.326,0.197243
-E_onepass_real,adc_pool_per_die,512,131072,143.371,0.586251
-E_onepass_real,adc_pool_per_die,1024,32768,361.301,0.195852
-E_onepass_real,adc_pool_per_die,1024,131072,145.522,0.584859
-E_onepass_real,adc_pool_per_die,2048,32768,367.84,0.195188
-E_onepass_real,adc_pool_per_die,2048,131072,146.571,0.584195
-E_onepass_real,adc_pool_per_die,4096,32768,370.949,0.19488
-E_onepass_real,adc_pool_per_die,4096,131072,147.063,0.583888
-B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",3e-07,32768,269.594,0.253496
-B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",3e-07,131072,127.986,0.642503
-B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",8e-07,32768,262.434,0.254862
-B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",8e-07,131072,126.35,0.643869
-B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-06,32768,246.709,0.258139
-B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-06,131072,122.588,0.647147
-B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",5e-06,32768,214.566,0.266333
-B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",5e-06,131072,114.095,0.655341
-B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-05,32768,129.928,0.307304
-B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-05,131072,84.7414,0.696312
-B_1bit_real,t_step_fixed_s (BL precharge/settle per step),3.2e-08,32768,290.386,0.249752
-B_1bit_real,t_step_fixed_s (BL precharge/settle per step),3.2e-08,131072,132.49,0.638759
-B_1bit_real,t_step_fixed_s (BL precharge/settle per step),6.4e-08,32768,262.434,0.254862
-B_1bit_real,t_step_fixed_s (BL precharge/settle per step),6.4e-08,131072,126.35,0.643869
-B_1bit_real,t_step_fixed_s (BL precharge/settle per step),1.2e-07,32768,224.599,0.263804
-B_1bit_real,t_step_fixed_s (BL precharge/settle per step),1.2e-07,131072,116.871,0.652811
-B_1bit_real,t_step_fixed_s (BL precharge/settle per step),5e-07,32768,113.532,0.324484
-B_1bit_real,t_step_fixed_s (BL precharge/settle per step),5e-07,131072,77.4465,0.713492
-B_1bit_real,t_step_fixed_s (BL precharge/settle per step),2e-06,32768,38.459,0.564013
-B_1bit_real,t_step_fixed_s (BL precharge/settle per step),2e-06,131072,33.2163,0.95302
-B_1bit_real,adc_bit_cycle_s (SAR bit cycle),5e-10,32768,316.097,0.246132
-B_1bit_real,adc_bit_cycle_s (SAR bit cycle),5e-10,131072,137.596,0.635139
-B_1bit_real,adc_bit_cycle_s (SAR bit cycle),1e-09,32768,295.926,0.249042
-B_1bit_real,adc_bit_cycle_s (SAR bit cycle),1e-09,131072,133.632,0.638049
-B_1bit_real,adc_bit_cycle_s (SAR bit cycle),2e-09,32768,262.434,0.254862
-B_1bit_real,adc_bit_cycle_s (SAR bit cycle),2e-09,131072,126.35,0.643869
-B_1bit_real,adc_bit_cycle_s (SAR bit cycle),5e-09,32768,195.914,0.272321
-B_1bit_real,adc_bit_cycle_s (SAR bit cycle),5e-09,131072,108.597,0.661329
+E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",3e-07,32768,383.989,0.193645
+E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",3e-07,131072,149.069,0.582652
+E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",8e-07,32768,376.671,0.194328
+E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",8e-07,131072,147.953,0.583335
+E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-06,32768,360.194,0.195967
+E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-06,131072,145.342,0.584974
+E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",5e-06,32768,324.688,0.200064
+E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",5e-06,131072,139.2,0.589071
+E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-05,32768,217.492,0.220549
+E_onepass_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-05,131072,114.917,0.609556
+E_onepass_real,t_step_fixed_s (BL precharge/settle per step),3.2e-08,32768,383.29,0.193689
+E_onepass_real,t_step_fixed_s (BL precharge/settle per step),3.2e-08,131072,148.964,0.582696
+E_onepass_real,t_step_fixed_s (BL precharge/settle per step),6.4e-08,32768,376.671,0.194328
+E_onepass_real,t_step_fixed_s (BL precharge/settle per step),6.4e-08,131072,147.953,0.583335
+E_onepass_real,t_step_fixed_s (BL precharge/settle per step),1.2e-07,32768,365.621,0.195446
+E_onepass_real,t_step_fixed_s (BL precharge/settle per step),1.2e-07,131072,146.218,0.584453
+E_onepass_real,t_step_fixed_s (BL precharge/settle per step),5e-07,32768,304.921,0.203031
+E_onepass_real,t_step_fixed_s (BL precharge/settle per step),5e-07,131072,135.436,0.592038
+E_onepass_real,t_step_fixed_s (BL precharge/settle per step),2e-06,32768,184.205,0.232972
+E_onepass_real,t_step_fixed_s (BL precharge/settle per step),2e-06,131072,104.901,0.621979
+E_onepass_real,adc_bit_cycle_s (SAR bit cycle),5e-10,32768,388.504,0.193237
+E_onepass_real,adc_bit_cycle_s (SAR bit cycle),5e-10,131072,149.745,0.582244
+E_onepass_real,adc_bit_cycle_s (SAR bit cycle),1e-09,32768,384.478,0.1936
+E_onepass_real,adc_bit_cycle_s (SAR bit cycle),1e-09,131072,149.143,0.582608
+E_onepass_real,adc_bit_cycle_s (SAR bit cycle),2e-09,32768,376.671,0.194328
+E_onepass_real,adc_bit_cycle_s (SAR bit cycle),2e-09,131072,147.953,0.583335
+E_onepass_real,adc_bit_cycle_s (SAR bit cycle),5e-09,32768,355.043,0.19651
+E_onepass_real,adc_bit_cycle_s (SAR bit cycle),5e-09,131072,144.496,0.585518
+E_onepass_real,adc_bit_cycle_s (SAR bit cycle),1e-08,32768,324.033,0.200148
+E_onepass_real,adc_bit_cycle_s (SAR bit cycle),1e-08,131072,139.079,0.589155
+E_onepass_real,die link latency (incl. package hop),2e-08,32768,388.942,0.193197
+E_onepass_real,die link latency (incl. package hop),2e-08,131072,149.81,0.582205
+E_onepass_real,die link latency (incl. package hop),8e-08,32768,376.671,0.194328
+E_onepass_real,die link latency (incl. package hop),8e-08,131072,147.953,0.583335
+E_onepass_real,die link latency (incl. package hop),2e-07,32768,354.314,0.196588
+E_onepass_real,die link latency (incl. package hop),2e-07,131072,144.375,0.585596
+E_onepass_real,die link latency (incl. package hop),1e-06,32768,253.861,0.21166
+E_onepass_real,die link latency (incl. package hop),1e-06,131072,124.329,0.600667
+E_onepass_real,orchestrator op latency (global reductions),3e-08,32768,383.52,0.193688
+E_onepass_real,orchestrator op latency (global reductions),3e-08,131072,148.999,0.582695
+E_onepass_real,orchestrator op latency (global reductions),8e-08,32768,376.671,0.194328
+E_onepass_real,orchestrator op latency (global reductions),8e-08,131072,147.953,0.583335
+E_onepass_real,orchestrator op latency (global reductions),3e-07,32768,349.229,0.197143
+E_onepass_real,orchestrator op latency (global reductions),3e-07,131072,143.524,0.58615
+E_onepass_real,orchestrator op latency (global reductions),1e-06,32768,283.509,0.206101
+E_onepass_real,orchestrator op latency (global reductions),1e-06,131072,131.04,0.595108
+E_onepass_real,adc_pool_per_die,128,32768,296.006,0.204091
+E_onepass_real,adc_pool_per_die,128,131072,133.648,0.593098
+E_onepass_real,adc_pool_per_die,256,32768,337.34,0.198505
+E_onepass_real,adc_pool_per_die,256,131072,141.475,0.587512
+E_onepass_real,adc_pool_per_die,512,32768,362.59,0.195719
+E_onepass_real,adc_pool_per_die,512,131072,145.731,0.584726
+E_onepass_real,adc_pool_per_die,1024,32768,376.671,0.194328
+E_onepass_real,adc_pool_per_die,1024,131072,147.953,0.583335
+E_onepass_real,adc_pool_per_die,2048,32768,383.784,0.193664
+E_onepass_real,adc_pool_per_die,2048,131072,149.039,0.582671
+E_onepass_real,adc_pool_per_die,4096,32768,387.17,0.193356
+E_onepass_real,adc_pool_per_die,4096,131072,149.546,0.582364
+B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",3e-07,32768,274.202,0.252655
+B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",3e-07,131072,129.016,0.641662
+B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",8e-07,32768,270.45,0.253338
+B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",8e-07,131072,128.179,0.642345
+B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-06,32768,261.85,0.254976
+B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-06,131072,126.214,0.643984
+B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",5e-06,32768,242.566,0.259073
+B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",5e-06,131072,121.557,0.648081
+B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-05,32768,177.287,0.279559
+B_1bit_real,"t_wl_s (WL setup; 0.3 Shim'20, 0.8 NVSim, 2-20 commodity-like)",2e-05,131072,102.621,0.668566
+B_1bit_real,t_step_fixed_s (BL precharge/settle per step),3.2e-08,32768,300.233,0.248228
+B_1bit_real,t_step_fixed_s (BL precharge/settle per step),3.2e-08,131072,134.503,0.637235
+B_1bit_real,t_step_fixed_s (BL precharge/settle per step),6.4e-08,32768,270.45,0.253338
+B_1bit_real,t_step_fixed_s (BL precharge/settle per step),6.4e-08,131072,128.179,0.642345
+B_1bit_real,t_step_fixed_s (BL precharge/settle per step),1.2e-07,32768,230.445,0.26228
+B_1bit_real,t_step_fixed_s (BL precharge/settle per step),1.2e-07,131072,118.435,0.651287
+B_1bit_real,t_step_fixed_s (BL precharge/settle per step),5e-07,32768,115.007,0.32296
+B_1bit_real,t_step_fixed_s (BL precharge/settle per step),5e-07,131072,78.1299,0.711968
+B_1bit_real,t_step_fixed_s (BL precharge/settle per step),2e-06,32768,38.6268,0.562489
+B_1bit_real,t_step_fixed_s (BL precharge/settle per step),2e-06,131072,33.3413,0.951496
+B_1bit_real,adc_bit_cycle_s (SAR bit cycle),5e-10,32768,327.799,0.244608
+B_1bit_real,adc_bit_cycle_s (SAR bit cycle),5e-10,131072,139.768,0.633615
+B_1bit_real,adc_bit_cycle_s (SAR bit cycle),1e-09,32768,306.159,0.247518
+B_1bit_real,adc_bit_cycle_s (SAR bit cycle),1e-09,131072,135.679,0.636525
+B_1bit_real,adc_bit_cycle_s (SAR bit cycle),2e-09,32768,270.45,0.253338
+B_1bit_real,adc_bit_cycle_s (SAR bit cycle),2e-09,131072,128.179,0.642345
+B_1bit_real,adc_bit_cycle_s (SAR bit cycle),5e-09,32768,200.347,0.270797
+B_1bit_real,adc_bit_cycle_s (SAR bit cycle),5e-09,131072,109.946,0.659805
 B_1bit_real,adc_bit_cycle_s (SAR bit cycle),1e-08,32768,137.419,0.301642
-B_1bit_real,adc_bit_cycle_s (SAR bit cycle),1e-08,131072,87.9922,0.690428
-B_1bit_real,die link latency (incl. package hop),2e-08,32768,268.332,0.253731
-B_1bit_real,die link latency (incl. package hop),2e-08,131072,127.701,0.642739
-B_1bit_real,die link latency (incl. package hop),8e-08,32768,262.434,0.254862
-B_1bit_real,die link latency (incl. package hop),8e-08,131072,126.35,0.643869
-B_1bit_real,die link latency (incl. package hop),2e-07,32768,251.382,0.257122
-B_1bit_real,die link latency (incl. package hop),2e-07,131072,123.731,0.64613
-B_1bit_real,die link latency (incl. package hop),1e-06,32768,196.278,0.272194
-B_1bit_real,die link latency (incl. package hop),1e-06,131072,108.709,0.661201
-B_1bit_real,orchestrator op latency (global reductions),3e-08,32768,267.159,0.253952
-B_1bit_real,orchestrator op latency (global reductions),3e-08,131072,127.435,0.642959
-B_1bit_real,orchestrator op latency (global reductions),8e-08,32768,262.434,0.254862
-B_1bit_real,orchestrator op latency (global reductions),8e-08,131072,126.35,0.643869
-B_1bit_real,orchestrator op latency (global reductions),3e-07,32768,243.484,0.258864
-B_1bit_real,orchestrator op latency (global reductions),3e-07,131072,121.787,0.647871
-B_1bit_real,orchestrator op latency (global reductions),1e-06,32768,197.995,0.271598
-B_1bit_real,orchestrator op latency (global reductions),1e-06,131072,109.234,0.660605
+B_1bit_real,adc_bit_cycle_s (SAR bit cycle),1e-08,131072,88.8755,0.688904
+B_1bit_real,die link latency (incl. package hop),2e-08,32768,276.718,0.252207
+B_1bit_real,die link latency (incl. package hop),2e-08,131072,129.57,0.641215
+B_1bit_real,die link latency (incl. package hop),8e-08,32768,270.45,0.253338
+B_1bit_real,die link latency (incl. package hop),8e-08,131072,128.179,0.642345
+B_1bit_real,die link latency (incl. package hop),2e-07,32768,258.728,0.255598
+B_1bit_real,die link latency (incl. package hop),2e-07,131072,125.485,0.644606
+B_1bit_real,die link latency (incl. package hop),1e-06,32768,200.728,0.270669
+B_1bit_real,die link latency (incl. package hop),1e-06,131072,110.061,0.659677
+B_1bit_real,orchestrator op latency (global reductions),3e-08,32768,273.963,0.252698
+B_1bit_real,orchestrator op latency (global reductions),3e-08,131072,128.963,0.641705
+B_1bit_real,orchestrator op latency (global reductions),8e-08,32768,270.45,0.253338
+B_1bit_real,orchestrator op latency (global reductions),8e-08,131072,128.179,0.642345
+B_1bit_real,orchestrator op latency (global reductions),3e-07,32768,256.006,0.256153
+B_1bit_real,orchestrator op latency (global reductions),3e-07,131072,124.841,0.64516
+B_1bit_real,orchestrator op latency (global reductions),1e-06,32768,218.822,0.26511
+B_1bit_real,orchestrator op latency (global reductions),1e-06,131072,115.287,0.654118
 B_1bit_real,adc_pool_per_die,128,32768,85.887,0.360564
-B_1bit_real,adc_pool_per_die,128,131072,72.9804,0.721975
-B_1bit_real,adc_pool_per_die,256,32768,159.066,0.288278
-B_1bit_real,adc_pool_per_die,256,131072,96.2394,0.677286
-B_1bit_real,adc_pool_per_die,512,32768,215.738,0.265992
-B_1bit_real,adc_pool_per_die,512,131072,114.426,0.654999
-B_1bit_real,adc_pool_per_die,1024,32768,262.434,0.254862
-B_1bit_real,adc_pool_per_die,1024,131072,126.35,0.643869
-B_1bit_real,adc_pool_per_die,2048,32768,292.67,0.249549
-B_1bit_real,adc_pool_per_die,2048,131072,132.963,0.638557
-B_1bit_real,adc_pool_per_die,4096,32768,309.162,0.247089
-B_1bit_real,adc_pool_per_die,4096,131072,136.266,0.636097
-A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",5e-07,32768,423.227,5.4526
-A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",5e-07,131072,154.635,5.86061
+B_1bit_real,adc_pool_per_die,128,131072,73.587,0.720451
+B_1bit_real,adc_pool_per_die,256,32768,161.976,0.286754
+B_1bit_real,adc_pool_per_die,256,131072,97.297,0.675762
+B_1bit_real,adc_pool_per_die,512,32768,221.126,0.264468
+B_1bit_real,adc_pool_per_die,512,131072,115.924,0.653475
+B_1bit_real,adc_pool_per_die,1024,32768,270.45,0.253338
+B_1bit_real,adc_pool_per_die,1024,131072,128.179,0.642345
+B_1bit_real,adc_pool_per_die,2048,32768,302.674,0.248025
+B_1bit_real,adc_pool_per_die,2048,131072,134.991,0.637032
+B_1bit_real,adc_pool_per_die,4096,32768,320.348,0.245565
+B_1bit_real,adc_pool_per_die,4096,131072,138.396,0.634573
+A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",5e-07,32768,429.782,5.45195
+A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",5e-07,131072,155.502,5.85996
 A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",3e-06,32768,259.234,5.4797
-A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",3e-06,131072,142.973,5.87017
+A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",3e-06,131072,143.713,5.86952
 A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",4e-06,32768,194.425,5.503
-A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",4e-06,131072,138.786,5.874
+A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",4e-06,131072,139.484,5.87335
 A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",2.25e-05,32768,34.5645,5.93416
 A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",2.25e-05,131072,34.5645,6.26778
 A2_digital_real,"t_read_s (tR: 0.5 hypothetical BLS-scan, 3 Z-NAND, 4 XL-FLASH, 22.5 SLC-mode, 40 TLC)",4e-05,32768,19.4425,6.34201
