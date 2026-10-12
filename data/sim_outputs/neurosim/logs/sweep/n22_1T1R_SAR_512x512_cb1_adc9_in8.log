@@ -1,0 +1,128 @@
+# config: {"node": 22, "arr": "1T1R", "adc": "SAR", "n": 512, "cb": 1, "ab": 9, "force": false, "colmux": 8, "sens": false}
+# Param.cpp knobs: memcelltype=2 accesstype=1 technode=22 numRowSubArray=512 numColSubArray=512 levelOutput=512 cellBit=1 numColMuxed=8 SARADC=true currentMode=true
+# driver args: --synapse-bit 8 --input-bit 8 --p-input 0.5 --seed 12345
+[set_param] Param.cpp:61  memcelltype = 1  ->  2
+[set_param] Param.cpp:65  accesstype = 1  ->  1
+[set_param] Param.cpp:127  technode = 22  ->  22
+[set_param] Param.cpp:203  numRowSubArray = 128  ->  512
+[set_param] Param.cpp:204  numColSubArray = 128  ->  512
+[set_param] Param.cpp:258  levelOutput = 32  ->  512
+[set_param] Param.cpp:259  cellBit = 1  ->  1
+[set_param] Param.cpp:249  numColMuxed = 8  ->  8
+[set_param] Param.cpp:101  SARADC = false  ->  true
+[set_param] Param.cpp:103  currentMode = true  ->  true
+# command: /home/user/ext/neurosim_driver_build/driver_current --synapse-bit 8 --input-bit 8 --p-input 0.5 --seed 12345
+=================== NeuroSim V1.4 single-subarray MVM driver ===================
+memcelltype=2 accesstype=1 technode=22 rows=512 cols=512 cellBit=1 synapseBit=8 levelOutput=512 (ADC bits=9) numBitInput=8 numRowParallel=512 numColMuxed=8 SARADC=1 currentMode=1
+Ron=100000 Roff=1.7e+06 readVoltage=0.55 accessVoltage=1.1 readPulseWidth=1e-08 writeVoltage=2 synchronous=1 validated=1
+mean input bit activity=0.498535  mean cell level=0.498806  input ones=2042
+sensing cycle (clkPeriod) = 14.3525 ns; clkFreq used = 0.0696742 GHz
+  rowdelay=0.0384045 ns  muxdelay=0.251791 ns  ADC(LUT)=0 ns
+Subarray latency per MVM = 918.56 ns  (64 cycles; ADC 918.56 ns, accum 0 ns, other 0 ns)
+Subarray read dynamic energy per MVM = 4919.15 pJ  (NeuroSim categories: ADC+array 4647.69, accum 95.8619, other 175.598)
+  array(WL) 754.293 pJ, ADC(MLSA) 0, encoder 0, SAR 3893.4, mux 28.8456, muxDecoder 0.183678, WL switch 146.569, shiftAddInput 18.3224, shiftAddWeight 77.5395, adder 0, dff 0
+ADC: 64 ADCs/subarray, 4096 conversions/MVM, energy/conversion = 0.950536 pJ, area/ADC = 199.193 um^2
+Subarray leakage = 0.352855 uW
+Subarray area = 43202 um^2 (H 231.805 um x W 186.372 um), used 42997.3, empty 204.782, array 6090.13, ADC 12748.3, accum 5894.01, other 18264.8
+PE(1 subarray): area 50384.6 um^2; latency 961.618 ns; energy 4927.19 pJ (buffer 8.03678, ic 0); leakage 0.550496 uW
+
+
+Array:
+Area = 45.056um x 135.168um = 6090.13um^2
+Read Dynamic Energy = 97.1494pJ
+Write Dynamic Energy = 0pJ
+Write Latency = 0ns
+---------------------------------------------------------
+wlNewSwitchMatrix
+Area = 226.877um x 6.0192um = 1365.62um^2
+Timing:
+ - Read Latency = 0.0384045ns
+ - Write Latency = 0ns
+Power:
+ - Read Dynamic Energy = 18.7019pJ
+ - Write Dynamic Energy = 0pJ
+ - Leakage Power = 0.0177654uW
+---------------------------------------------------------
+slSwitchMatrix
+Area = 5.2844um x 135.168um = 714.282um^2
+Timing:
+ - Read Latency = 0ns
+ - Write Latency = 0ns
+Power:
+ - Read Dynamic Energy = 0pJ
+ - Write Dynamic Energy = 0pJ
+ - Leakage Power = 0.0177654uW
+---------------------------------------------------------
+mux
+Area = 5.62429um x 135.168um = 760.224um^2
+Timing:
+ - Read Latency = 0.00298641ns
+ - Write Latency = 0ns
+Power:
+ - Read Dynamic Energy = 3.6057pJ
+ - Write Dynamic Energy = 0pJ
+ - Leakage Power = 0uW
+---------------------------------------------------------
+muxDecoder
+Area = 4.928um x 9.6492um = 47.5513um^2
+Timing:
+ - Read Latency = 0.248804ns
+ - Write Latency = 0ns
+Power:
+ - Read Dynamic Energy = 0.0229598pJ
+ - Write Dynamic Energy = 0.0573994pJ
+ - Leakage Power = 0.000713507uW
+---------------------------------------------------------
+multilevelSenseAmp
+Area = 0um x 0um = 0um^2
+Timing:
+ - Read Latency = 0ns
+ - Write Latency = 0ns
+Power:
+ - Read Dynamic Energy = 0pJ
+ - Write Dynamic Energy = 0pJ
+ - Leakage Power = 0uW
+---------------------------------------------------------
+multilevelSAEncoder
+Area = 0um x 0um = 0um^2
+Timing:
+ - Read Latency = 0ns
+ - Write Latency = 0ns
+Power:
+ - Read Dynamic Energy = 0pJ
+ - Write Dynamic Energy = 0pJ
+ - Leakage Power = 0uW
+---------------------------------------------------------
+shiftAddWeight
+Area = 17.0131um x 135.168um = 2299.63um^2
+Timing:
+ - Read Latency = 1e+09ns
+ - Write Latency = 0ns
+Power:
+ - Read Dynamic Energy = 9.69244pJ
+ - Write Dynamic Energy = 0pJ
+ - Leakage Power = 0.115062uW
+---------------------------------------------------------
+shiftAddInput
+Area = 26.592um x 135.168um = 3594.38um^2
+Timing:
+ - Read Latency = 1e+09ns
+ - Write Latency = 0ns
+Power:
+ - Read Dynamic Energy = 2.2903pJ
+ - Write Dynamic Energy = 0pJ
+ - Leakage Power = 0.201548uW
+---------------------------------------------------------
+SubArray
+Area = 231.805um x 186.372um = 43202um^2
+Timing:
+ - Read Latency = 8e+09ns
+ - Write Latency = 0ns
+Power:
+ - Read Dynamic Energy = 631.897pJ
+ - Write Dynamic Energy = 0pJ
+ - Leakage Power = 0.352855uW
+Used Area = 42997.3um^2
+Empty Area = 204.782um^2
+RESULT_JSON {"memcelltype":2,"accesstype":1,"technode":22,"rows":512,"cols":512,"cellBit":1,"synapseBit":8,"levelOutput":512,"adcBits":9,"inputBits":8,"numRowParallel":512,"numColMuxed":8,"numColPerSynapse":8,"SARADC":1,"currentMode":1,"synchronous":1,"unsupportedNodeForced":0,"Ron":100000,"Roff":1700000,"readVoltage":0.55,"accessVoltage":1.1,"readPulseWidth":1e-08,"writeVoltage":2,"pInput":0.5,"meanActivity":0.498535156,"seed":12345,"sensingCycle_ns":14.3525069,"clkFreqUsed_GHz":0.0696742392,"rowdelay_ns":0.0384044802,"muxdelay_ns":0.251790649,"adcLatencyLUT_ns":0,"latency_cycles":64,"latency_ns":918.560442,"latencyADC_ns":918.560442,"latencyAccum_ns":0,"latencyOther_ns":0,"energy_pJ":4919.15058,"energyADCcat_pJ":4647.69032,"energyAccumCat_pJ":95.861918,"energyOtherCat_pJ":175.598341,"energy_breakdown_pJ":{"array_wl":754.293156,"adc_mlsa":0,"adc_encoder":0,"adc_sar":3893.39717,"mux":28.8456004,"mux_decoder":0.183678176,"wl_switch_matrix":146.569062,"shift_add_input":18.3223833,"shift_add_weight":77.5395347,"psum_adder":0,"psum_dff":0},"numADC":64,"adcConversions":4096,"adcEnergyPerConv_pJ":0.950536417,"adcAreaPerADC_um2":199.192717,"leakage_uW":0.35285504,"subarrayArea_um2":43202.0381,"subarrayHeight_um":231.805483,"subarrayWidth_um":186.371943,"area_breakdown_um2":{"array":6090.12941,"adc_total":12748.3339,"adc_mlsa_incl_ref_cols":0,"adc_ref_cols":0,"adc_encoder":0,"adc_sar":12748.3339,"shift_add_input":3594.3807,"shift_add_weight":2299.63346,"psum_adder_dff":0,"wl_switch_matrix":1365.62094,"sl_switch_matrix":714.281779,"mux":760.22395,"mux_decoder":47.5512576,"level_shifters":15377.101,"wl_repeater_buffers":0,"floorplan_empty":204.781771,"neurosim_cat_ADC":12748.3339,"neurosim_cat_Accum":5894.01416,"neurosim_cat_Other":18264.7789},"pe1":{"area_um2":50384.5699,"area_ADC_um2":12748.3339,"area_Accum_incl_addertree_um2":5894.01416,"area_Other_incl_io_buffers_um2":25447.3107,"area_Array_um2":6090.12941,"io_buffer_area_um2":7182.53182,"latency_ns":961.617963,"energy_pJ":4927.18736,"buffer_energy_pJ":8.03677535,"ic_energy_pJ":0,"leakage_uW":0.550495573}}
+# exit code: 0

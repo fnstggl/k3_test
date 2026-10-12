@@ -1,0 +1,9 @@
+# RRAM at 7 nm: stock guard check (Param.cpp: memcelltype=2 technode=7, everything else shipped)
+[set_param] Param.cpp:61  memcelltype = 1  ->  2
+[set_param] Param.cpp:127  technode = 22  ->  7
+## command: /home/user/ext/neurosim_driver_build/main_7nm NetWork_VGG8.csv 8 8 128 128 (stock main.cpp)
+ERROR!: RRAM-CIM is not supported beyond 22 nm!
+## exit code 255
+## command: /home/user/ext/neurosim_driver_build/driver_7nm (no --force-unsupported)
+ERROR!: RRAM-CIM is not supported beyond 22 nm!
+## exit code 3

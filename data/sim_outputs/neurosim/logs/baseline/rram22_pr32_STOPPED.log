@@ -1,0 +1,45 @@
+/home/user/ext/wrap_copies/rram22_pr32/log/default/ADCprecision=4/batch_size=1/cellBit=1/dataset=cifar10/decreasing_lr=140,180/detect=0/grad_scale=8/inference=1/lr=0.01/mode=WAGE/model=VGG8/onoffratio=17.0/parallelRead=32/seed=117/subArray=128/t=0/target=0/v=0/vari=0.0/wl_activate=8/wl_error=8/wl_grad=8/wl_weight=8
+=================FLAGS==================
+dataset: cifar10
+model: VGG8
+mode: WAGE
+batch_size: 1
+epochs: 200
+grad_scale: 8
+seed: 117
+log_interval: 100
+test_interval: 1
+logdir: /home/user/ext/wrap_copies/rram22_pr32/log/default/ADCprecision=4/batch_size=1/cellBit=1/dataset=cifar10/decreasing_lr=140,180/detect=0/grad_scale=8/inference=1/lr=0.01/mode=WAGE/model=VGG8/onoffratio=17.0/parallelRead=32/seed=117/subArray=128/t=0/target=0/v=0/vari=0.0/wl_activate=8/wl_error=8/wl_grad=8/wl_weight=8
+lr: 0.01
+decreasing_lr: 140,180
+wl_weight: 8
+wl_grad: 8
+wl_activate: 8
+wl_error: 8
+inference: 1
+subArray: 128
+parallelRead: 32
+ADCprecision: 4
+cellBit: 1
+onoffratio: 17.0
+vari: 0.0
+t: 0
+v: 0
+detect: 0
+target: 0
+========================================
+[run_wrapper] local CIFAR-10 test subset: 1 images, batch_size=1
+fan_in     27, float_limit 0.333333, float std 0.272166, quant limit 0.9921875, scale 2.0
+fan_in   1152, float_limit 0.051031, float std 0.041667, quant limit 0.9921875, scale 16.0
+fan_in   1152, float_limit 0.051031, float std 0.041667, quant limit 0.9921875, scale 16.0
+fan_in   2304, float_limit 0.036084, float std 0.029463, quant limit 0.9921875, scale 16.0
+fan_in   2304, float_limit 0.036084, float std 0.029463, quant limit 0.9921875, scale 16.0
+fan_in   4608, float_limit 0.025516, float std 0.020833, quant limit 0.9921875, scale 32.0
+fan_in   8192, float_limit 0.019137, float std 0.015625, quant limit 0.9921875, scale 32.0
+fan_in   1024, float_limit 0.054127, float std 0.044194, quant limit 0.9921875, scale 16.0
+quantize layer  Conv0_
+quantize layer  Conv1_
+quantize layer  Conv3_
+quantize layer  Conv4_
+quantize layer  Conv6_
+# STOPPED by operator at 07:11:45 after VGG8 layers 1-5 (Conv0..Conv6; see layer_record timestamps: 06:10, 06:11, 06:17, 06:35, 06:55). Layer 6 (Conv7) alone took 32 min at parallelRead=64 and the 8192x1024 FC layer >23 min, both ~2x at parallelRead=32, so the run could not finish within the 2 h background-task limit (08:09). Replaced by --inference 0 traces (rram22_pr32_inf0).

@@ -1,0 +1,39 @@
+[sweep] 1/660 n22_1T1R_FLASH_128x128_cb1_adc4_in8  lat=97.378 ns  E=136.694 pJ
+[sweep] 21/660 n22_1T1R_FLASH_128x128_cb4_adc10_in8  lat=2462.237 ns  E=42956.953 pJ
+[sweep] 41/660 n22_1T1R_FLASH_256x256_cb4_adc9_in8  lat=550.559 ns  E=9135.967 pJ
+[sweep] 61/660 n22_1T1R_FLASH_512x512_cb4_adc8_in8  lat=223.632 ns  E=4501.252 pJ
+[sweep] 81/660 n22_1T1R_FLASH_1024x1024_cb4_adc7_in8  lat=211.656 ns  E=6683.349 pJ
+[sweep] 101/660 n22_1T1R_SAR_128x128_cb4_adc6_in8  lat=635.121 ns  E=324.174 pJ
+[sweep] 121/660 n22_1T1R_SAR_256x256_cb4_adc5_in8  lat=548.561 ns  E=946.615 pJ
+[sweep] 141/660 n22_1T1R_SAR_512x512_cb4_adc4_in8  lat=470.560 ns  E=2977.902 pJ
+[sweep] 161/660 n22_1T1R_SAR_1024x1024_cb2_adc10_in8  lat=1054.110 ns  E=20305.675 pJ
+[sweep] 181/660 n22_XBAR_FLASH_128x128_cb2_adc9_in8  lat=767.637 ns  E=6450.357 pJ
+[sweep] 201/660 n22_XBAR_FLASH_256x256_cb2_adc8_in8  lat=241.122 ns  E=2121.687 pJ
+[sweep] 221/660 n22_XBAR_FLASH_512x512_cb2_adc7_in8  lat=161.085 ns  E=1800.647 pJ
+[sweep] 241/660 n22_XBAR_FLASH_1024x1024_cb2_adc6_in8  lat=207.925 ns  E=2776.736 pJ
+[sweep] 261/660 n7_1T1R_FLASH_128x128_cb2_adc5_in8  lat=82.426 ns  E=114.306 pJ
+[sweep] 281/660 n7_1T1R_FLASH_256x256_cb2_adc4_in8  lat=81.490 ns  E=367.180 pJ
+[sweep] 301/660 n7_1T1R_FLASH_512x512_cb1_adc10_in8  lat=1204.947 ns  E=7869.707 pJ
+[sweep] 321/660 n7_1T1R_FLASH_1024x1024_cb1_adc9_in8  lat=303.044 ns  E=8016.633 pJ
+[sweep] 341/660 n7_XBAR_FLASH_128x128_cb1_adc8_in8  lat=365.692 ns  E=252.291 pJ
+[sweep] 361/660 n7_XBAR_FLASH_256x256_cb1_adc7_in8  lat=125.983 ns  E=233.098 pJ
+[sweep] 381/660 n7_XBAR_FLASH_512x512_cb1_adc6_in8  lat=105.923 ns  E=347.221 pJ
+[sweep] 401/660 n7_XBAR_FLASH_1024x1024_cb1_adc5_in8  lat=140.272 ns  E=766.368 pJ
+[sweep] 421/660 n22_1T1R_FLASH_128x128_cb1_adc4_in8_colmux1  lat=11.261 ns  E=46.355 pJ
+[sweep] 441/660 n22_1T1R_FLASH_256x256_cb2_adc4_in8_colmux1  lat=11.989 ns  E=114.202 pJ
+[sweep] 461/660 n22_1T1R_FLASH_512x512_cb4_adc4_in8_colmux1  lat=13.268 ns  E=296.466 pJ
+[sweep] 481/660 n22_1T1R_FLASH_128x128_cb1_adc4_in8_colmux2  lat=39.772 ns  E=58.913 pJ
+[sweep] 501/660 n22_1T1R_FLASH_256x256_cb2_adc4_in8_colmux2  lat=92.057 ns  E=153.816 pJ
+[sweep] 521/660 n22_1T1R_FLASH_512x512_cb4_adc4_in8_colmux2  lat=298.189 ns  E=490.583 pJ
+[sweep] 541/660 n22_1T1R_FLASH_128x128_cb1_adc4_in8_colmux4  lat=70.306 ns  E=81.807 pJ
+[sweep] 561/660 n22_1T1R_FLASH_256x256_cb2_adc4_in8_colmux4  lat=144.629 ns  E=248.594 pJ
+[sweep] 581/660 n22_1T1R_FLASH_512x512_cb4_adc4_in8_colmux4  lat=435.861 ns  E=709.457 pJ
+[sweep] 601/660 n22_1T1R_FLASH_128x128_cb1_adc4_in8_colmux16  lat=196.967 ns  E=219.137 pJ
+[sweep] 621/660 n22_1T1R_FLASH_256x256_cb2_adc4_in8_colmux16  lat=210.273 ns  E=637.435 pJ
+[sweep] 641/660 n22_1T1R_FLASH_512x512_cb4_adc4_in8_colmux16  lat=238.516 ns  E=2044.522 pJ
+[sweep] wrote /home/user/k3_test/data/sim_outputs/neurosim/rram_subarray_sweep.csv (252 rows)
+[sweep] wrote /home/user/k3_test/data/sim_outputs/neurosim/rram_subarray_sweep_7nm_forced_UNSUPPORTED.csv (168 rows)
+[sweep] wrote /home/user/k3_test/data/sim_outputs/neurosim/rram_subarray_sweep_colmux_sensitivity.csv (300 rows)
+[sweep] wrote /home/user/k3_test/data/sim_outputs/neurosim/rram_subarray_sweep_detailed.csv (660 rows)
+[sweep] 660 configs, 660 ok, 0 failed
+exit=0

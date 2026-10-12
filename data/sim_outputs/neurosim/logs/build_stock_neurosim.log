@@ -1,0 +1,48 @@
+# Stock build of DNN+NeuroSim V1.4 C++ core (unmodified sources, shipped Param.cpp), commit 8a88abf85844c0e1ba17cc771ea535fff6040456
+# command: cd /home/user/ext/NeuroSim_V1.4/Inference_pytorch/NeuroSIM && time make -j4   (g++ 13.3.0, Ubuntu 24.04)
+g++ -c -fopenmp -O3 -std=c++0x -w	 Adder.cpp -o Adder.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 AdderTree.cpp -o AdderTree.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 BitShifter.cpp -o BitShifter.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 Buffer.cpp -o Buffer.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 Bus.cpp -o Bus.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 Chip.cpp -o Chip.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 Comparator.cpp -o Comparator.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 CurrentSenseAmp.cpp -o CurrentSenseAmp.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 DFF.cpp -o DFF.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 DeMux.cpp -o DeMux.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 DecoderDriver.cpp -o DecoderDriver.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 FunctionUnit.cpp -o FunctionUnit.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 HTree.cpp -o HTree.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 LevelShifter.cpp -o LevelShifter.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 MaxPooling.cpp -o MaxPooling.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 MultilevelSAEncoder.cpp -o MultilevelSAEncoder.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 MultilevelSenseAmp.cpp -o MultilevelSenseAmp.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 Mux.cpp -o Mux.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 NewMux.cpp -o NewMux.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 NewSwitchMatrix.cpp -o NewSwitchMatrix.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 Param.cpp -o Param.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 Precharger.cpp -o Precharger.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 ProcessingUnit.cpp -o ProcessingUnit.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 ReadCircuit.cpp -o ReadCircuit.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 RowDecoder.cpp -o RowDecoder.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 SRAMWriteDriver.cpp -o SRAMWriteDriver.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 SarADC.cpp -o SarADC.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 SenseAmp.cpp -o SenseAmp.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 ShiftAdd.cpp -o ShiftAdd.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 Sigmoid.cpp -o Sigmoid.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 SramNewSA.cpp -o SramNewSA.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 SubArray.cpp -o SubArray.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 SwitchMatrix.cpp -o SwitchMatrix.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 Technology.cpp -o Technology.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 Tile.cpp -o Tile.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 VoltageSenseAmp.cpp -o VoltageSenseAmp.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 WLDecoderOutput.cpp -o WLDecoderOutput.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 WLNewDecoderDriver.cpp -o WLNewDecoderDriver.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 XYBus.cpp -o XYBus.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 formula.cpp -o formula.o
+g++ -c -fopenmp -O3 -std=c++0x -w	 main.cpp -o main.o
+g++ -fopenmp -O3 -std=c++0x -w	 Adder.o AdderTree.o BitShifter.o Buffer.o Bus.o Chip.o Comparator.o CurrentSenseAmp.o DFF.o DeMux.o DecoderDriver.o FunctionUnit.o HTree.o LevelShifter.o MaxPooling.o MultilevelSAEncoder.o MultilevelSenseAmp.o Mux.o NewMux.o NewSwitchMatrix.o Param.o Precharger.o ProcessingUnit.o ReadCircuit.o RowDecoder.o SRAMWriteDriver.o SarADC.o SenseAmp.o ShiftAdd.o Sigmoid.o SramNewSA.o SubArray.o SwitchMatrix.o Technology.o Tile.o VoltageSenseAmp.o WLDecoderOutput.o WLNewDecoderDriver.o XYBus.o formula.o main.o -o main
+
+real	0m11.699s
+user	0m25.177s
+sys	0m3.901s

@@ -1,0 +1,81 @@
+# DNN+NeuroSim V1.4 (branch 2DInferenceV1.4, commit 8a88abf85844c0e1ba17cc771ea535fff6040456) -- source changes used for the k3 runs
+#
+# Part 1 (code change, required to run the PyTorch wrapper with --inference 1 on a CPU-only host):
+#   modules/quantization_cpu_np_infer.py hard-codes device='cuda' in torch.full(...) (5 places).
+#   Replaced with device=remainderQ.device. Numerically identical (vari=0 -> zero noise either way).
+#
+diff --git a/Inference_pytorch/modules/quantization_cpu_np_infer.py b/Inference_pytorch/modules/quantization_cpu_np_infer.py
+index bca7fc1..594b189 100644
+--- a/Inference_pytorch/modules/quantization_cpu_np_infer.py
++++ b/Inference_pytorch/modules/quantization_cpu_np_infer.py
+@@ -86,7 +86,7 @@ class QConv2d(nn.Conv2d):
+                                 # Here remainder is the weight mapped to Hardware, so we introduce on/off ratio in this value
+                                 # the range of remainder is [0, cellRange-1], we truncate it to [lower, upper]
+                                 remainderQ = (upper-lower)*(remainder-0)+(cellRange-1)*lower   # weight cannot map to 0, but to Gmin
+-                                remainderQ = remainderQ + remainderQ*torch.normal(0., torch.full(remainderQ.size(),self.vari, device='cuda'))
++                                remainderQ = remainderQ + remainderQ*torch.normal(0., torch.full(remainderQ.size(),self.vari, device=remainderQ.device))
+                                 outputPartial= F.conv2d(input, remainderQ*mask, self.bias, self.stride, self.padding, self.dilation, self.groups)
+                                 outputDummyPartial= F.conv2d(input, dummyP*mask, self.bias, self.stride, self.padding, self.dilation, self.groups)
+                                 scaler = cellRange**k
+@@ -114,7 +114,7 @@ class QConv2d(nn.Conv2d):
+                                     # Here remainder is the weight mapped to Hardware, so we introduce on/off ratio in this value
+                                     # the range of remainder is [0, cellRange-1], we truncate it to [lower, upper]
+                                     remainderQ = (upper-lower)*(remainder-0)+(cellRange-1)*lower   # weight cannot map to 0, but to Gmin
+-                                    remainderQ = remainderQ + remainderQ*torch.normal(0., torch.full(remainderQ.size(),self.vari, device='cuda'))
++                                    remainderQ = remainderQ + remainderQ*torch.normal(0., torch.full(remainderQ.size(),self.vari, device=remainderQ.device))
+                                     outputPartial= F.conv2d(inputB, remainderQ*mask, self.bias, self.stride, self.padding, self.dilation, self.groups)
+                                     outputDummyPartial= F.conv2d(inputB, dummyP*mask, self.bias, self.stride, self.padding, self.dilation, self.groups)
+                                     # Add ADC quanization effects here !!!
+@@ -150,7 +150,7 @@ class QConv2d(nn.Conv2d):
+                                     # Here remainder is the weight mapped to Hardware, so we introduce on/off ratio in this value
+                                     # the range of remainder is [0, cellRange-1], we truncate it to [lower, upper]*(cellRange-1)
+                                     remainderQ = (upper-lower)*(remainder-0)+(cellRange-1)*lower   # weight cannot map to 0, but to Gmin
+-                                    remainderQ = remainderQ + remainderQ*torch.normal(0., torch.full(remainderQ.size(),self.vari, device='cuda'))
++                                    remainderQ = remainderQ + remainderQ*torch.normal(0., torch.full(remainderQ.size(),self.vari, device=remainderQ.device))
+                                     outputPartial= F.conv2d(inputB, remainderQ*mask, self.bias, self.stride, self.padding, self.dilation, self.groups)
+                                     outputDummyPartial= F.conv2d(inputB, dummyP*mask, self.bias, self.stride, self.padding, self.dilation, self.groups)
+                                     # Add ADC quanization effects here !!!
+@@ -266,7 +266,7 @@ class QLinear(nn.Linear):
+                         # Here remainder is the weight mapped to Hardware, so we introduce on/off ratio in this value
+                         # the range of remainder is [0, cellRange-1], we truncate it to [lower, upper]
+                         remainderQ = (upper-lower)*(remainder-0)+(cellRange-1)*lower   # weight cannot map to 0, but to Gmin
+-                        remainderQ = remainderQ + remainderQ*torch.normal(0., torch.full(remainderQ.size(),self.vari, device='cuda'))
++                        remainderQ = remainderQ + remainderQ*torch.normal(0., torch.full(remainderQ.size(),self.vari, device=remainderQ.device))
+                         outputPartial= F.linear(inputB, remainderQ*mask, self.bias)
+                         outputDummyPartial= F.linear(inputB, dummyP*mask, self.bias)
+                         # Add ADC quanization effects here !!!
+@@ -301,7 +301,7 @@ class QLinear(nn.Linear):
+                             # Here remainder is the weight mapped to Hardware, so we introduce on/off ratio in this value
+                             # the range of remainder is [0, cellRange-1], we truncate it to [lower, upper]*(cellRange-1)
+                             remainderQ = (upper-lower)*(remainder-0)+(cellRange-1)*lower   # weight cannot map to 0, but to Gmin
+-                            remainderQ = remainderQ + remainderQ*torch.normal(0., torch.full(remainderQ.size(),self.vari, device='cuda'))
++                            remainderQ = remainderQ + remainderQ*torch.normal(0., torch.full(remainderQ.size(),self.vari, device=remainderQ.device))
+                             outputPartial= F.linear(inputB, remainderQ*mask, self.bias)
+                             outputDummyPartial= F.linear(inputB, dummyP*mask, self.bias)
+                             # Add ADC quanization effects here !!!
+
+#
+# Part 2 (configuration, NOT committed to the checkout; regenerated per run by tools/set_param.py and reverted afterwards):
+#   example = the Table VII RRAM configuration (memcelltype 1->2, levelOutput 32->16). Every sweep/baseline log
+#   starts with the exact '[set_param] Param.cpp:<line> old -> new' list used for that run.
+#
+--- a/Inference_pytorch/NeuroSIM/Param.cpp	2026-10-12 08:06:12.690435975 +0000
++++ b/Inference_pytorch/NeuroSIM/Param.cpp	2026-10-12 08:06:12.718050929 +0000
+@@ -58,7 +58,7 @@
+ 	operationmode = 2;     		// 1: conventionalSequential (Use several multi-bit RRAM as one synapse)
+ 								// 2: conventionalParallel (Use several multi-bit RRAM as one synapse)
+ 
+-	memcelltype = 1;        	// 1: cell.memCellType = Type::SRAM
++	memcelltype = 2;        	// 1: cell.memCellType = Type::SRAM
+ 								// 2: cell.memCellType = Type::RRAM
+ 								// 3: cell.memCellType = Type::FeFET
+ 	
+@@ -255,7 +255,7 @@
+ 	numColMuxed=numColPerSynapse;
+ 	}
+ 	
+-	levelOutput = 32;                   // # of levels of the multilevelSenseAmp output, should be in 2^N forms; e.g. 32 levels --> 5-bit ADC
++	levelOutput = 16;                   // # of levels of the multilevelSenseAmp output, should be in 2^N forms; e.g. 32 levels --> 5-bit ADC
+ 	cellBit = 1;                        // precision of memory device 
+ 	// 1.4 update: dummy column sharing - how many senseamplfiers share one dummny columns?
+ 	// dummy column sharing should not be high, since it could change the column cap of the dummy column.

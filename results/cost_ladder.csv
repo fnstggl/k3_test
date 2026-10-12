@@ -1,0 +1,9 @@
+context,step,change,feasible,design,tok_s,nand_usd,attention_usd,silicon_usd,silicon_usd_shortage,dies,precision
+32k,L0,"cheapest realistic design meeting 500 tok/s, precision within/marginal",yes,C C=256 2b-cell ADC8 pool512 sram_a,541.846,1002.67,171.034,1173.7,7355.3,1055,marginal
+32k,L1,"4-bit cells, precision with 4x tighter program-verify (hypothetical)",yes,E C=32 4b-cell ADC8 pool2048 sram_a,548.208,370.881,171.034,541.915,2828.44,357,<=1x budget assuming 4x tighter programming
+32k,L2,+ commodity QLC cell density in small planes (28.5 Gb/mm2),yes,E C=32 4b-cell ADC8 pool2048 sram_a,548.208,308.264,171.034,479.298,2379.78,357,<=1x budget assuming 4x tighter programming
+32k,L3,"+ 1024 planes per die, 4x ADC pool per die",yes,E C=32 4b-cell ADC8 pool2048 sram_a,547.461,246.843,171.034,417.877,1939.69,90,<=1x budget assuming 4x tighter programming
+128k,L0,"cheapest realistic design meeting 500 tok/s, precision within/marginal",yes,C C=128 2b-cell ADC6 pool2048 sram_b,518.723,1043.6,433.157,1476.75,7910.67,1055,marginal
+128k,L1,"4-bit cells, precision with 4x tighter program-verify (hypothetical)",yes,D C=128 4b-cell ADC8 pool512 sram_b,505.052,664.329,433.157,1097.49,5193.16,699,<=1x budget assuming 4x tighter programming
+128k,L2,+ commodity QLC cell density in small planes (28.5 Gb/mm2),yes,D C=128 4b-cell ADC8 pool512 sram_b,505.052,541.896,433.157,975.053,4315.91,699,<=1x budget assuming 4x tighter programming
+128k,L3,"+ 1024 planes per die, 4x ADC pool per die",yes,D C=128 4b-cell ADC8 pool512 sram_b,509.992,416.508,433.157,849.664,3417.49,175,<=1x budget assuming 4x tighter programming
