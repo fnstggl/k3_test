@@ -43,7 +43,9 @@ def main():
                             continue
                         if r.get("precision_verdict", "").startswith("exceeds"):
                             continue
-                        c = f(r["silicon_usd_normalized_128k"]) or f(r.get("system_market_usd"))
+                        ck = {"32k": "silicon_usd_normalized_32k", "128k": "silicon_usd_normalized_128k",
+                              "1024k": "silicon_usd_normalized_1m"}[ctx]
+                        c = f(r.get(ck)) or f(r["silicon_usd_normalized_128k"]) or f(r.get("system_market_usd"))
                         if c is None:
                             continue
                         if best is None or c < best[0]:
@@ -53,7 +55,7 @@ def main():
                         row["feasible"] = "no"
                     else:
                         c, r = best
-                        row.update(feasible="yes", silicon_usd_normalized=c,
+                        row.update(feasible="yes", silicon_usd_normalized=c, cost_kv_sized_for=ctx,
                                    silicon_usd_shortage=f(r.get("silicon_usd_shortage_128k")),
                                    tok_s=f(r[f"tok_s_{ctx}"]), J_per_token=f(r[f"J_tok_{ctx}"]),
                                    encoding=r["encoding"], contributors=r["contributors"], cell_bits=r["cell_bits"],

@@ -37,6 +37,7 @@ def evaluate(arch, wl, pm, tag):
     c_norm = cost_estimate(arch, context=131072, price="normalized")
     c_short = cost_estimate(arch, context=131072, price="shortage")
     c_1m = cost_estimate(arch, context=1048576, price="normalized")
+    c_32k = cost_estimate(arch, context=32768, price="normalized")
     prec = pm.estimate(arch) if arch["family"] == "analog_cim" else {"rel_err_expert": 0.0, "rel_err_dense": 0.0,
                                                                      "budget_ratio": 0.0, "precision_verdict": "exact_digital"}
     r = {"tag": tag, "name": arch["name"], "family": arch["family"], "silicon": arch.get("silicon"),
@@ -52,6 +53,9 @@ def evaluate(arch, wl, pm, tag):
          "orch_kv_usd_normalized_128k": c_norm.get("orchestrator_and_kv_usd"),
          "orch_kv_usd_normalized_1m": c_1m.get("orchestrator_and_kv_usd"),
          "silicon_usd_normalized_128k": c_norm.get("silicon_usd"),
+         "silicon_usd_normalized_32k": c_32k.get("silicon_usd"),
+         "silicon_usd_normalized_1m": c_1m.get("silicon_usd"),
+         "orch_kv_usd_normalized_32k": c_32k.get("orchestrator_and_kv_usd"),
          "silicon_usd_shortage_128k": c_short.get("silicon_usd"),
          "system_market_usd": c_norm.get("system_market_usd"),
          **prec}
@@ -66,55 +70,70 @@ def evaluate(arch, wl, pm, tag):
     return rows
 
 
-def main():
-    quick = "--quick" in sys.argv
+ENGINES = ["edge", "mid", "mid2", "mid3", "high", "xhigh", "sram_a", "sram_b", "sram_c"]
+
+
+def run_scenario(args):
+    s, quick = args
     pm = PrecisionModel()
-    wls = {s: K3Workload(fold_mla=(s == "opt")) for s in ("pess", "real", "opt")}
+    wl = K3Workload(fold_mla=(s == "opt"))
     rows = []
     t0 = time.time()
-    engines = ["edge", "mid", "mid2", "mid3", "high", "xhigh", "sram_a", "sram_b", "sram_c"]
-    for s in ("pess", "real", "opt"):
-        wl = wls[s]
-        # ---------------- analog NAND (redesigned arrays), B/C/D/E
-        grid = itertools.product("BCDE", (32, 64, 128, 256), (1, 2, 3, 4), (6, 8, 10, 12),
-                                 (128, 512, 2048), engines)
-        if quick:
-            grid = itertools.product("BE", (32, 128), (4,), (8,), (512,), ("mid",))
-        for enc, C, cb, ab, pool, eng in grid:
-            a = analog_nand(s, enc, contributors=C, cell_bits=cb, adc_bits=ab)
-            a.update(adc_sharing="die_pool", adc_pool_per_die=pool, int_cap_area_m2={"pess": 32e-12, "real": 8e-12, "opt": 2e-12}[s])
+    engines = ENGINES
+    # ---------------- analog NAND (redesigned arrays), B/C/D/E
+    grid = itertools.product("BCDE", (32, 64, 128, 256), (1, 2, 3, 4), (6, 8, 10, 12),
+                             (128, 512, 2048), engines)
+    if quick:
+        grid = itertools.product("BE", (32, 128), (4,), (8,), (512,), ("mid",))
+    for enc, C, cb, ab, pool, eng in grid:
+        a = analog_nand(s, enc, contributors=C, cell_bits=cb, adc_bits=ab)
+        a.update(adc_sharing="die_pool", adc_pool_per_die=pool, int_cap_area_m2={"pess": 32e-12, "real": 8e-12, "opt": 2e-12}[s])
+        a.update(orchestrator(s, eng))
+        rows += evaluate(a, wl, pm, "nand_analog_redesigned")
+    # ---------------- analog NAND, modified periphery on commodity planes (per-plane ADCs)
+    for enc, eng in itertools.product("BE", engines):
+        a = analog_nand(s, enc, silicon="modified_periphery", cell_bits=4, adc_bits=9 if enc == "B" else 12)
+        a.update(orchestrator(s, eng))
+        rows += evaluate(a, wl, pm, "nand_analog_modified_periphery")
+    # ---------------- FeNAND (speculative)
+    for C, cb, ab, pool, eng in itertools.product((64, 128, 256), (2, 3, 4), (8, 10), (512, 2048), engines):
+        a = fenand(s)
+        b = analog_nand(s, "E", contributors=C, cell_bits=cb, adc_bits=ab)
+        a.update({k: b[k] for k in ("contributors", "cell_bits", "adc_bits", "expert_w_mag_bits", "planes",
+                                    "arrays_total", "arrays_per_stage_limit", "expert_arrays_per_layer",
+                                    "expert_rounds_override", "dies_total", "cells_total", "psum_bits")})
+        a.update(adc_sharing="die_pool", adc_pool_per_die=pool, int_cap_area_m2=b.get("int_cap_area_m2", 8e-12))
+        a.update(orchestrator(s, eng))
+        rows += evaluate(a, wl, pm, "fenand_speculative")
+    # ---------------- 3D RRAM
+    for pool, ab, eng in itertools.product((256, 1024, 4096), (8, 10), engines):
+        a = rram_3d(s)
+        a.update(adc_bits=ab, adc_sharing="die_pool", adc_pool_per_die=pool)
+        a.update(orchestrator(s, eng))
+        rows += evaluate(a, wl, pm, "rram_3d")
+    # ---------------- digital NAND
+    for v in ("A0", "A1", "A2"):
+        for eng in engines:
+            a = digital_nand(s, v)
             a.update(orchestrator(s, eng))
-            rows += evaluate(a, wl, pm, "nand_analog_redesigned")
-        # ---------------- analog NAND, modified periphery on commodity planes (per-plane ADCs)
-        for enc, eng in itertools.product("BE", engines):
-            a = analog_nand(s, enc, silicon="modified_periphery", cell_bits=4, adc_bits=9 if enc == "B" else 12)
-            a.update(orchestrator(s, eng))
-            rows += evaluate(a, wl, pm, "nand_analog_modified_periphery")
-        # ---------------- FeNAND (speculative)
-        for C, cb, ab, pool, eng in itertools.product((64, 128, 256), (2, 3, 4), (8, 10), (512, 2048), engines):
-            a = fenand(s)
-            b = analog_nand(s, "E", contributors=C, cell_bits=cb, adc_bits=ab)
-            a.update({k: b[k] for k in ("contributors", "cell_bits", "adc_bits", "expert_w_mag_bits", "planes",
-                                        "arrays_total", "arrays_per_stage_limit", "expert_arrays_per_layer",
-                                        "expert_rounds_override", "dies_total", "cells_total", "psum_bits")})
-            a.update(adc_sharing="die_pool", adc_pool_per_die=pool, int_cap_area_m2=b.get("int_cap_area_m2", 8e-12))
-            a.update(orchestrator(s, eng))
-            rows += evaluate(a, wl, pm, "fenand_speculative")
-        # ---------------- 3D RRAM
-        for pool, ab, eng in itertools.product((256, 1024, 4096), (8, 10), engines):
-            a = rram_3d(s)
-            a.update(adc_bits=ab, adc_sharing="die_pool", adc_pool_per_die=pool)
-            a.update(orchestrator(s, eng))
-            rows += evaluate(a, wl, pm, "rram_3d")
-        # ---------------- digital NAND
-        for v in ("A0", "A1", "A2"):
-            for eng in engines:
-                a = digital_nand(s, v)
-                a.update(orchestrator(s, eng))
-                rows += evaluate(a, wl, pm, f"digital_nand_{v}")
-        # ---------------- GPU
-        rows += evaluate(gpu(s, "8xB300"), wl, pm, "gpu")
-        print(f"scenario {s} done: {len(rows)} rows ({time.time() - t0:.0f}s)", flush=True)
+            rows += evaluate(a, wl, pm, f"digital_nand_{v}")
+    # ---------------- GPU
+    rows += evaluate(gpu(s, "8xB300"), wl, pm, "gpu")
+    print(f"scenario {s} done: {len(rows)} rows ({time.time() - t0:.0f}s)", flush=True)
+    return rows
+
+
+def main():
+    quick = "--quick" in sys.argv
+    jobs = [(s, quick) for s in ("pess", "real", "opt")]
+    nproc = min(3, os.cpu_count() or 1)
+    if nproc > 1:
+        import multiprocessing as mp
+        with mp.Pool(nproc) as pool:
+            parts = pool.map(run_scenario, jobs)
+    else:
+        parts = [run_scenario(j) for j in jobs]
+    rows = [r for part in parts for r in part]
     keys = []
     for r in rows:
         for k in r:

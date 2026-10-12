@@ -280,6 +280,56 @@ def plot_latency_breakdown(lat):
     plt.close(fig)
 
 
+def plot_ladder(ladder):
+    """Step-function ladder: each rung is one physical change; arrows follow 'from'."""
+    if not ladder:
+        return
+    fig, ax = plt.subplots(figsize=(8.5, 5.4))
+    style(ax, "What would it take: one physical change per step (128K context)",
+          "volume silicon cost, USD (normalized prices, packaging excluded)", "tokens / s (one user)")
+    pos = {}
+    for r in ladder:
+        c, t = f(r["silicon_usd_normalized_128k"]), f(r["tok_s_128k"])
+        if c is None or t is None:
+            continue
+        pos[r["rung"]] = (c, t, r)
+    for rid, (c, t, r) in pos.items():
+        par = r.get("from")
+        if par in pos:
+            pc, pt, _ = pos[par]
+            ax.annotate("", xy=(c, t), xytext=(pc, pt),
+                        arrowprops=dict(arrowstyle="-|>", color=MUTED, lw=1.0, shrinkA=6, shrinkB=6))
+    placed = []
+    for rid, (c, t, r) in pos.items():
+        analog = r["design"].startswith(("B_", "E_", "C_", "D_"))
+        col = S2 if analog else S1
+        ax.scatter([c], [t], s=46, color=col, edgecolor=SURFACE, linewidth=2, zorder=3,
+                   marker="o" if analog else "s")
+        # rungs that share a cost (R4/R5/R6, R8/R9) get fixed label offsets so labels never sit on a neighbour
+        off = {"R4": (7, -11), "R5": (-26, 2), "R6": (6, 6), "R8": (-24, -10), "R9": (7, 2)}.get(rid, (7, -3))
+        ax.annotate(rid, (c, t), textcoords="offset points", xytext=off, fontsize=8, color=INK)
+        placed.append((c, t))
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    from matplotlib.ticker import FuncFormatter, LogLocator
+    ax.xaxis.set_major_locator(LogLocator(base=10, subs=(1.0, 2.0, 5.0)))
+    ax.xaxis.set_minor_formatter(FuncFormatter(lambda v, _: ""))
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"${v / 1000:.0f}K" if v >= 1000 else f"${v:.0f}"))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    for y, lab in ((100, "100"), (500, "500 target"), (1000, "1000")):
+        ax.axhline(y, color=GRID, lw=1.2, ls="--", zorder=1)
+        ax.annotate(lab, (ax.get_xlim()[0], y), textcoords="offset points", xytext=(4, 3), fontsize=7, color=MUTED)
+    ax.axvline(500, color=GRID, lw=1.2, ls=":", zorder=1)
+    ax.annotate("$500", (500, ax.get_ylim()[0]), textcoords="offset points", xytext=(3, 4), fontsize=7, color=MUTED)
+    from matplotlib.lines import Line2D
+    ax.legend(handles=[Line2D([], [], marker="s", ls="", color=S1, label="digital NAND"),
+                       Line2D([], [], marker="o", ls="", color=S2, label="analog 3D NAND")],
+              frameon=False, fontsize=8, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(os.path.join(PLOTS, "step_ladder_128k.png"), dpi=150)
+    plt.close(fig)
+
+
 def main():
     os.makedirs(PLOTS, exist_ok=True)
     dse = load(os.path.join(ROOT, "data", "dse_results.csv"))
@@ -295,6 +345,7 @@ def main():
     plot_capacity(load(os.path.join(ROOT, "results", "cost_model.csv")))
     plot_precision(load(os.path.join(ROOT, "results", "precision_sweep.csv")))
     plot_latency_breakdown(load(os.path.join(ROOT, "results", "latency_breakdown.csv")))
+    plot_ladder(load(os.path.join(ROOT, "results", "step_ladder.csv")))
     print("plots:", sorted(os.listdir(PLOTS)))
 
 

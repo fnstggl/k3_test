@@ -64,12 +64,17 @@ def load_dse():
     return rows
 
 
+COST_AT = {"32k": "silicon_usd_normalized_32k", "128k": "silicon_usd_normalized_128k",
+           "1024k": "silicon_usd_normalized_1m"}
+
+
 def pick(rows, target, ctx="128k", require_precision=True):
-    """Cheapest row meeting tok/s target at ctx (silicon cost normalized); precision not 'exceeds'."""
+    """Cheapest row meeting tok/s target at ctx (silicon cost normalized, KV memory sized for ctx);
+    precision verdict not 'exceeds'."""
     ok = []
     for r in rows:
         t = fnum(r[f"tok_s_{ctx}"])
-        cost = fnum(r["silicon_usd_normalized_128k"]) or fnum(r.get("system_market_usd"))
+        cost = fnum(r.get(COST_AT[ctx])) or fnum(r["silicon_usd_normalized_128k"]) or fnum(r.get("system_market_usd"))
         if t is None or t < target or cost is None:
             continue
         if require_precision and r.get("precision_verdict", "").startswith("exceeds"):
@@ -143,7 +148,11 @@ def main():
         aid, desc, sil = ARCH_INFO[key]
         for sel_name, sel in (("cheapest_meeting_500tok_s_at_128K", pick(rs, 500)),
                               ("cheapest_meeting_100tok_s_at_128K", pick(rs, 100)),
-                              ("fastest_at_128K", fastest(rs))):
+                              ("fastest_at_128K", fastest(rs)),
+                              ("cheapest_meeting_500tok_s_at_32K", pick(rs, 500, "32k")),
+                              ("cheapest_meeting_100tok_s_at_1M", pick(rs, 100, "1024k")),
+                              ("cheapest_meeting_500tok_s_at_1M", pick(rs, 500, "1024k")),
+                              ("fastest_at_1M", fastest(rs, "1024k"))):
             base = {"arch_id": aid, "architecture": desc, "silicon_class": sil, "scenario": s, "selection": sel_name}
             if sel is None:
                 comp.append({**base, "feasible": "no configuration in the explored space meets this target"})
@@ -153,8 +162,9 @@ def main():
             for k in ("encoding", "contributors", "cell_bits", "adc_bits", "adc_pool_per_die", "attn_engine", "dies",
                       "die_mm2", "total_mm2", "adc_total", "sa_count", "tok_s_32k", "tok_s_128k", "tok_s_1024k",
                       "J_tok_32k", "J_tok_128k", "J_tok_1024k", "W_128k", "memory_silicon_usd_normalized",
-                      "memory_silicon_usd_shortage", "orch_kv_usd_normalized_128k", "orch_kv_usd_normalized_1m",
-                      "silicon_usd_normalized_128k", "silicon_usd_shortage_128k", "system_market_usd",
+                      "memory_silicon_usd_shortage", "orch_kv_usd_normalized_32k", "orch_kv_usd_normalized_128k",
+                      "orch_kv_usd_normalized_1m", "silicon_usd_normalized_32k", "silicon_usd_normalized_128k",
+                      "silicon_usd_normalized_1m", "silicon_usd_shortage_128k", "system_market_usd",
                       "rel_err_expert", "rel_err_dense", "budget_ratio", "precision_verdict",
                       "limiter_32k", "limiter_128k", "limiter_1024k"):
                 row[k] = r_get(sel, k)

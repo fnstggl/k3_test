@@ -58,6 +58,21 @@ def generate(path=os.path.join(ROOT, "results", "gpu_comparison.md")):
     w("Why GPUs are stuck near 100 tok/s without speculation: per token they must stream 137 GB of weights "
       "(2.1 ms at 64 TB/s) but the measured time is 9.9 ms; the remaining ~84 µs per layer is synchronisation "
       "(tensor-parallel all-reduces, MoE dispatch, kernel boundaries) that a single stream cannot hide.\n")
+    w("### What would it take on the GPU side (same 8xB300, model)\n")
+    w("The ~84 us/layer is software and interconnect latency, not physics. Sweeping it in the calibrated model:\n")
+    w("| per-layer sync | tok/s 2K | tok/s 128K | tok/s 1M | 128K, 7-draft spec | binding limit at 128K |\n|---:|---:|---:|---:|---:|---|")
+    for sync in (84e-6, 30e-6, 10e-6, 2e-6):
+        a_ = gpu("real")
+        a_["per_layer_sync_s"] = sync
+        sc_ = Scheduler(a_)
+        rr = {L_: sc_.evaluate(L_) for L_ in (2048, 131072, 1048576)}
+        r128 = rr[131072]
+        lim = "HBM bandwidth" if max(r128["bounds"].values()) >= r128["t_critical_path_s"] else "critical path"
+        w(f"| {sync * 1e6:.0f} us | {rr[2048]['tok_per_s']:.0f} | {r128['tok_per_s']:.0f} | {rr[1048576]['tok_per_s']:.0f} | "
+          f"{speculative_tok_per_s(sc_, 131072, 7)[0]:.0f} | {lim} |")
+    w("\nWith BF16 always-active weights an 8xB300 node is HBM-bound at ~330 tok/s single-stream once synchronisation "
+      "drops to ~10 us/layer (persistent 'megakernel' execution, fused MoE dispatch). That is the honest software-only "
+      "competitor for any new silicon: roughly 3x today's measured number on the same $550K hardware.\n")
     w("## 3. Best CIM / NVM designs vs GPU (from `architecture_comparison.csv`)\n")
     w("| arch | scenario | design | tok/s 32K | tok/s 128K | tok/s 1M | J/token 128K | W 128K | silicon USD (normalized) | GPU-system USD | precision |\n"
       "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|")
